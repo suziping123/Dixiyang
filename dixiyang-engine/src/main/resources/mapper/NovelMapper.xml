@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dixiyang.server.Mapper.NovelMapper">
+
+    <select id="selectUserNovelsWithStats" resultType="com.dixiyang.server.Entity.VO.NovelVO">
+        SELECT
+            n.id,
+            n.title,
+            n.pen_name AS penName,
+            n.description,
+            n.cover_url AS cover,
+            n.create_time AS createTime,
+            n.update_time AS updateTime,
+            (SELECT COUNT(*) FROM `novel_character` c WHERE c.novel_id = n.id) AS charCount,
+            (SELECT COUNT(*) FROM `story_node` s WHERE s.novel_id = n.id) AS nodeCount,
+            (SELECT COUNT(*) FROM `novel_relation` r WHERE r.novel_id = n.id) AS relationCount
+        FROM `novel` n
+        WHERE n.user_id = #{userId}
+        ORDER BY n.update_time DESC
+    </select>
+
+</mapper>

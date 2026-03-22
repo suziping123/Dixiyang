@@ -1,0 +1,85 @@
+spring:
+  application:
+    name: dixiyang-engine
+
+
+  # 数据库连接
+  sql:
+    init:
+      mode: never
+  # 1. 数据库连接
+  datasource:
+    url: jdbc:mysql://localhost:3306/dixiyang
+    username: root
+    password: 123456
+
+  # 2. 文件上传配置 (正确路径是在 spring.servlet.multipart) （对应 file 表需求）
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+  # 3. Spring AI 配置 - 使用DashScope原生接口（推荐）
+  ai:
+    openai:
+      api-key: ${DASHSCOPE_API_KEY} # 需要自己从环境变量读取
+      base-url: https://dashscope.aliyuncs.com/compatible-mode
+      chat:
+        options:
+          model: qwen-plus
+          temperature: 0.7
+          max-tokens: 2000
+      embedding:
+        options:
+          model: text-embedding-v3
+    vectorstore:
+      qdrant:
+        host: localhost
+        port: 6334
+        collection-name: inspiration_vectors
+        # 第一次运行建议设为 true，它会自动帮你创建 collection
+        initialize-schema: true
+        # 如果你的 Qdrant 没设置 API Key，这里可以省略或留空
+        api-key: ${Qdrant_API_KEY}
+        # 是否开启安全性校验（本地 Docker 默认不开启）
+        use-tls: false
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:  # 无密码留空即可
+      database: 0
+      timeout: 10s  # 推荐用这种简洁写法（10s = 10000ms）
+      # Spring Boot 3.x 中 lettuce 连接池配置的正确写法
+      lettuce:
+        pool:
+          max-active: 8        # 最大活跃连接数（保留）
+          max-idle: 8          # 最大空闲连接数（保留）
+          min-idle: 0          # 最小空闲连接数（保留）
+          max-wait: PT0S       # 替换 -1ms，含义是“无等待超时（一直等）”，符合 3.x 规范
+        shutdown-timeout: 100ms  # 新增：连接池关闭超时时间（推荐加
+      
+# 4. 服务端口配置 (必须和 spring 平级)
+server:
+  port: 8084
+  servlet:
+    context-path: /api # 这样所有接口都会带上 /api 前缀，符合前后端分离规范
+    # 文件上传配置其实是属于 spring.servlet.multipart 的
+    # 注意：Spring Boot 3 中 multipart 配置路径如下
+
+# MyBatis-Plus 配置
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.dixiyang.server.Entity
+  configuration:
+    map-underscore-to-camel-case: true
+    # 打印 SQL 日志，开发阶段非常有帮助，能看到实际执行的 SQL
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+logging:
+  level:
+    root: info
+    com.dixiyang: debug
+
+  file:
+    name: logs/app.log

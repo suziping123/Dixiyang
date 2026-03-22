@@ -1,0 +1,44 @@
+# 依赖包
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# 构建产物
+dist/
+build/
+target/
+
+# 日志文件
+logs/
+*.log
+
+# IDE相关
+.idea/
+.vscode/
+*.iml
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# 操作系统相关
+.DS_Store
+Thumbs.db
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# 测试相关
+coverage/
+.nyc_output/
+
+# 临时文件
+*.tmp
+*.temp
+.cache/
