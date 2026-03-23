@@ -77,6 +77,10 @@
                     <b class="stat-value">{{ novel.relationCount || 0 }}</b>
                   </div>
                 </div>
+                <button class="enter-btn character-btn" @click.stop="openCharacterManager(novel)">
+                  <span class="btn-text">角色管理</span>
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                </button>
                 <button class="enter-btn" @click.stop="deleteNovel(novel)">
                   <span class="btn-text">删除小说</span>
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M5 13l4 4L19 7"/></svg>
@@ -276,6 +280,11 @@ const openNovel = (novel: Novel) => {
   router.push({ name: 'novel-editor', params: { id: novel.id } }).catch(err => console.error('跳转编辑页失败:', err))
 }
 
+// 事件处理：进入角色管理
+const openCharacterManager = (novel: Novel) => {
+  router.push({ name: 'character-manager', params: { novelId: novel.id } }).catch(err => console.error('跳转角色管理页失败:', err))
+}
+
 const deleteNovel = (novel: Novel) => {
   http.post(`/novel/delete/${novel.id}`)
     .then(() => {
@@ -308,6 +317,9 @@ const showKnowledgeGraph = () => {
   // 可补充：跳转到知识图谱页面/打开知识图谱弹窗
 }
 
+// 存储之前的小说数量，用于判断是否是新卡片
+const prevNovelCount = ref(0)
+
 // 数据请求：获取小说列表
 // HomeView 里的 fetchNovels 方法修改
 const fetchNovels = async () => {
@@ -316,25 +328,56 @@ const fetchNovels = async () => {
     const res = await http.get('/novel/listall', { params: { page: 1, pageSize: 10 } });
     // 原有数据处理逻辑...
     novels.value = res.data.records || res.data;
+
+    // 判断是否有新卡片增加
+    const hasNewCards = novels.value.length > prevNovelCount.value
+    prevNovelCount.value = novels.value.length
+
     nextTick(() => {
       // 恢复背景动画
       bgConfig.setAnimEnabled(true)
-    });
-    // 新增：新卡片入场动效
-    nextTick(() => {
-      gsap.from(".novel-card", {
-        opacity: 1,
-        y: 50,
-        duration: 0.6,
-        stagger: 0.1,
-        ease: "back.out(1.2)"
-      });
+
+      // 入场动画：包含小说卡片和创建卡片，从下方滑入
+      if (hasNewCards || floatAnimation === null) {
+        gsap.from(".novel-card, .create-card", {
+          y: 50,
+          duration: 0.6,
+          stagger: 0.1,
+          ease: "back.out(1.2)",
+          onComplete: () => {
+            // 入场动画完成后启动悬浮动画
+            startFloatAnimation()
+          }
+        });
+      } else {
+        // 没有新卡片，直接确保悬浮动画正常
+        startFloatAnimation()
+      }
     });
   } catch (error) {
     console.error('获取小说失败:', error);
   } finally {
     isLoading.value = false;
   }
+}
+
+// 保存悬浮动画实例
+let floatAnimation: gsap.core.Animation | null = null
+
+// 启动卡片悬浮动画（包含创建卡片）
+const startFloatAnimation = () => {
+  // 先清除之前的动画
+  if (floatAnimation) {
+    floatAnimation.kill()
+  }
+  floatAnimation = gsap.to(".novel-card, .create-card", {
+    y: 15,
+    duration: 4,
+    repeat: -1,
+    yoyo: true,
+    ease: "sine.inOut",
+    stagger: 0.2
+  })
 }
 
 // 生命周期：挂载
@@ -353,22 +396,16 @@ onMounted(async () => {
   } else {
     themeSystem.updateTextColorByBrightness(0.3)
   }
-
-  // GSAP动画：卡片悬浮动效
-  gsap.to(".novel-card", {
-    y: 15,
-    duration: 4,
-    repeat: -1,
-    yoyo: true,
-    ease: "sine.inOut",
-    stagger: 0.2 // 新增：错开动画，更自然
-  })
 })
 
-// 生命周期：卸载（清理定时器）
+// 生命周期：卸载（清理定时器和动画）
 onBeforeUnmount(() => {
   clickTimers.forEach(timer => clearTimeout(timer))
   clickTimers.clear()
+  // 清理悬浮动画
+  if (floatAnimation) {
+    floatAnimation.kill()
+  }
 })
 </script>
 

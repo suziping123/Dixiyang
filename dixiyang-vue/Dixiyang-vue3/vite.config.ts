@@ -2,22 +2,26 @@ import { fileURLToPath, URL } from 'node:url'
 
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import vueDevTools from 'vite-plugin-vue-devtools'
+// 临时禁用 vueDevTools 解决 ERR_ABORTED 问题
+// import vueDevTools from 'vite-plugin-vue-devtools'
 
 // https://vite.dev/config/
 export default defineConfig({
   server: {
-    port: 5173, // 这里改为 8084
+    port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:8084', // 对接你的 Spring Boot 后端
+        target: 'http://localhost:8084',
         changeOrigin: true
       }
+    },
+    hmr: {
+      overlay: false // 禁用 HMR 错误覆盖层
     }
   },
   plugins: [
     vue(),
-    vueDevTools(),
+    // vueDevTools(), // 注释掉，解决 ERR_ABORTED 问题
   ],
   resolve: {
     alias: {

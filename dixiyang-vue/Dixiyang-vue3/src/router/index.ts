@@ -11,6 +11,7 @@ import LoginView from "../views/LoginView.vue"
 import HomeView from '../views/HomeView.vue'
 import SettingsView from '../views/SettingsView.vue'
 import NovelEditorView from '../views/NovelEditorView.vue'
+import CharacterManagerView from '../views/CharacterManagerView.vue'
 import { useUserStore } from '../stores/UserStore'
 
 const router = createRouter({
@@ -50,6 +51,12 @@ const router = createRouter({
       path: '/novel-editor/:id',
       name: 'novel-editor',
       component: NovelEditorView,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/novel/:novelId/characters',
+      name: 'character-manager',
+      component: CharacterManagerView,
       meta: { requiresAuth: true }
     },
   ],
