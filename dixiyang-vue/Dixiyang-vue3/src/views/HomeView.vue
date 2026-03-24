@@ -116,7 +116,7 @@
 
     <div class="rag-drawer" :class="{ open: showRag }">
       <div class="drawer-header">
-        <h3>✧ RAG 助手</h3>
+        <h3>✧ 宇宙概览</h3>
         <button class="close-btn" @click="showRag = false"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/></svg></button>
       </div>
       <div class="drawer-content">
@@ -125,7 +125,7 @@
           <p>加载相关内容中...</p>
         </div>
         <div v-else-if="selectedNovel" class="rag-info">
-          <h4>{{ selectedNovel.title }} - 场景分析</h4>
+          <h4>{{ selectedNovel.title }}</h4>
           <div class="info-section">
             <strong>📍 相关角色：</strong>
             <p>{{ selectedNovel.char_count || 0 }} 个角色已录入</p>
@@ -138,6 +138,11 @@
             <strong>🔗 关联世界：</strong>
             <p>{{ selectedNovel.relationCount || 0 }} 个相关宇宙</p>
           </div>
+
+          <button class="enter-btn rag-enter-btn" @click="goToRagAssistant">
+            <span class="btn-text">进入 RAG 智能助手</span>
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M5 13l4 4L19 7"/></svg>
+          </button>
         </div>
         <div v-else class="empty-state-drawer">
           <svg viewBox="0 0 24 24" class="empty-icon-drawer"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
@@ -211,6 +216,7 @@ const navItems = ref([
   { iconClass: '🏠', tooltip: '首页' },
   { iconClass: '🧭', tooltip: '发现' },
   { iconClass: '💾', tooltip: '库' },
+  { iconClass: '🤖', tooltip: 'RAG助手' },
   { iconClass: '🔔', tooltip: '通知' },
   { iconClass: '⚙️', tooltip: '设置' },
 ])
@@ -230,7 +236,7 @@ const showCreateModal = ref(false); // 弹窗显隐状态
 // 事件处理：导航点击
 const handleNavClick = (idx: number) => {
   activeNav.value = idx
-  const routes = ['/home', '/discover', '/library', '/notifications', '/settings']
+  const routes = ['/home', '/discover', '/library', '/rag-assistant', '/notifications', '/settings']
   const route = routes[idx]
   if (route && route !== '/home') {
     router.push(route).catch(() => console.log(`功能开发中...`))
@@ -311,10 +317,14 @@ const handleCreateModalClose = () => {
   bgConfig.setAnimEnabled(true)
 }
 
-// 事件处理：展示知识图谱
+// 事件处理：跳转到RAG助手页面
 const showKnowledgeGraph = () => {
-  console.log('展示全局知识图谱')
-  // 可补充：跳转到知识图谱页面/打开知识图谱弹窗
+  console.log('需要打开知识图谱窗口...')
+}
+
+// 从概览抽屉进入RAG助手
+const goToRagAssistant = () => {
+  router.push('/rag-assistant').catch(() => console.log('RAG助手功能开发中...'))
 }
 
 // 存储之前的小说数量，用于判断是否是新卡片
@@ -1047,6 +1057,10 @@ onBeforeUnmount(() => {
   background: rgba(255, 255, 255, 0.03);
   border-left: 3px solid var(--neon-blue);
   border-radius: 4px;
+}
+
+.rag-enter-btn {
+  margin-top: 20px !important;
 }
 
 /* ============ 知识球体 ============ */

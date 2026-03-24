@@ -3,7 +3,7 @@ import axios from 'axios'
 
 const http = axios.create({
   baseURL: '/api',
-  timeout: 10000
+  timeout: 1000000
 })
 
 // 请求拦截器：自动携带 Token
@@ -19,6 +19,10 @@ http.interceptors.request.use(config => {
 http.interceptors.response.use(
   (response) => {
     const res = response.data
+    // 直接返回字符串的情况（如聊天接口）
+    if (typeof res === 'string') {
+      return res
+    }
     // 业务成功（code=200）：正常返回
     if (res.code === 200) {
       return res
