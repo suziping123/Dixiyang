@@ -133,6 +133,8 @@
   animation: rotate 30s linear infinite;
   opacity: var(--bg-intensity, 1);
   transition: opacity 0.3s ease;
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 /* 禁用动画开关 */
@@ -319,11 +321,9 @@ textarea {
   min-height: 100px;
 }
 
-/* ============================================
-   通用玻璃类
-   ============================================ */
+/* ============================================   通用玻璃类   ============================================ */
 
-.glass {
+.glass, .glass-sm, .glass-lg, .glass-xl {
   background: var(--glass-bg);
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
@@ -332,18 +332,14 @@ textarea {
 }
 
 .glass-sm {
-  background: var(--glass-bg);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border);
   border-radius: 12px;
 }
 
 .glass-lg {
-  background: var(--glass-bg);
   -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
   border-radius: 24px;
 }
 
@@ -379,9 +375,7 @@ textarea {
   box-shadow: var(--card-shadow), var(--glow-shadow);
 }
 
-/* ============================================
-   动画系统
-   ============================================ */
+/* ============================================   动画系统   ============================================ */
 
 @keyframes fadeInUp {
   from {
@@ -454,6 +448,37 @@ textarea {
   }
 }
 
+@keyframes buttonHover {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes cardHover {
+  from {
+    transform: translateY(0);
+    box-shadow: var(--card-shadow), var(--glow-shadow);
+  }
+  to {
+    transform: translateY(-5px);
+    box-shadow: 0 25px 50px rgba(0,0,0,0.5), 0 0 30px rgba(59, 130, 246, 0.3);
+  }
+}
+
 .animate-fade-in-up {
   animation: fadeInUp 0.6s ease-out;
 }
@@ -476,6 +501,28 @@ textarea {
 
 .animate-glow {
   animation: glow 2s ease-in-out infinite;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.4s ease-out;
+}
+
+/* 微动画效果 */
+button:hover {
+  animation: buttonHover 0.3s ease-out forwards;
+}
+
+.novel-card:hover {
+  animation: cardHover 0.3s ease-out forwards;
+}
+
+.glass-card {
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.glass-card:hover {
+  border-color: var(--glass-border-hover);
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
 }
 
 /* ============================================

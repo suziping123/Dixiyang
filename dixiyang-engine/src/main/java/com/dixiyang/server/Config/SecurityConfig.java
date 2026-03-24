@@ -1,3 +1,11 @@
+/*
+ * @Author: suziping123 yunzhiming123@gmail.com
+ * @Date: 2026-03-18 13:35:56
+ * @LastEditors: suziping123 yunzhiming123@gmail.com
+ * @LastEditTime: 2026-03-23 20:27:04
+ * @FilePath: \Dixiyang\dixiyang-engine\src\main\java\com\dixiyang\server\Config\SecurityConfig.java
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 package com.dixiyang.server.Config;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,8 +41,8 @@ public class SecurityConfig {
                 // 2. 配置跨域允许（或者依赖 Vite 的 proxy，但后端不能报 302）
                 .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> auth
-                        // 3. 允许所有人访问登录接口（注意路径要匹配你的 Controller）
-                        .requestMatchers("/user/**","/novel/**","/auth/**","/error").permitAll()
+                        // 3. 允许所有人访问公开接口（注意路径要匹配你的 Controller）
+                        .requestMatchers("/user/**","/novel/**","/auth/**","/chat/**","/novelCharacter/**","/timeline/**","/storyNode/**","/error").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter,

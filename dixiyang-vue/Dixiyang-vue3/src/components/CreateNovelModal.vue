@@ -99,7 +99,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, defineProps, defineEmits } from 'vue';
+import { ref } from 'vue';
 import { createNovel, uploadNovelCover } from '@/api/novelApi';
 import defaultCover from '@/images/default-cover.png';
 

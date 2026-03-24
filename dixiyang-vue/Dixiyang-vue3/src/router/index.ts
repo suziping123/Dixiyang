@@ -12,6 +12,7 @@ import HomeView from '../views/HomeView.vue'
 import SettingsView from '../views/SettingsView.vue'
 import NovelEditorView from '../views/NovelEditorView.vue'
 import CharacterManagerView from '../views/CharacterManagerView.vue'
+import RagAssistantView from '../views/RagAssistantView.vue'
 import { useUserStore } from '../stores/UserStore'
 
 const router = createRouter({
@@ -57,6 +58,12 @@ const router = createRouter({
       path: '/novel/:novelId/characters',
       name: 'character-manager',
       component: CharacterManagerView,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/rag-assistant',
+      name: 'rag-assistant',
+      component: RagAssistantView,
       meta: { requiresAuth: true }
     },
   ],
