@@ -104,7 +104,7 @@ import { createNovel, uploadNovelCover } from '@/api/novelApi';
 import defaultCover from '@/images/default-cover.png';
 
 // 定义Props：控制弹窗显隐
-const props = defineProps({
+const { visible } = defineProps({
   visible: {
     type: Boolean,
     default: false

@@ -1,4 +1,13 @@
-import http from '@/utils/http';
+/*
+ * @Author: suziping123 yunzhiming123@gmail.com
+ * @Date: 2026-03-21 15:30:13
+ * @LastEditors: suziping123 yunzhiming123@gmail.com
+ * @LastEditTime: 2026-03-24 13:25:10
+ * @FilePath: \Dixiyang\dixiyang-vue\Dixiyang-vue3\src\api\novelApi.ts
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
+import http, { assertApiResponse } from '@/utils/http';
+import type { ApiResponse } from '@/api/types';
 
 // 小说DTO类型定义
 export interface NovelDTO {
@@ -28,26 +37,29 @@ export interface PageResult<T> {
 }
 
 // 获取小说列表
-export const getNovelList = (page = 1, pageSize = 10) => {
-  return http.get<PageResult<NovelVO>>('/novel/listall', {
+export const getNovelList = async (page = 1, pageSize = 10) => {
+  const res = await http.get('/novel/listall', {
     params: { page, pageSize }
   });
+  return assertApiResponse<PageResult<NovelVO>>(res);
 };
 
 // 创建小说
-export const createNovel = (novelDTO: NovelDTO) => {
-  return http.post<NovelVO>('/novel/create', novelDTO);
+export const createNovel = async (novelDTO: NovelDTO) => {
+  const res = await http.post('/novel/create', novelDTO);
+  return assertApiResponse<NovelVO>(res);
 };
 
 // 上传小说封面
-export const uploadNovelCover = (file: File) => {
+export const uploadNovelCover = async (file: File) => {
   const formData = new FormData();
   formData.append('file', file);
-  return http.post<{ coverUrl: string }>('/upload/novel-cover', formData, {
+  const res = await http.post('/upload/novel-cover', formData, {
     headers: {
       'Content-Type': 'multipart/form-data'
     }
   });
+  return assertApiResponse<{ coverUrl: string }>(res);
 };
 
 // 删除小说

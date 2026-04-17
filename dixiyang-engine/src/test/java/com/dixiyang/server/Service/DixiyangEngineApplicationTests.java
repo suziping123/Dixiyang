@@ -1,5 +1,9 @@
 package com.dixiyang.server.Service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.dixiyang.server.Entity.AppUser;
+import com.dixiyang.server.Entity.VO.UserVO;
+import com.dixiyang.server.Mapper.AppUserMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -9,6 +13,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @SpringBootTest
 class AITest {
+
+    @Autowired
+    private AppUserMapper appUserMapper;
 
     @Autowired
     private ChatClient.Builder chatClientBuilder;
@@ -21,5 +28,16 @@ class AITest {
 
         System.out.println("AI 回复: " + response);
         assertNotNull(response);
+    }
+
+    @Test
+    void updateaaa() {
+        AppUser appUser= new AppUser();
+        appUser.setId(2L);
+        appUser.setNickname("张三");
+        LambdaQueryWrapper<AppUser> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(AppUser::getId, appUser.getId());
+        appUserMapper.update(appUser, queryWrapper);
+
     }
 }

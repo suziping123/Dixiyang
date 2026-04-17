@@ -1,13 +1,15 @@
 // src/utils/http.ts
 import axios from 'axios'
+import type { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios'
+import type { ApiResponse } from '@/api/types'
 
-const http = axios.create({
+const http: AxiosInstance = axios.create({
   baseURL: '/api',
   timeout: 1000000
 })
 
 // 请求拦截器：自动携带 Token
-http.interceptors.request.use(config => {
+http.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = localStorage.getItem('token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
@@ -17,7 +19,7 @@ http.interceptors.request.use(config => {
 
 // 响应拦截器（重点修复：区分业务成功/失败）
 http.interceptors.response.use(
-  (response) => {
+  (response: AxiosResponse) => {
     const res = response.data
     // 直接返回字符串的情况（如聊天接口）
     if (typeof res === 'string') {
@@ -36,5 +38,15 @@ http.interceptors.response.use(
     return Promise.reject(new Error(errMsg))
   }
 )
+
+// 类型断言辅助函数 - 用于处理拦截器转换后的响应
+export function assertApiResponse<T>(response: unknown): ApiResponse<T> {
+  return response as ApiResponse<T>
+}
+
+// 类型断言辅助函数 - 用于字符串响应（聊天接口）
+export function assertStringResponse(response: unknown): string {
+  return response as string
+}
 
 export default http

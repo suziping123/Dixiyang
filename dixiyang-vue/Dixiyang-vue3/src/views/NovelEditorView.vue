@@ -1,20 +1,9 @@
 <template>
   <div class="novel-editor-container">
     <div class="bg-gradient-animation"></div>
-    
-    <nav class="floating-nav">
-      <div
-        v-for="(item, idx) in navItems"
-        :key="idx"
-        class="nav-item"
-        :class="{ active: activeNav === 2 }"
-        @click="handleNavClick(idx)"
-        :title="item.tooltip"
-      >
-        {{ item.iconClass }}
-      </div>
-    </nav>
-    
+
+    <FloatingNav />
+
     <main class="main-stage">
       <header class="stage-header">
         <div class="header-top">
@@ -25,7 +14,7 @@
         </div>
         <p class="subtitle">小说编辑器 - 正在编辑：<span class="user-name">{{ novelTitle || '未知小说' }}</span></p>
       </header>
-      
+
       <div class="editor-section">
         <div class="editor-content">
           <h2 class="section-title">✧ 小说编辑</h2>
@@ -44,31 +33,12 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useUserStore } from '@/stores/UserStore'
+import FloatingNav from '@/components/FloatingNav.vue'
 
 const router = useRouter()
 const route = useRoute()
-const userStore = useUserStore()
 
-const activeNav = ref(2)
 const novelTitle = ref('')
-
-const navItems = ref([
-  { iconClass: '🏠', tooltip: '首页' },
-  { iconClass: '🧭', tooltip: '发现' },
-  { iconClass: '💾', tooltip: '库' },
-  { iconClass: '🔔', tooltip: '通知' },
-  { iconClass: '⚙️', tooltip: '设置' },
-])
-
-const handleNavClick = (idx: number) => {
-  activeNav.value = idx
-  const routes = ['/home', '/discover', '/library', '/notifications', '/settings']
-  const routePath = routes[idx]
-  if (routePath && routePath !== '/home') {
-    router.push(routePath).catch(() => console.log(`功能开发中...`))
-  }
-}
 
 const goBack = () => {
   router.push('/home')
@@ -92,46 +62,11 @@ onMounted(() => {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-/* 导航栏样式 */
-.floating-nav {
-  position: fixed;
-  left: 30px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-  border-radius: 50px;
-  padding: 20px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 25px;
-  z-index: 100;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-
-.nav-item {
-  width: 50px;
-  height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 1.5rem;
-}
-
-.nav-item:hover { color: var(--neon-cyan); transform: scale(1.1); }
-.nav-item.active { background: rgba(59, 130, 246, 0.2); color: var(--neon-blue); box-shadow: inset 0 0 20px rgba(59, 130, 246, 0.3), 0 0 20px rgba(59, 130, 246, 0.5); }
-
 /* 主舞台 */
 .main-stage {
   position: relative;
   z-index: 1;
   padding: 80px 120px;
-  margin-left: 100px;
 }
 
 .stage-header {
@@ -265,58 +200,23 @@ onMounted(() => {
   transform: translateY(-2px);
 }
 
-/* 背景动画 */
-.bg-gradient-animation {
-  position: fixed;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle at 20% 50%, rgba(168, 85, 247, 0.12) 0%, transparent 50%),
-  radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.12) 0%, transparent 50%),
-  radial-gradient(circle at 50% 0%, rgba(6, 182, 212, 0.08) 0%, transparent 50%),
-  radial-gradient(circle at center, #1e1b4b 0%, #0a0a0c 70%);
-  z-index: 0;
-  animation: rotate 30s linear infinite;
-  opacity: var(--bg-intensity, 1);
-  transition: opacity 0.3s ease;
-}
-
-@keyframes rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
 /* 响应式 */
 @media (max-width: 1400px) {
   .main-stage {
     padding: 60px 80px;
-    margin-left: 80px;
   }
 }
 
 @media (max-width: 1024px) {
   .main-stage {
     padding: 60px 60px;
-    margin-left: 60px;
   }
   .logo-text { font-size: 2.5rem; }
 }
 
 @media (max-width: 768px) {
-  .floating-nav {
-    left: 10px;
-    width: 60px;
-    padding: 15px 5px;
-    gap: 15px;
-  }
-  .nav-item {
-    width: 40px;
-    height: 40px;
-  }
   .main-stage {
     padding: 40px 30px;
-    margin-left: 80px;
   }
   .logo-text { font-size: 2rem; }
   .editor-section {

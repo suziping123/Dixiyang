@@ -2,6 +2,8 @@
   <div class="rag-page">
     <div class="bg-gradient-animation" :class="{ paused: !bgConfig.animEnabled.value }"></div>
 
+    <FloatingNav />
+
     <!-- 顶部导航 -->
     <header class="page-header">
       <div class="header-content">
@@ -167,9 +169,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { useBackgroundConfig } from '@/composables/useBackgroundConfig'
-import http from '@/utils/http'
+import FloatingNav from '@/components/FloatingNav.vue'
+import http, { assertStringResponse } from '@/utils/http'
 
+const router = useRouter()
 const bgConfig = useBackgroundConfig()
 
 // 状态管理
@@ -318,7 +323,7 @@ const sendMessage = async () => {
 
         messages.value.push({
           role: 'assistant',
-          content: response,
+          content: assertStringResponse(response),
           timestamp: new Date()
         })
       } catch (ragError) {
@@ -337,7 +342,7 @@ const sendMessage = async () => {
 
         messages.value.push({
           role: 'assistant',
-          content: fallbackResponse,
+          content: assertStringResponse(fallbackResponse),
           timestamp: new Date()
         })
       }

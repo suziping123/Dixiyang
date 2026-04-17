@@ -1,6 +1,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { sampleImageBrightness, getContrastColor, getColorThemeVariables } from '@/utils/colorUtils'
-import http from '@/utils/http'
+import http, { assertApiResponse } from '@/utils/http'
+import type { ApiResponse } from '@/api/types'
 
 /**
  * 背景配置 Composable
@@ -170,9 +171,10 @@ export function useBackgroundConfig() {
   const loadFromBackend = async (): Promise<boolean> => {
     try {
       const res = await http.get('/user/bg-config')
-      if (res.code === 200 && res.data) {
+      const apiRes = assertApiResponse<BackgroundConfig>(res)
+      if (apiRes.code === 200 && apiRes.data) {
         // 后端返回了配置
-        const config = res.data
+        const config = apiRes.data
         preset.value = (config.preset as BackgroundPreset) || DEFAULT_CONFIG.preset
         animEnabled.value = config.animEnabled !== undefined ? config.animEnabled : DEFAULT_CONFIG.animEnabled
         intensity.value = config.intensity !== undefined ? config.intensity : DEFAULT_CONFIG.intensity
@@ -212,11 +214,12 @@ export function useBackgroundConfig() {
       }
 
       const res = await http.post('/user/bg-config', config)
-      if (res.code === 200) {
+      const apiRes = assertApiResponse<any>(res)
+      if (apiRes.code === 200) {
         console.log('✅ 背景配置已保存到后端')
         return true
       } else {
-        console.warn('⚠️ 保存背景配置到后端失败:', res.msg)
+        console.warn('⚠️ 保存背景配置到后端失败:', apiRes.msg)
         return false
       }
     } catch (error) {

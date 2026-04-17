@@ -9,8 +9,9 @@
 /* src/views/auth/useUser.ts */
 import { reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import http from '@/utils/http'
+import http, { assertApiResponse } from '@/utils/http'
 import { useUserStore } from '@/stores/UserStore'
+import type { ApiResponse } from '@/api/types'
 
 export function useUser() {
   const userStore = useUserStore()
@@ -25,12 +26,13 @@ export function useUser() {
   const fetchUserInfo = async () => {
     try {
       const res = await http.get('/user/info') // 需后端新增这个接口
-      if (res.code === 200) {
+      const apiRes = assertApiResponse<{ nickname: string; email: string }>(res)
+      if (apiRes.code === 200) {
         // 更新Pinia和表单的最新数据
-        userStore.setNickname(res.data.nickname)
-        userStore.setEmail(res.data.email)
-        accountForm.nickname = res.data.nickname
-        accountForm.email = res.data.email
+        userStore.setNickname(apiRes.data.nickname)
+        userStore.setEmail(apiRes.data.email)
+        accountForm.nickname = apiRes.data.nickname
+        accountForm.email = apiRes.data.email
       }
     } catch (e) {
       console.error('获取用户信息失败：', e)
@@ -61,7 +63,8 @@ export function useUser() {
       const res = await http.post('/user/update', accountForm)
 
       // 关键修复：直接用res.code，不是res.data.code（拦截器已处理）
-      if (res.code === 200) {
+      const apiRes = assertApiResponse<any>(res)
+      if (apiRes.code === 200) {
         // 同步更新Pinia状态
         userStore.setNickname(accountForm.nickname)
         userStore.setEmail(accountForm.email)
@@ -71,7 +74,7 @@ export function useUser() {
         accountForm.nickname = accountForm.nickname
         accountForm.email = accountForm.email
       } else {
-        ElMessage.error(res.msg || '更新失败')
+        ElMessage.error(apiRes.msg || '更新失败')
       }
     } catch (e) {
       ElMessage.error('系统繁忙，请稍后再试')

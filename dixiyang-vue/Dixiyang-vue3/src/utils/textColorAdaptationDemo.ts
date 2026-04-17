@@ -98,11 +98,4 @@ export async function demoCompleteWorkflow() {
   }
 }
 
-// 导出用于外部调用
-export {
-  testLightBackground,
-  testDarkBackground,
-  testRGBBrightness,
-  checkCSSVariables,
-  demoCompleteWorkflow
-}
+

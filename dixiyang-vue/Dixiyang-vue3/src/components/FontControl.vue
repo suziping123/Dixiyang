@@ -86,16 +86,16 @@
       <!-- 全局缩放因子 -->
       <div class="font-scale-section">
         <h4 class="section-title">全局字体缩放</h4>
-        <p class="section-desc">同时缩放标题和正文大小（{{ (fontConfig.scale * 100).toFixed(0) }}%）</p>
+        <p class="section-desc">同时缩放标题和正文大小（{{ scalePercent }}%）</p>
         <div class="scale-controls">
           <button
             class="scale-btn"
             v-for="scaleValue in [0.85, 0.9, 1.0, 1.1, 1.2]"
             :key="scaleValue"
-            :class="{ active: fontConfig.scale === scaleValue }"
+            :class="{ active: isScaleActive(scaleValue) }"
             @click="fontConfig.setFontScale(scaleValue)"
           >
-            {{ (scaleValue * 100).toFixed(0) }}%
+            {{ Math.round(scaleValue * 100) }}%
           </button>
         </div>
 
@@ -107,10 +107,10 @@
             min="0.5"
             max="1.5"
             step="0.05"
-            @input="fontConfig.setFontScale(Number($event.target.value))"
+            @input="handleScaleInput"
             class="scale-slider"
           />
-          <div class="scale-value">{{ (fontConfig.scale * 100).toFixed(0) }}%</div>
+          <div class="scale-value">{{ scalePercent }}%</div>
         </div>
 
         <!-- 缩放预览 -->
@@ -166,7 +166,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useFontConfig } from '@/composables/useFontConfig'
 
 interface Props {
@@ -178,6 +178,16 @@ withDefaults(defineProps<Props>(), {
 })
 
 const fontConfig = useFontConfig()
+
+// 计算属性：解决模板中 Ref 类型问题
+const scalePercent = computed(() => Math.round(fontConfig.scale.value * 100))
+const isScaleActive = (value: number) => Math.abs(fontConfig.scale.value - value) < 0.001
+const handleScaleInput = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  if (target && target.value) {
+    fontConfig.setFontScale(Number(target.value))
+  }
+}
 const showAdvancedInfo = ref(false)
 
 // 字体选项
