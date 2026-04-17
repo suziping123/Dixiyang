@@ -9,10 +9,10 @@
 import { ref, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
-import http from '@/utils/http'
+import http, { assertApiResponse } from '@/utils/http'
 import { useUserStore } from '@/stores/UserStore'
 import { useBackgroundConfig } from '@/composables/useBackgroundConfig'
-import type { LoginResponse, RegisterResponse } from '@/api/types'
+import type { LoginResponse, RegisterResponse, ApiResponse } from '@/api/types'
 
 export function useAuth() {
   const router = useRouter()
@@ -30,17 +30,18 @@ export function useAuth() {
       return ElMessage.warning('请填写完整登录信息')
     }
     try {
-      const res = await http.post<string , LoginResponse>('/auth/login', loginForm)
-      console.log('后端返回的原始数据:', res) // 加上这一行！
-      if (res.code === 200) {
-        console.log('data内容:', res.data) // 看看里面有没有 token 和 user
-        const { token, user } = res.data
+      const res = await http.post('/auth/login', loginForm)
+      const apiRes = assertApiResponse<{ token: string; user: LoginResponse }>(res)
+      console.log('后端返回的原始数据:', apiRes)
+      if (apiRes.code === 200) {
+        console.log('data内容:', apiRes.data)
+        const { token, user } = apiRes.data
         // 修复：增加用户信息存在性校验，并使用非空断言满足 TS 类型要求
         if (!user) {
           ElMessage.error('用户信息缺失')
           return
         }
-        userStore.setLoginInfo(token, user.username, user.id, user.nickname!, user.email)
+        userStore.setLoginInfo(token, user.username, String(user.userId), user.nickname!, user.email || '')
         ElMessage.success(`欢迎回来, ${user.nickname}`)
 
         // 🆕 登录成功后，自动从后端加载用户的背景配置
@@ -49,7 +50,7 @@ export function useAuth() {
         router.push('/home')
       } else {
 
-        ElMessage.error(res.msg || '登录失败')
+        ElMessage.error(apiRes.msg || '登录失败')
       }
     } catch (e) {
       ElMessage.error('网络请求异常')
@@ -78,14 +79,15 @@ const handleRegister = async () => {
 
   // 4. 校验通过，发送请求
   try {
-    const res = await http.post<string, RegisterResponse>('/auth/register', registerForm)
-    if (res.code === 200) {
+    const res = await http.post('/auth/register', registerForm)
+    const apiRes = assertApiResponse<RegisterResponse>(res)
+    if (apiRes.code === 200) {
       ElMessage.success('注册成功，请登录')
       togglePanel(false) // 自动切换回登录面板
       // 清空注册表单内容
       Object.assign(registerForm, { nickname: '', username: '', email: '', password: '' })
     } else {
-      ElMessage.error(res.msg || '注册失败')
+      ElMessage.error(apiRes.msg || '注册失败')
     }
   } catch (e) {
     ElMessage.error('网络请求异常')

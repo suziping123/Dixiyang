@@ -3,6 +3,8 @@
     <!-- 背景层 -->
     <div class="bg-gradient-animation"></div>
 
+    <FloatingNav />
+
     <!-- 主容器 -->
     <div class="settings-wrapper">
       <!-- 侧边栏菜单 -->
@@ -279,6 +281,7 @@ import { useUserStore } from '@/stores/UserStore'
 import SettingsSection from '@/components/SettingsSection.vue'
 import BackgroundControl from '@/components/BackgroundControl.vue'
 import FontControl from '@/components/FontControl.vue'
+import FloatingNav from '@/components/FloatingNav.vue'
 import { useUser } from '@/composables/useUser'
 
 const router = useRouter()

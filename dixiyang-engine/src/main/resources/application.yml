@@ -19,19 +19,26 @@ spring:
       max-file-size: 10MB
       max-request-size: 10MB
 
-  # 3. Spring AI 配置 - 使用DashScope原生接口（推荐）
+  # 3. Spring AI 混合配置
   ai:
-    openai:
-      api-key: ${DASHSCOPE_API_KEY} # 需要自己从环境变量读取
-      base-url: https://dashscope.aliyuncs.com/compatible-mode
-      chat:
-        options:
-          model: qwen-plus
-          temperature: 0.7
-          max-tokens: 2000
+    # Ollama 本地模型 - 用于向量化（嵌入）
+    ollama:
+      base-url: http://localhost:11434
       embedding:
         options:
-          model: text-embedding-v3
+          model: nomic-embed-text
+      chat:
+        enabled: false
+    # DeepSeek 云端模型 - 用于聊天
+    openai:
+      api-key: sk-e046df4f946c4dafb243396ea6a054a0
+      base-url: https://api.deepseek.com
+      chat:
+        options:
+          model: deepseek-chat
+          temperature: 0.7
+          max-tokens: 2000
+      
     vectorstore:
       qdrant:
         host: localhost

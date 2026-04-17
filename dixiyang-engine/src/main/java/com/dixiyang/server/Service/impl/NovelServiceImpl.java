@@ -5,8 +5,16 @@ import com.baomidou.mybatisplus.core.exceptions.MybatisPlusException;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dixiyang.server.Common.Result;
 import com.dixiyang.server.Entity.Novels;
+import com.dixiyang.server.Entity.StoryNode;
+import com.dixiyang.server.Entity.NovelCharacter;
+import com.dixiyang.server.Entity.NovelRelation;
+import com.dixiyang.server.Entity.Timeline;
 import com.dixiyang.server.Entity.VO.NovelVO;
 import com.dixiyang.server.Mapper.NovelMapper;
+import com.dixiyang.server.Mapper.StoryNodeMapper;
+import com.dixiyang.server.Mapper.NovelCharacterMapper;
+import com.dixiyang.server.Mapper.NovelRelationMapper;
+import com.dixiyang.server.Mapper.TimelineMapper;
 import com.dixiyang.server.Service.NovelService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +34,16 @@ import java.util.Map;
 public class NovelServiceImpl implements NovelService {
     @Autowired // 必须注入 Mapper
     private NovelMapper novelMapper;
+    
+    // 注入关联表Mapper，用于级联删除
+    @Autowired
+    private StoryNodeMapper storyNodeMapper;
+    @Autowired
+    private NovelCharacterMapper novelCharacterMapper;
+    @Autowired
+    private NovelRelationMapper novelRelationMapper;
+    @Autowired
+    private TimelineMapper timelineMapper;
     @Override
     public Page<NovelVO> getUserNovelList(Long userId, int page, int pageSize) {
 //        创建分页对象
@@ -112,17 +130,34 @@ public class NovelServiceImpl implements NovelService {
     }
 
     @Override
-    @Transactional // 建议加上事务，虽然是单条删除，但养成习惯比较好
+    @Transactional(rollbackFor = Exception.class)
     public boolean deleteNovel(Long novelId, Long userId) {
-        // 直接构造删除条件：id 匹配 且 userId 匹配
+        // 先验证小说是否属于该用户
         LambdaQueryWrapper<Novels> queryWrapper = new LambdaQueryWrapper<Novels>()
-                .eq(Novels::getId, novelId)     // 锁定这本小说
-                .eq(Novels::getUserId, userId); // 确保是当前用户的小说
+                .eq(Novels::getId, novelId)
+                .eq(Novels::getUserId, userId);
+        Novels novel = novelMapper.selectOne(queryWrapper);
+        if (novel == null) {
+            return false; // 小说不存在或不属于该用户
+        }
+        
+        // 构造删除条件（用于所有关联表）
+        LambdaQueryWrapper<StoryNode> storyNodeWrapper = new LambdaQueryWrapper<StoryNode>()
+                .eq(StoryNode::getNovelId, novelId);
+        LambdaQueryWrapper<NovelCharacter> characterWrapper = new LambdaQueryWrapper<NovelCharacter>()
+                .eq(NovelCharacter::getNovelId, novelId);
+        LambdaQueryWrapper<NovelRelation> relationWrapper = new LambdaQueryWrapper<NovelRelation>()
+                .eq(NovelRelation::getNovelId, novelId);
+        LambdaQueryWrapper<Timeline> timelineWrapper = new LambdaQueryWrapper<Timeline>()
+                .eq(Timeline::getNovelId, novelId);
 
-        // 执行删除
+        // 按依赖顺序删除：故事节点 -> 角色 -> 关系 -> 时间线 -> 小说
+        storyNodeMapper.delete(storyNodeWrapper);
+        novelCharacterMapper.delete(characterWrapper);
+        novelRelationMapper.delete(relationWrapper);
+        timelineMapper.delete(timelineWrapper);
         int result = novelMapper.delete(queryWrapper);
 
-        // 如果 result > 0 说明删除成功；如果为 0 说明条件不匹配（不存在或不属于该用户）
         return result > 0;
     }
 }

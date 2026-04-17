@@ -1,57 +1,66 @@
-/*
- * @Author: suziping123 yunzhiming123@gmail.com
- * @Date: 2026-03-18 16:18:22
- * @LastEditors: suziping123 yunzhiming123@gmail.com
- * @LastEditTime: 2026-03-21
- * @FilePath: \dixiyang-vue\Dixiyang-vue3\src\api\types.ts
- * @Description: 前后端通信的类型定义
- */
-export interface UserInfo {
-  id: string;
-  username: string;
-  email: string;
-  nickname?: string;
+// API 响应基础类型
+export interface ApiResponse<T = unknown> {
+  code: number
+  msg: string
+  data: T
 }
 
+// 登录响应数据
 export interface LoginResponse {
-  code: number;
-  msg: string;
-  data: {
-    token: string;
-    user: UserInfo;
-  };
+  token: string
+  userId: number
+  username: string
+  nickname: string
+  email?: string
 }
 
+// 注册响应数据
 export interface RegisterResponse {
-  code: number;
-  msg: string;
-  data: {
-    token: string;
-    user: UserInfo;
-  };
+  userId: number
+  username: string
+  nickname: string
 }
 
-/**
- * 字体颜色配置类型
- * 用于自定义文字颜色
- */
-export interface FontColorsDTO {
-  textPrimary: string;      // 主要文本颜色 (e.g., "#ffffff")
-  textSecondary: string;    // 次要文本颜色 (e.g., "rgba(255, 255, 255, 0.7)")
-  textMuted: string;        // 弱化文本颜色
-  textDisabled: string;     // 禁用文本颜色
+// 分页响应类型
+export interface PageResponse<T = unknown> {
+  records: T[]
+  total: number
+  page: number
+  pageSize: number
 }
 
-/**
- * 背景与颜色配置类型
- * 用于保存用户的背景预设和自定义颜色配置
- */
-export interface BackgroundConfigDTO {
-  preset?: string;          // 'dynamic' | 'static' | 'gradient' | 'grid' | 'minimal' | 'custom'
-  animEnabled?: boolean;    // 是否启用动画
-  intensity?: number;       // 背景强度 (0-100)
-  colorTheme?: string;      // 'purple' | 'blue' | 'cyan'
-  customImageUrl?: string;  // 自定义背景图片 URL
-  fontColors?: FontColorsDTO; // 自定义字体颜色配置
+// 小说相关类型
+export interface Novel {
+  id?: number
+  title: string
+  author?: string
+  description?: string
+  cover?: string
+  userId?: number
+  createdAt?: string
+  updatedAt?: string
 }
 
+// 角色相关类型
+export interface Character {
+  id?: number
+  novelId?: number
+  name: string
+  avatar?: string
+  description?: string
+  personality?: string
+  background?: string
+  extra?: string | Record<string, unknown>
+}
+
+// 故事情节节点类型
+export interface StoryNode {
+  id?: number
+  novelId?: number
+  title: string
+  content?: string
+  positionX?: number
+  positionY?: number
+  parentId?: number
+  orderNum?: number
+}

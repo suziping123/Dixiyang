@@ -10,18 +10,7 @@
   <div class="character-manager-container">
     <div class="bg-gradient-animation" :class="{ paused: !bgConfig.animEnabled.value }" :style="{ '--bg-intensity': (bgConfig.intensity.value as any) / 100 }"></div>
 
-    <nav class="floating-nav">
-      <div
-        v-for="(item, idx) in navItems"
-        :key="idx"
-        class="nav-item"
-        :class="{ active: activeNav === 2 }"
-        @click="handleNavClick(idx)"
-        :title="item.tooltip"
-      >
-        {{ item.iconClass }}
-      </div>
-    </nav>
+    <FloatingNav />
 
     <main class="main-stage">
       <header class="stage-header">
@@ -195,6 +184,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Delete } from '@element-plus/icons-vue'
 import BackgroundControl from '@/components/BackgroundControl.vue'
+import FloatingNav from '@/components/FloatingNav.vue'
 import { useBackgroundConfig } from '@/composables/useBackgroundConfig'
 import { useTextColorCustomizer } from '@/composables/useTextColorCustomizer'
 import type { CharacterVO, CharacterDTO } from '@/api/characterApi'
@@ -205,7 +195,6 @@ const route = useRoute()
 const bgConfig = useBackgroundConfig()
 const textColorCustomizer = useTextColorCustomizer()
 
-const activeNav = ref(2)
 const novelTitle = ref('')
 const isLoading = ref(true)
 const isSaving = ref(false)
@@ -217,14 +206,6 @@ const isEditMode = ref(false)
 const deleteCandidate = ref<CharacterVO | null>(null)
 const editingId = ref<number | null>(null)
 const hoveredCard = ref<number | null>(null)
-
-const navItems = ref([
-  { iconClass: '🏠', tooltip: '首页' },
-  { iconClass: '🧭', tooltip: '发现' },
-  { iconClass: '💾', tooltip: '库' },
-  { iconClass: '🔔', tooltip: '通知' },
-  { iconClass: '⚙️', tooltip: '设置' },
-])
 
 const form = reactive<Omit<CharacterDTO, 'extra'> & { extra?: string }>({
   novelId: 0,
@@ -246,15 +227,6 @@ const extraFields = ref<ExtraField[]>([])
 const novelId = computed(() => {
   return Number(route.params.novelId) || 0
 })
-
-const handleNavClick = (idx: number) => {
-  activeNav.value = idx
-  const routes = ['/home', '/discover', '/library', '/notifications', '/settings']
-  const routePath = routes[idx]
-  if (routePath && routePath !== '/home') {
-    router.push(routePath).catch(() => console.log(`功能开发中...`))
-  }
-}
 
 const goBack = () => {
   router.back()
@@ -429,46 +401,11 @@ onMounted(() => {
   font-family: var(--font-family);
 }
 
-/* 导航栏样式 */
-.floating-nav {
-  position: fixed;
-  left: 30px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-  border-radius: 50px;
-  padding: 20px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 25px;
-  z-index: 100;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-
-.nav-item {
-  width: 50px;
-  height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  color: var(--text-muted);
-  font-size: 1.5rem;
-}
-
-.nav-item:hover { color: var(--neon-cyan); transform: scale(1.1); }
-.nav-item.active { background: rgba(59, 130, 246, 0.2); color: var(--neon-blue); box-shadow: inset 0 0 20px rgba(59, 130, 246, 0.3), 0 0 20px rgba(59, 130, 246, 0.5); }
-
 /* 主舞台 */
 .main-stage {
   position: relative;
   z-index: 1;
   padding: 80px 120px;
-  margin-left: 100px;
 }
 
 .stage-header {

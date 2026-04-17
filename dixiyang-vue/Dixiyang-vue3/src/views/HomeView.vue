@@ -2,18 +2,7 @@
   <div class="engine-container">
     <div class="bg-gradient-animation" :class="{ paused: !bgConfig.animEnabled.value }" :style="{ '--bg-intensity': (bgConfig.intensity.value as any) / 100 }"></div>
 
-    <nav class="floating-nav">
-      <div
-        v-for="(item, idx) in navItems"
-        :key="idx"
-        class="nav-item"
-        :class="{ active: activeNav === idx }"
-        @click="handleNavClick(idx)"
-        :title="item.tooltip"
-      >
-        {{ item.iconClass }}
-      </div>
-    </nav>
+    <FloatingNav />
 
     <main class="main-stage" :class="{ 'blur-bg': showRag }">
       <header class="stage-header">
@@ -179,12 +168,16 @@ import { gsap } from 'gsap'
 // 组件导入
 import BackgroundControl from '@/components/BackgroundControl.vue'
 import CreateNovelModal from '@/components/CreateNovelModal.vue'
+import NovelCard from '@/components/NovelCard.vue'
+import CreateCard from '@/components/CreateCard.vue'
+import FloatingNav from '@/components/FloatingNav.vue'
 // 工具/状态导入
 import { useUserStore } from '@/stores/UserStore'
 import { useBackgroundConfig } from '@/composables/useBackgroundConfig'
 import { useThemeSystem } from '@/composables/useThemeSystem'
 import { useTextColorCustomizer } from '@/composables/useTextColorCustomizer'
 import http from '@/utils/http'
+import { confirmDelete } from '@/utils/confirm'
 // 资源导入
 import defaultCover from '@/images/default-cover.png'
 import SiliconAge from '@/images/silicon Age.png'
@@ -211,18 +204,7 @@ interface Novel {
   [key: string]: unknown // 兜底：允许其他字段
 }
 
-// 导航配置
-const navItems = ref([
-  { iconClass: '🏠', tooltip: '首页' },
-  { iconClass: '🧭', tooltip: '发现' },
-  { iconClass: '💾', tooltip: '库' },
-  { iconClass: '🤖', tooltip: 'RAG助手' },
-  { iconClass: '🔔', tooltip: '通知' },
-  { iconClass: '⚙️', tooltip: '设置' },
-])
 
-// 状态管理
-const activeNav = ref(0)
 const hoveredCard = ref<string | number | null>(null)
 const showRag = ref(false)
 const selectedNovel = ref<Novel | null>(null)
@@ -233,15 +215,7 @@ const flippedCards = ref<Set<string | number>>(new Set())
 const clickTimers = new Map<string | number, ReturnType<typeof setTimeout>>()
 const showCreateModal = ref(false); // 弹窗显隐状态
 
-// 事件处理：导航点击
-const handleNavClick = (idx: number) => {
-  activeNav.value = idx
-  const routes = ['/home', '/discover', '/library', '/rag-assistant', '/notifications', '/settings']
-  const route = routes[idx]
-  if (route && route !== '/home') {
-    router.push(route).catch(() => console.log(`功能开发中...`))
-  }
-}
+
 
 // 事件处理：卡片翻转
 const toggleCardFlip = (novelId: string | number, event: Event) => {
@@ -290,18 +264,26 @@ const openNovel = (novel: Novel) => {
 const openCharacterManager = (novel: Novel) => {
   router.push({ name: 'character-manager', params: { novelId: novel.id } }).catch(err => console.error('跳转角色管理页失败:', err))
 }
+async function deleteNovel(novel: Novel) {
+  try {
+    const confirm = await confirmDelete(`确认删除小说 "${novel.title}" 吗？此操作并未设置逻辑删除，无法撤销，是否继续？`)
+    if (!confirm) {
+      return
+    }
 
-const deleteNovel = (novel: Novel) => {
-  http.post(`/novel/delete/${novel.id}`)
-    .then(() => {
-      novels.value = novels.value.filter(n => n.id !== novel.id)
+    http.post(`/novel/delete/${novel.id}`)
+      .then(() => {
+        novels.value = novels.value.filter(n => n.id !== novel.id)
 
-      if (selectedNovel.value?.id === novel.id) {
-        showRag.value = false
-        selectedNovel.value = null
-      }
-    })
-    .catch(err => console.error('删除小说失败:', err))
+        if (selectedNovel.value?.id === novel.id) {
+          showRag.value = false
+          selectedNovel.value = null
+        }
+      })
+      .catch(err => console.error('删除小说失败:', err))
+  } catch (error) {
+    console.error('确认删除失败:', error)
+  }
 }
 
 // 事件处理：打开创建弹窗
@@ -516,7 +498,6 @@ onBeforeUnmount(() => {
   position: relative;
   z-index: 1;
   padding: 80px 120px;
-  margin-left: 100px;
 }
 
 .stage-header { margin-bottom: 60px; }
@@ -611,7 +592,7 @@ onBeforeUnmount(() => {
 /* ============ 网格布局 ============ */
 .galaxy-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 35px;
   margin-top: 30px;
 }
@@ -1125,7 +1106,6 @@ onBeforeUnmount(() => {
 @media (max-width: 1400px) {
   .main-stage {
     padding: 60px 80px;
-    margin-left: 80px;
   }
   .galaxy-grid {
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -1136,7 +1116,6 @@ onBeforeUnmount(() => {
 @media (max-width: 1024px) {
   .main-stage {
     padding: 60px 60px;
-    margin-left: 60px;
   }
   .logo-text { font-size: 2.5rem; }
   .galaxy-grid { grid-template-columns: repeat(2, 1fr); }
@@ -1144,19 +1123,8 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 768px) {
-  .floating-nav {
-    left: 10px;
-    width: 60px;
-    padding: 15px 5px;
-    gap: 15px;
-  }
-  .nav-item {
-    width: 40px;
-    height: 40px;
-  }
   .main-stage {
     padding: 40px 30px;
-    margin-left: 80px;
   }
   .logo-text { font-size: 2rem; }
   .galaxy-grid { grid-template-columns: 1fr; }
