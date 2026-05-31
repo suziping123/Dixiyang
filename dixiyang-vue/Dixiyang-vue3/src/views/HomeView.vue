@@ -35,6 +35,7 @@
                   <img
                     :src="novel.title === '硅基时代' ? SiliconAge : (novel.cover_url || defaultCover)"
                     alt="封面"
+                    @error="(e: Event) => { (e.target as HTMLImageElement).src = defaultCover }"
                   >
                 </button>
               </div>
