@@ -285,7 +285,7 @@ const submitForm = async () => {
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 1rem;
   font-family: inherit;
   transition: all 0.3s ease;
@@ -349,12 +349,12 @@ const submitForm = async () => {
 .upload-icon {
   width: 40px;
   height: 40px;
-  color: #ffffff;
+  color: var(--text-primary);
   margin-bottom: 10px;
 }
 
 .upload-text {
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 0.9rem;
 }
 
@@ -379,7 +379,7 @@ const submitForm = async () => {
 
 .cancel-btn:hover {
   background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .submit-btn {
@@ -387,7 +387,7 @@ const submitForm = async () => {
   border-radius: 12px;
   background: linear-gradient(135deg, #3b82f6 0%, #a855f7 100%);
   border: none;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;

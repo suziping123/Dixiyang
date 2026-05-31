@@ -284,7 +284,7 @@ const handleResetAll = () => {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--glass-border);
   border-radius: 6px;
-  color: white;
+  color: var(--text-primary);
   font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.3s;
@@ -400,7 +400,7 @@ const handleResetAll = () => {
 .font-label {
   font-size: 0.9rem;
   font-weight: 600;
-  color: white;
+  color: var(--text-primary);
 }
 
 .font-desc {
@@ -435,7 +435,7 @@ const handleResetAll = () => {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--glass-border);
   border-radius: 6px;
-  color: white;
+  color: var(--text-primary);
   text-align: center;
   font-size: 0.85rem;
 }
@@ -468,7 +468,7 @@ const handleResetAll = () => {
 }
 
 .preview-text {
-  color: white;
+  color: var(--text-primary);
   margin: 0;
   line-height: 1.6;
 }
@@ -537,7 +537,7 @@ const handleResetAll = () => {
   font-size: calc(var(--font-size-base, 16px) * var(--font-scale, 1) * 1.5);
   font-weight: 700;
   margin-bottom: 8px;
-  color: white;
+  color: var(--text-primary);
 }
 
 .preview-paragraph {
@@ -582,7 +582,7 @@ const handleResetAll = () => {
 
 .advanced-label {
   font-size: 0.9rem;
-  color: white;
+  color: var(--text-primary);
   font-weight: 500;
 }
 
