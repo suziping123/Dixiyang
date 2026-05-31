@@ -263,6 +263,19 @@
 
 ---
 
-*文档版本: v1.0*
+## 版本变更记录
+
+### v1.1 (2026-05-31)
+- **新增**: 预设背景图系统（`public/images/back/`）
+- **删除**: 自定义背景图上传功能（BackgroundControl.vue 及相关 composable）
+- **优化**: 背景预设精简为 3 种（dynamic/static/minimal），各有独立视觉配置
+- **修复**: 小说封面字段名对齐后端 @JsonProperty snake_case
+- **修复**: NovelMapper.xml cover 字段映射错误
+- **修复**: 卡片入场动画阶梯效果，改为同一起点
+- **清理**: 全部前端 console.log，统一全局 CSS 变量
+
+---
+
+*文档版本: v1.1*
 *最后更新: 2026-05-31*
 *维护者: Dixiyang Team*
