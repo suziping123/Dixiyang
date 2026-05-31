@@ -398,7 +398,7 @@ onMounted(() => {
 <style scoped>
 .rag-page {
   min-height: 100vh;
-  background: var(--dark-bg);
+  background: transparent;
   color: var(--text-primary);
   position: relative;
   overflow: hidden;
@@ -411,10 +411,7 @@ onMounted(() => {
   left: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle at 20% 50%, rgba(168, 85, 247, 0.12) 0%, transparent 50%),
-  radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.12) 0%, transparent 50%),
-  radial-gradient(circle at 50% 0%, rgba(6, 182, 212, 0.08) 0%, transparent 50%),
-  radial-gradient(circle at center, #1e1b4b 0%, #0a0a0c 70%);
+  background: transparent;
   z-index: 0;
   animation: rotate 30s linear infinite;
   transition: opacity 0.3s ease;

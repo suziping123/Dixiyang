@@ -54,7 +54,7 @@ onMounted(() => {
 <style scoped>
 .novel-editor-container {
   min-height: 100vh;
-  background: var(--dark-bg);
+  background: transparent;
   color: var(--text-primary);
   overflow: hidden;
   position: relative;

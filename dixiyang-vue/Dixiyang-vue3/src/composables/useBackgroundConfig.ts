@@ -49,9 +49,9 @@ export function useBackgroundConfig() {
 
     // --- 主题 ---
     html.className = `theme-${themeId.value}`
-    // 恢复 body 的默认背景
-    body.style.cssText = ''
     body.className = ''
+    body.style.background = ''
+    body.style.backgroundImage = ''
 
     // --- 背景图（真实 DOM 元素，不依赖 body background） ---
     let bgEl = document.getElementById('theme-bg')
