@@ -342,13 +342,11 @@ const saveAiPrefs = () => {
 
 // 导出全部小说
 const handleExportAll = () => {
-  console.log('导出全部小说功能（TODO：后端实现）')
   alert('导出功能开发中，敬请期待')
 }
 
 // 导出角色库
 const handleExportCharacters = () => {
-  console.log('导出角色库功能（TODO：后端实现）')
   alert('导出功能开发中，敬请期待')
 }
 
@@ -367,21 +365,10 @@ const goBack = () => {
 </script>
 
 <style scoped>
-:root {
-  --glass-bg: rgba(255, 255, 255, 0.05);
-  --glass-border: rgba(255, 255, 255, 0.15);
-  --glass-border-hover: rgba(255, 255, 255, 0.3);
-  --neon-primary: #3b82f6;
-  --neon-cyan: #06b6d4;
-  --dark-bg: #0a0a0c;
-  --card-shadow: 0 20px 40px rgba(0,0,0,0.4);
-  --glow-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
-}
-
 .settings-container {
   min-height: 100vh;
   background: var(--dark-bg);
-  color: white;
+  color: var(--text-primary);
   overflow: hidden;
   position: relative;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -390,17 +377,13 @@ const goBack = () => {
 /* ============ 背景 ============ */
 .bg-gradient-animation {
   position: fixed;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle at 20% 50%, rgba(168, 85, 247, 0.08) 0%, transparent 50%),
-              radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
-              radial-gradient(circle at 50% 0%, rgba(6, 182, 212, 0.05) 0%, transparent 50%),
-              radial-gradient(circle at center, #1e1b4b 0%, var(--dark-bg) 70%);
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
   z-index: 0;
-  animation: rotate 30s linear infinite;
-  opacity: 0.5;
+  pointer-events: none;
 }
 
 @keyframes rotate {

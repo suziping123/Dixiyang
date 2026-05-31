@@ -46,7 +46,6 @@ const goBack = () => {
 
 onMounted(() => {
   const novelId = route.params.id
-  console.log('编辑小说ID:', novelId)
   // 这里可以根据novelId获取小说详情
   novelTitle.value = `小说 ${novelId}`
 })

@@ -252,17 +252,6 @@ const handleResetAll = () => {
 </script>
 
 <style scoped>
-/* 全局样式变量 */
-:root {
-  --glass-bg: rgba(255, 255, 255, 0.05);
-  --glass-border: rgba(255, 255, 255, 0.15);
-  --glass-border-hover: rgba(255, 255, 255, 0.3);
-  --neon-primary: #3b82f6;
-  --neon-cyan: #06b6d4;
-  --text-primary: #ffffff;
-  --text-muted: rgba(255, 255, 255, 0.5);
-}
-
 .font-control {
   width: 100%;
 }

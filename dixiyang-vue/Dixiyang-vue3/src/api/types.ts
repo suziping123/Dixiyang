@@ -29,16 +29,19 @@ export interface PageResponse<T = unknown> {
   pageSize: number
 }
 
-// 小说相关类型
+// 小说相关类型（后端 NovelVO 使用 @JsonProperty 返回 snake_case）
 export interface Novel {
   id?: number
   title: string
-  author?: string
+  pen_name?: string
   description?: string
-  cover?: string
+  cover_url?: string
   userId?: number
-  createdAt?: string
-  updatedAt?: string
+  createTime?: string
+  updateTime?: string
+  char_count?: number
+  node_count?: number
+  relation_count?: number
 }
 
 // 角色相关类型

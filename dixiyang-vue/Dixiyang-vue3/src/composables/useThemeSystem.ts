@@ -59,8 +59,7 @@ export function useThemeSystem() {
     try {
       const brightness = await sampleImageBrightness(imageUrl)
       await updateTextColorByBrightness(brightness)
-    } catch (error) {
-      console.error('Failed to sample image brightness:', error)
+    } catch {
       textColorMode.value = 'dark'
       forceUpdateCSSVariables('dark')
       localStorage.setItem('dixiyang_text_color_mode', 'dark')
@@ -86,8 +85,8 @@ export function useThemeSystem() {
         updateTextColorByBrightness(brightness)
         return brightness
       }
-    } catch (e) {
-      console.error('Failed to sample gradient brightness:', e)
+    } catch {
+      // 渐变亮度采样失败
     }
     return 0.3
   }
@@ -133,10 +132,7 @@ export function useThemeSystem() {
     bgConfig.applyColorTheme()
     fontConfig.applyFontSettings()
 
-    // 根据当前背景类型处理
-    if (bgConfig.preset.value === 'custom' && bgConfig.customImageUrl.value) {
-      sampleCustomImageBrightness(bgConfig.customImageUrl.value)
-    } else if (autoAdjustTextColor.value) {
+    if (autoAdjustTextColor.value) {
       sampleGradientBrightness()
     }
 
@@ -177,8 +173,8 @@ export function useThemeSystem() {
         // 立即应用，不等待其他逻辑
         forceUpdateCSSVariables(savedTextMode)
       }
-    } catch (error) {
-      console.error('Failed to load theme from storage:', error)
+    } catch {
+      // 加载主题设置失败
     }
   }
 
@@ -217,29 +213,22 @@ export function useThemeSystem() {
    * 监听背景变化并更新文字颜色
    */
   const watchBackgroundChanges = () => {
-    // 监听背景预设、自定义图片、主题色变化
     watch(
-      [() => bgConfig.preset.value, () => bgConfig.customImageUrl.value, () => bgConfig.colorTheme.value],
+      [() => bgConfig.preset.value, () => bgConfig.colorTheme.value],
       () => {
         if (autoAdjustTextColor.value) {
-          if (bgConfig.preset.value === 'custom' && bgConfig.customImageUrl.value) {
-            sampleCustomImageBrightness(bgConfig.customImageUrl.value)
-          } else {
-            sampleGradientBrightness()
-          }
+          sampleGradientBrightness()
         }
       },
       { immediate: true, deep: true }
     )
 
-    // 监听自动调整开关变化
     watch(autoAdjustTextColor, (newVal) => {
       if (newVal && sampledBrightness.value !== null) {
         updateTextColorByBrightness(sampledBrightness.value)
       }
     })
 
-    // 监听文字颜色模式变化（确保响应式）
     watch(textColorMode, () => {
       updateThemeClass()
     })

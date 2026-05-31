@@ -54,9 +54,8 @@ export function useTextColorAdapter() {
       const brightness = await sampleImageBrightness(imageUrl)
       updateTextColorMode(brightness)
       return brightness
-    } catch (error) {
-      console.warn('Failed to sample background image brightness:', error)
-      // fallback to light text
+    } catch {
+      // 采样失败时使用浅色文本作为fallback
       updateTextColorMode(0.3)
     }
   }
@@ -77,8 +76,8 @@ export function useTextColorAdapter() {
       const root = document.documentElement
       const bgColor = window.getComputedStyle(root).backgroundColor
       adaptToColor(bgColor)
-    } catch (error) {
-      console.warn('Failed to adapt to computed background:', error)
+    } catch {
+      // 计算背景颜色失败
     }
   }
 

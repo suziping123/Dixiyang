@@ -30,21 +30,21 @@
           <div class="stat">
             <svg class="stat-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h16V4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16v-2H4V6z"/></svg>
             <span>节点</span>
-            <b class="stat-value">{{ novel.nodeCount || 0 }}</b>
+            <b class="stat-value">{{ novel.node_count || 0 }}</b>
           </div>
           <div class="stat" v-if="isHovered">
             <svg class="stat-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-5.04-6.71l-2.75 3.54-2.16-2.66c-.44-.53-1.25-.53-1.69 0-.44.54-.44 1.39 0 1.93l3 3.68c.44.53 1.25.53 1.69 0L21.27 9c.44-.54.44-1.39 0-1.93-.44-.54-1.25-.54-1.69 0l-6.62 8.22z"/></svg>
             <span>关联</span>
-            <b class="stat-value">{{ novel.relationCount || 0 }}</b>
+            <b class="stat-value">{{ novel.relation_count || 0 }}</b>
           </div>
         </div>
         <button class="enter-btn character-btn" @click.stop="handleCharacterManager">
           <span class="btn-text">角色管理</span>
           <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
         </button>
-        <button class="enter-btn" @click.stop="handleDelete">
+        <button class="enter-btn delete-btn" @click.stop="handleDelete">
           <span class="btn-text">删除小说</span>
-          <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M5 13l4 4L19 7"/></svg>
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
         </button>
         <button class="enter-btn" @click.stop="handleOpenNovel">
           <span class="btn-text">进入创作</span>
@@ -58,20 +58,17 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import defaultCover from '@/images/default-cover.png'
-import SiliconAge from '@/images/silicon Age.png'
+import { resolveCoverUrl } from '@/utils/localImages'
 
 interface Novel {
   id: string | number
   title: string
-  cover?: string
+  cover_url?: string
   description?: string
-  penName?: string
   pen_name?: string
   char_count?: number
-  nodeCount?: number
-  relationCount?: number
-  chapters?: number
+  node_count?: number
+  relation_count?: number
   [key: string]: unknown
 }
 
@@ -93,7 +90,7 @@ const emit = defineEmits<{
 const isHovered = computed(() => props.isHovered || false)
 
 const coverUrl = computed(() => {
-  return props.novel.title === '硅基时代' ? SiliconAge : (props.novel.cover || defaultCover)
+  return resolveCoverUrl(props.novel.cover_url)
 })
 
 const handleMouseEnter = () => emit('mouseenter')
@@ -333,6 +330,18 @@ const handleOpenNovel = () => emit('open-novel')
 .enter-btn.character-btn:hover {
   background: rgba(168, 85, 247, 0.3);
   border-color: var(--neon-purple);
+}
+
+.enter-btn.delete-btn {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+.enter-btn.delete-btn:hover {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.6);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.3);
 }
 
 .btn-icon {

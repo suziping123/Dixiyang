@@ -7,6 +7,7 @@ import com.dixiyang.server.Entity.dto.AuthDTO;
 import com.dixiyang.server.Mapper.AppUserMapper;
 import com.dixiyang.server.Service.AuthService;
 import com.dixiyang.server.Utils.JwtUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,7 @@ import java.util.Map;
  * @author SuZiPing
  * @version 1.0
  */
+@Slf4j
 @Service
 public class AuthServiceImpl implements AuthService {
     @Autowired
@@ -40,13 +42,14 @@ public class AuthServiceImpl implements AuthService {
         AppUser appUser = appUserMapper.selectOne(queryWrapper);
 //        如果用户不在
         if  (appUser == null) {
-            return Result.error("用户名或密码错误");
+            log.warn("登录失败：用户不存在, username={}", username);
+            return Result.error("用户名不存在");
         }
 //        在java中对比密码(Significant!!!)
 //        使用passwdEncoder的matches方法来对比前端传来的没问和数据库查出来的加密串
         if  (!passwordEncoder.matches(password, appUser.getPassword())) {
-            System.out.println(password);
-            System.out.println(passwordEncoder.encode(password));
+//            System.out.println(password);
+//            System.out.println(passwordEncoder.encode(password));
             return Result.error("用户名或密码错误");
         }
 

@@ -64,9 +64,7 @@ const handleNavClick = (idx: number) => {
   emit('update:modelValue', idx)
   const item = navItems.value[idx]
   if (item) {
-    router.push(item.path).catch(() => {
-      console.log(`功能开发中...`)
-    })
+    router.push(item.path)
   }
 }
 </script>

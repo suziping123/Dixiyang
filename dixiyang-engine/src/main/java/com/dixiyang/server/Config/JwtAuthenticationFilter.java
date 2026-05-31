@@ -46,8 +46,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         );
                 // 存入上下文后面可以直接拿
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+            } catch (RuntimeException e) {
+                log.warn("JWT 解析失败: {}", e.getMessage());
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("{\"code\":401,\"message\":\"Token已过期或无效\",\"data\":null}");
+                return;
             } catch (Exception e) {
                 log.error("JWT 解析异常", e);
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("{\"code\":401,\"message\":\"Token无效\",\"data\":null}");
+                return;
             }
         }
         filterChain.doFilter(request, response);

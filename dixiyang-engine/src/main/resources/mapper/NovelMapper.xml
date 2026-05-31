@@ -8,7 +8,7 @@
             n.title,
             n.pen_name AS penName,
             n.description,
-            n.cover_url AS cover,
+            n.cover_url,
             n.create_time AS createTime,
             n.update_time AS updateTime,
             (SELECT COUNT(*) FROM `novel_character` c WHERE c.novel_id = n.id) AS charCount,
