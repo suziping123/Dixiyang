@@ -1,91 +1,56 @@
 <template>
   <div class="background-control" :class="[`mode-${mode}`]">
-    <!-- 紧凑模式：工具栏 -->
+    <!-- 紧凑模式 -->
     <div v-if="mode === 'compact'" class="compact-mode">
-      <div class="preset-buttons">
-        <button
-          v-for="preset in presets"
-          :key="preset.value"
-          class="preset-btn"
-          :class="{ active: bgConfig.preset.value === preset.value }"
-          :title="preset.label"
-          @click="bgConfig.setPreset(preset.value)"
-        >
-          {{ preset.icon }}
-        </button>
-      </div>
-
-      <div class="control-buttons">
-        <button
-          class="control-btn anim-btn"
-          :class="{ active: bgConfig.animEnabled.value }"
-          @click="bgConfig.toggleAnimation"
-          title="动画开关"
-        >
-          {{ bgConfig.animEnabled.value ? '▶' : '⏸' }}
-        </button>
-      </div>
-
-      <div class="intensity-group">
-        <input
-          type="range"
-          min="0"
-          max="100"
-          :value="bgConfig.intensity.value"
-          @input="(e) => bgConfig.setIntensity(Number((e.target as HTMLInputElement).value))"
-          class="intensity-slider"
-          title="背景强度"
-        />
-        <span class="intensity-value">{{ bgConfig.intensity.value }}%</span>
-      </div>
-
-      <div class="theme-buttons">
-        <button
-          v-for="theme in themes"
-          :key="theme.value"
-          class="color-btn"
-          :class="{ active: bgConfig.colorTheme.value === theme.value }"
-          :style="{ '--theme-color': theme.color }"
-          @click="bgConfig.setColorTheme(theme.value)"
-          :title="theme.label"
-        >
-          ●
-        </button>
-      </div>
+      <button
+        v-for="theme in THEMES"
+        :key="theme.id"
+        class="theme-btn"
+        :class="{ active: bgConfig.themeId.value === theme.id }"
+        :title="theme.label"
+        @click="bgConfig.setTheme(theme.id)"
+      >
+        {{ theme.icon }}
+      </button>
     </div>
 
-    <!-- 完整模式：详细设置面板 -->
+    <!-- 完整模式 -->
     <div v-else class="full-mode">
-      <!-- 背景预设网格 -->
+      <!-- 主题选择 -->
       <div class="settings-section">
-        <h3 class="section-title">背景预设</h3>
-        <div class="presets-grid">
+        <h3 class="section-title">全局主题</h3>
+        <p class="section-desc">主题影响所有页面的配色和风格</p>
+        <div class="theme-grid">
           <button
-            v-for="preset in presets"
-            :key="preset.value"
-            class="preset-card"
-            :class="{ active: bgConfig.preset.value === preset.value && !bgConfig.bgImageId.value }"
-            @click="bgConfig.setPreset(preset.value)"
+            v-for="theme in THEMES"
+            :key="theme.id"
+            class="theme-card"
+            :class="{ active: bgConfig.themeId.value === theme.id }"
+            @click="bgConfig.setTheme(theme.id)"
           >
-            <span class="preset-icon">{{ preset.icon }}</span>
-            <span class="preset-name">{{ preset.label }}</span>
-            <span class="preset-desc">{{ preset.description }}</span>
+            <span class="theme-icon">{{ theme.icon }}</span>
+            <div class="theme-info">
+              <span class="theme-name">{{ theme.label }}</span>
+              <span class="theme-desc">{{ theme.description }}</span>
+            </div>
           </button>
         </div>
       </div>
 
-      <!-- 预设背景图选择器 -->
-      <div v-if="bgImageList.length > 0" class="settings-section">
+      <!-- 背景图选择（仅在暗色主题下显示，亮色主题下背景图不明显） -->
+      <div v-if="bgConfig.themeId.value !== 'minimal-light'" class="settings-section">
         <h3 class="section-title">背景图</h3>
+        <p class="section-desc">叠加在背景之上的预设图片（QQ 聊天背景风格）</p>
         <div class="bg-image-grid">
           <button
             v-for="img in bgImageList"
             :key="img.id"
             class="bg-image-card"
             :class="{ active: bgConfig.bgImageId.value === img.id }"
-            @click="bgConfig.setBgImage(bgConfig.bgImageId.value === img.id ? undefined : img.id)"
+            @click="selectBgImage(img.id)"
           >
-            <img :src="img.url" :alt="img.label" class="bg-image-thumb" />
+            <img v-if="loadedImages[img.id]" :src="loadedImages[img.id]" :alt="img.label" class="bg-image-thumb" />
+            <div v-else class="bg-image-placeholder">加载中...</div>
             <span class="bg-image-label">{{ img.label }}</span>
           </button>
           <button
@@ -99,113 +64,6 @@
         </div>
       </div>
 
-      <!-- 动画设置 -->
-      <div class="settings-section">
-        <h3 class="section-title">动画设置</h3>
-        <div class="toggle-wrapper">
-          <label class="toggle-label">
-            <button
-              class="toggle-btn"
-              :class="{ active: bgConfig.animEnabled.value }"
-              @click="bgConfig.toggleAnimation"
-            >
-              <span class="toggle-switch"></span>
-              <span class="toggle-text">{{ bgConfig.animEnabled.value ? '启用' : '禁用' }}</span>
-            </button>
-            <span class="label-text">动画效果</span>
-          </label>
-        </div>
-      </div>
-
-      <!-- 强度调节 -->
-      <div class="settings-section">
-        <h3 class="section-title">强度调节</h3>
-        <div class="intensity-wrapper">
-          <input
-            type="range"
-            min="0"
-            max="100"
-            :value="bgConfig.intensity.value"
-            @input="(e) => bgConfig.setIntensity(Number((e.target as HTMLInputElement).value))"
-            class="intensity-slider-full"
-          />
-          <div class="intensity-display">
-            <span class="intensity-percent">{{ bgConfig.intensity.value }}%</span>
-            <span class="intensity-bar">
-              <span class="intensity-fill" :style="{ width: `${bgConfig.intensity.value}%` }"></span>
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 主题色 -->
-      <div class="settings-section">
-        <h3 class="section-title">主题色</h3>
-        <div class="theme-grid">
-          <button
-            v-for="theme in themes"
-            :key="theme.value"
-            class="theme-btn"
-            :class="{ active: bgConfig.colorTheme.value === theme.value }"
-            @click="bgConfig.setColorTheme(theme.value)"
-          >
-            <span class="theme-color" :style="{ backgroundColor: theme.color }"></span>
-            <span class="theme-name">{{ theme.label }}</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- 文字对比度设置 -->
-      <div class="settings-section contrast-section">
-        <h3 class="section-title">文字对比度</h3>
-        <div class="contrast-info">
-          <p v-if="themeSystem.sampledBrightness.value !== null" class="brightness-value">
-            背景亮度: <code>{{ (themeSystem.sampledBrightness.value * 100).toFixed(0) }}%</code>
-          </p>
-          <p class="text-mode">
-            文字模式:
-            <span class="mode-badge" :class="themeSystem.textColorMode.value">
-              {{ themeSystem.textColorMode.value === 'light' ? '浅色文字' : '深色文字' }}
-            </span>
-          </p>
-        </div>
-        <div class="contrast-toggle">
-          <label class="toggle-label">
-            <button
-              class="toggle-btn"
-              :class="{ active: themeSystem.autoAdjustTextColor.value }"
-              @click="themeSystem.setAutoAdjustTextColor(!themeSystem.autoAdjustTextColor.value)"
-            >
-              <span class="toggle-switch"></span>
-              <span class="toggle-text">{{ themeSystem.autoAdjustTextColor.value ? '启' : '关' }}</span>
-            </button>
-            <span class="label-text">自动调整文字颜色</span>
-          </label>
-          <p class="contrast-desc">根据背景亮度自动选择文字颜色，保证可读性</p>
-        </div>
-        <div v-if="!themeSystem.autoAdjustTextColor.value" class="manual-text-color">
-          <p class="color-label">手动选择文字颜色:</p>
-          <div class="text-color-buttons">
-            <button
-              class="text-color-btn light"
-              :class="{ active: themeSystem.textColorMode.value === 'light' }"
-              @click="themeSystem.setTextColorMode('light')"
-            >
-              <span class="btn-label">浅色 (白)</span>
-              <span class="btn-preview"></span>
-            </button>
-            <button
-              class="text-color-btn dark"
-              :class="{ active: themeSystem.textColorMode.value === 'dark' }"
-              @click="themeSystem.setTextColorMode('dark')"
-            >
-              <span class="btn-label">深色 (黑)</span>
-              <span class="btn-preview"></span>
-            </button>
-          </div>
-        </div>
-      </div>
-
       <!-- 恢复默认 -->
       <div class="settings-section">
         <button class="btn-reset" @click="handleReset">恢复默认</button>
@@ -215,164 +73,98 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useBackgroundConfig, type BackgroundPreset, type ColorTheme, BG_IMAGES } from '@/composables/useBackgroundConfig'
-import { useThemeSystem } from '@/composables/useThemeSystem'
+import { ref, onMounted } from 'vue'
+import { useBackgroundConfig, THEMES, BG_IMAGES } from '@/composables/useBackgroundConfig'
 
 interface Props { mode?: 'compact' | 'full' }
 withDefaults(defineProps<Props>(), { mode: 'compact' })
 
 const bgConfig = useBackgroundConfig()
-const themeSystem = useThemeSystem()
 
-const bgImageList = computed(() => BG_IMAGES)
+const bgImageList = BG_IMAGES
+const loadedImages = ref<Record<string, string>>({})
 
-interface PresetItem { value: BackgroundPreset; icon: string; label: string; description: string }
-interface ThemeItem { value: ColorTheme; color: string; label: string }
+/** 预加载所有背景图缩略图 */
+onMounted(async () => {
+  for (const img of BG_IMAGES) {
+    try {
+      const url = await img.importFn()
+      loadedImages.value[img.id] = url
+    } catch {
+      // 静默跳过
+    }
+  }
+})
 
-const presets: PresetItem[] = [
-  { value: 'dynamic', icon: '✨', label: '动态', description: '动感渐变流动' },
-  { value: 'static', icon: '🎨', label: '静态', description: '固定渐变' },
-  { value: 'minimal', icon: '◆', label: '极简', description: '高端黑' },
-]
-
-const themes: ThemeItem[] = [
-  { value: 'purple', color: '#a855f7', label: '紫色' },
-  { value: 'blue', color: '#3b82f6', label: '蓝色' },
-  { value: 'cyan', color: '#06b6d4', label: '青色' },
-]
+const selectBgImage = (id: string) => {
+  bgConfig.setBgImage(bgConfig.bgImageId.value === id ? undefined : id)
+}
 
 const handleReset = () => {
   if (confirm('确定要恢复默认设置吗？')) {
     bgConfig.resetToDefault()
-    themeSystem.resetThemeToDefault()
+    bgConfig.applyTheme()
   }
 }
 </script>
 
 <style scoped>
 .background-control { display: flex; align-items: center; gap: 16px; }
-.mode-compact { flex-wrap: wrap; gap: 12px; }
-.compact-mode { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.preset-buttons, .control-buttons, .theme-buttons { display: flex; gap: 8px; align-items: center; }
+.mode-compact { flex-wrap: wrap; gap: 8px; }
 
-.preset-btn, .control-btn, .color-btn {
-  width: 36px; height: 36px; border: 1px solid rgba(255,255,255,0.2);
-  border-radius: 8px; background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.7);
+.theme-btn {
+  width: 36px; height: 36px; border: 1px solid var(--glass-border);
+  border-radius: 8px; background: var(--glass-bg); color: var(--text-secondary);
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   font-size: 1rem; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
 }
-.preset-btn:hover, .control-btn:hover, .color-btn:hover {
-  background: rgba(59,130,246,0.15); border-color: rgba(59,130,246,0.5); color: #3b82f6;
-}
-.preset-btn.active, .control-btn.active, .color-btn.active {
-  background: rgba(59,130,246,0.3); border-color: #3b82f6; color: #3b82f6;
-  box-shadow: 0 0 12px rgba(59,130,246,0.4);
-}
-.color-btn { width: 32px; height: 32px; border-radius: 50%; }
-.intensity-group { display: flex; align-items: center; gap: 8px; }
-.intensity-slider { width: 100px; height: 6px; cursor: pointer; accent-color: #3b82f6; }
-.intensity-value { font-size: 0.85rem; color: rgba(255,255,255,0.7); min-width: 40px; text-align: right; }
+.theme-btn:hover { background: rgba(59,130,246,0.15); border-color: rgba(59,130,246,0.5); }
+.theme-btn.active { background: rgba(59,130,246,0.25); border-color: var(--neon-primary); color: var(--neon-primary); box-shadow: 0 0 10px rgba(59,130,246,0.3); }
 
 /* 完整模式 */
-.full-mode {
-  padding: 20px; background: rgba(255,255,255,0.03);
-  border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); width: 100%;
-}
-.settings-section { margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.full-mode { padding: 20px; background: var(--glass-bg); border-radius: 16px; border: 1px solid var(--glass-border); width: 100%; }
+.settings-section { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color); }
 .settings-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-.section-title { font-size: 1.1rem; font-weight: 600; margin: 0 0 16px 0; color: #06b6d4; text-transform: uppercase; letter-spacing: 1px; }
+.section-title { font-size: 1.1rem; font-weight: 600; margin: 0 0 4px 0; color: var(--neon-cyan); text-transform: uppercase; letter-spacing: 1px; }
+.section-desc { font-size: 0.85rem; color: var(--text-muted); margin: 0 0 14px 0; }
 
-/* 预设网格 */
-.presets-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px; }
-.preset-card {
-  padding: 16px 12px; border: 2px solid rgba(255,255,255,0.1); border-radius: 12px;
-  background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.8); cursor: pointer;
-  display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
+/* 主题卡片 */
+.theme-grid { display: flex; flex-direction: column; gap: 10px; }
+.theme-card {
+  display: flex; align-items: center; gap: 14px; padding: 16px;
+  border: 2px solid var(--glass-border); border-radius: 14px;
+  background: var(--input-bg); cursor: pointer;
   transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
 }
-.preset-card:hover { background: rgba(59,130,246,0.1); border-color: rgba(59,130,246,0.3); }
-.preset-card.active { background: rgba(59,130,246,0.15); border-color: #3b82f6; box-shadow: 0 0 16px rgba(59,130,246,0.3); color: #fff; }
-.preset-icon { font-size: 1.8rem; }
-.preset-name { font-weight: 600; font-size: 0.95rem; }
-.preset-desc { font-size: 0.75rem; color: rgba(255,255,255,0.5); }
+.theme-card:hover { border-color: var(--glass-border-hover); background: rgba(59,130,246,0.06); }
+.theme-card.active { border-color: var(--neon-primary); background: rgba(59,130,246,0.10); box-shadow: 0 0 16px rgba(59,130,246,0.15); }
+.theme-icon { font-size: 2rem; line-height: 1; }
+.theme-info { display: flex; flex-direction: column; gap: 2px; }
+.theme-name { font-weight: 600; font-size: 1rem; color: var(--text-primary); }
+.theme-desc { font-size: 0.85rem; color: var(--text-muted); }
 
-/* 背景图选择器 */
-.bg-image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
+/* 背景图 */
+.bg-image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
 .bg-image-card {
-  position: relative; border: 2px solid rgba(255,255,255,0.1); border-radius: 12px;
-  overflow: hidden; cursor: pointer; aspect-ratio: 16/10; transition: all 0.3s;
+  position: relative; border: 2px solid var(--glass-border); border-radius: 12px;
+  overflow: hidden; cursor: pointer; aspect-ratio: 16/10;
+  transition: all 0.3s; background: var(--input-bg);
 }
-.bg-image-card:hover { border-color: rgba(59,130,246,0.5); }
-.bg-image-card.active { border-color: #3b82f6; box-shadow: 0 0 16px rgba(59,130,246,0.4); }
+.bg-image-card:hover { border-color: var(--neon-primary); }
+.bg-image-card.active { border-color: var(--neon-primary); box-shadow: 0 0 12px rgba(59,130,246,0.35); }
 .bg-image-thumb { width: 100%; height: 100%; object-fit: cover; }
-.bg-image-label {
-  position: absolute; bottom: 0; left: 0; right: 0; padding: 4px 8px;
-  background: rgba(0,0,0,0.6); color: white; font-size: 0.75rem; text-align: center;
-}
-.bg-image-card.no-bg { display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255,255,255,0.03); }
-.bg-image-empty { font-size: 2rem; color: rgba(255,255,255,0.3); }
-
-/* 开关 */
-.toggle-wrapper { display: flex; align-items: center; }
-.toggle-label { display: flex; align-items: center; gap: 12px; cursor: pointer; }
-.toggle-btn { position: relative; width: 50px; height: 28px; border: none; border-radius: 14px; background: rgba(255,255,255,0.1); cursor: pointer; transition: all 0.3s; }
-.toggle-btn.active { background: #3b82f6; }
-.toggle-switch { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; background: white; border-radius: 50%; transition: left 0.3s; }
-.toggle-btn.active .toggle-switch { left: 25px; }
-.toggle-text { position: absolute; font-size: 0.75rem; font-weight: 600; color: white; left: 50%; top: 50%; transform: translate(-50%,-50%); }
-.label-text { color: rgba(255,255,255,0.8); font-weight: 500; }
-
-/* 强度 */
-.intensity-wrapper { display: flex; flex-direction: column; gap: 12px; }
-.intensity-slider-full { width: 100%; height: 6px; cursor: pointer; accent-color: #3b82f6; }
-.intensity-display { display: flex; align-items: center; gap: 12px; }
-.intensity-percent { min-width: 45px; font-weight: 600; color: #3b82f6; }
-.intensity-bar { flex: 1; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; }
-.intensity-fill { height: 100%; background: linear-gradient(to right, #3b82f6, #a855f7); transition: width 0.2s; }
-
-/* 主题色 */
-.theme-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 12px; }
-.theme-btn { padding: 12px; border: 2px solid rgba(255,255,255,0.1); border-radius: 12px; background: rgba(255,255,255,0.03); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px; transition: all 0.3s; }
-.theme-btn:hover { border-color: rgba(255,255,255,0.3); }
-.theme-btn.active { border-color: #3b82f6; box-shadow: 0 0 16px rgba(59,130,246,0.3); }
-.theme-color { width: 32px; height: 32px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.3); }
-.theme-name { font-size: 0.85rem; color: rgba(255,255,255,0.8); font-weight: 500; }
-
-/* 对比度 */
-.contrast-section { background: rgba(6,182,212,0.05) !important; border-color: rgba(6,182,212,0.2) !important; border-radius: 12px; padding: 16px; }
-.contrast-info { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; padding: 12px; background: rgba(6,182,212,0.05); border: 1px solid rgba(6,182,212,0.2); border-radius: 8px; }
-.brightness-value { margin: 0; font-size: 0.9rem; color: rgba(255,255,255,0.8); }
-.brightness-value code { background: rgba(6,182,212,0.2); padding: 2px 6px; border-radius: 4px; color: #06b6d4; font-family: 'Courier New', monospace; font-size: 0.85rem; }
-.text-mode { margin: 0; font-size: 0.9rem; color: rgba(255,255,255,0.8); display: flex; align-items: center; gap: 8px; }
-.mode-badge { padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; }
-.mode-badge.light { background: rgba(255,255,255,0.2); color: #ffffff; }
-.mode-badge.dark { background: rgba(26,26,26,0.3); color: rgba(255,255,255,0.8); }
-.contrast-toggle { display: flex; flex-direction: column; gap: 8px; }
-.contrast-desc { font-size: 0.8rem; color: rgba(255,255,255,0.5); margin: 0; }
-.manual-text-color { margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(6,182,212,0.3); }
-.manual-text-color .color-label { margin: 0 0 12px 0; font-size: 0.9rem; color: rgba(255,255,255,0.8); font-weight: 500; }
-.text-color-buttons { display: flex; gap: 12px; }
-.text-color-btn { flex: 1; padding: 10px; border: 2px solid rgba(255,255,255,0.15); border-radius: 8px; background: rgba(255,255,255,0.03); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 6px; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1); color: rgba(255,255,255,0.8); }
-.text-color-btn:hover { background: rgba(6,182,212,0.1); border-color: rgba(6,182,212,0.4); }
-.text-color-btn.active { background: rgba(6,182,212,0.15); border-color: #06b6d4; color: #06b6d4; box-shadow: 0 0 12px rgba(6,182,212,0.3); }
-.btn-label { font-size: 0.85rem; font-weight: 600; }
-.btn-preview { width: 24px; height: 24px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.3); }
-.text-color-btn.light .btn-preview { background: #ffffff; }
-.text-color-btn.dark .btn-preview { background: #1a1a1a; border-color: rgba(0,0,0,0.5); }
+.bg-image-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: var(--text-muted); }
+.bg-image-label { position: absolute; bottom: 0; left: 0; right: 0; padding: 3px 6px; background: rgba(0,0,0,0.55); color: white; font-size: 0.7rem; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bg-image-card.no-bg { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.bg-image-empty { font-size: 1.6rem; color: var(--text-muted); }
 
 /* 按钮 */
-.btn-reset { width: 100%; padding: 12px 16px; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.8); cursor: pointer; font-weight: 600; transition: all 0.3s; }
-.btn-reset:hover { background: rgba(168,85,247,0.15); border-color: rgba(168,85,247,0.5); color: #a855f7; }
+.btn-reset { width: 100%; padding: 12px; border: 1px solid var(--glass-border); border-radius: 10px; background: var(--input-bg); color: var(--text-secondary); cursor: pointer; font-weight: 600; transition: all 0.3s; }
+.btn-reset:hover { background: rgba(168,85,247,0.12); border-color: rgba(168,85,247,0.4); color: var(--neon-purple); }
 
-/* 响应式 */
 @media (max-width: 768px) {
-  .background-control { gap: 8px; }
-  .preset-btn, .control-btn, .color-btn { width: 32px; height: 32px; font-size: 0.9rem; }
-  .intensity-slider { width: 80px; }
   .full-mode { padding: 16px; }
-  .presets-grid { grid-template-columns: repeat(2, 1fr); }
+  .theme-card { padding: 14px; }
   .bg-image-grid { grid-template-columns: repeat(2, 1fr); }
-  .theme-grid { grid-template-columns: repeat(3, 1fr); }
 }
 </style>

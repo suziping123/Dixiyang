@@ -1,7 +1,5 @@
 <template>
   <div class="engine-container">
-    <div class="bg-gradient-animation" :class="{ paused: !bgConfig.animEnabled.value }" :style="{ '--bg-intensity': (bgConfig.intensity.value as any) / 100 }"></div>
-
     <FloatingNav />
 
     <main class="main-stage" :class="{ 'blur-bg': showRag }">
@@ -173,8 +171,6 @@ import CreateCard from '@/components/CreateCard.vue'
 import FloatingNav from '@/components/FloatingNav.vue'
 // 工具/状态导入
 import { useUserStore } from '@/stores/UserStore'
-import { useBackgroundConfig } from '@/composables/useBackgroundConfig'
-import { useThemeSystem } from '@/composables/useThemeSystem'
 import { useTextColorCustomizer } from '@/composables/useTextColorCustomizer'
 import http from '@/utils/http'
 import { confirmDelete } from '@/utils/confirm'
@@ -186,8 +182,6 @@ import SiliconAge from '@/images/silicon Age.png'
 // 路由/状态初始化
 const router = useRouter()
 const userStore = useUserStore()
-const bgConfig = useBackgroundConfig()
-const themeSystem = useThemeSystem()
 const textColorCustomizer = useTextColorCustomizer()
 
 // TS类型定义（与后端 NovelVO @JsonProperty 对齐，后端返回 snake_case）
@@ -251,7 +245,6 @@ const handleCardClick = (novel: Novel, event: Event) => {
 const selectNovel = (novel: Novel) => {
   selectedNovel.value = novel
   showRag.value = true
-  bgConfig.setAnimEnabled(false)
   ragLoading.value = true
   setTimeout(() => { ragLoading.value = false }, 800)
 }
@@ -290,14 +283,11 @@ async function deleteNovel(novel: Novel) {
 // 事件处理：打开创建弹窗
 const openCreateDialog = () => {
   showCreateModal.value = true;
-  // 顺便把背景动画停了，增加专注感（你之前的逻辑）
-  bgConfig.setAnimEnabled(false);
 };
 
-// 事件处理：关闭创建弹窗（恢复背景动画）
+// 事件处理：关闭创建弹窗
 const handleCreateModalClose = () => {
   showCreateModal.value = false
-  bgConfig.setAnimEnabled(true)
 }
 
 // 事件处理：跳转到RAG助手页面
@@ -327,9 +317,6 @@ const fetchNovels = async () => {
     prevNovelCount.value = novels.value.length
 
     nextTick(() => {
-      // 恢复背景动画
-      bgConfig.setAnimEnabled(true)
-
       // 入场动画：所有卡片同一起点同时滑入（无stagger）
       if (hasNewCards || floatAnimation.length === 0) {
         gsap.from(".novel-card, .create-card", {
@@ -387,8 +374,6 @@ onMounted(async () => {
 
   textColorCustomizer.loadFromStorage()
   textColorCustomizer.applyCSSVariables()
-
-  themeSystem.updateTextColorByBrightness(0.3)
 })
 
 // 生命周期：卸载（清理定时器和动画）
