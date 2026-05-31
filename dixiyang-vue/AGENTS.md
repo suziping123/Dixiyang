@@ -322,21 +322,39 @@ npm run test:unit
    - 前后端同时开发
 
 ---
-## 背景系统
+## 主题系统
 
-### 背景预设（3种）
-- `dynamic`: 暗色动态渐变 + 浅色文字
-- `static`: 浅灰固定背景 + 深色文字（**默认**）
-- `minimal`: 纯黑极简 + 浅色文字
+### 全局主题（3套）
+每个主题是完整的 CSS class，定义所有页面元素的配色和风格。
+
+| 主题 | class | 背景 | 文字 | 适用场景 |
+|------|-------|------|------|---------|
+| 动态暗色 | `theme-dynamic` | 暗色动画渐变 | 浅色 | 沉浸式创作 |
+| 极简暗色 | `theme-minimal-dark` | 纯黑 | 浅色 | 专注写作 |
+| 极简亮色 | `theme-minimal-light` | 纯白 | 深色 | **默认**，日常使用 |
+
+切换主题只需修改 `<html>` 的 class，全部 CSS 变量由 `main.css` 中的 class 定义。
 
 ### 背景图预设
-图片存放在 `public/images/back/`，部署后通过 nginx 静态服务访问。
-注册表在 `useBackgroundConfig.ts` 的 `BG_IMAGES` 数组中。
-新增背景图只需：1. 将图片放入 `public/images/back/`  2. 在 `BG_IMAGES` 中添加一行。
+图片存放在 `src/images/back/`，通过 `import.meta.glob` 自动发现。
+新增背景图只需将图片放入该目录，重启 dev server 即可自动识别。
+背景图以 QQ 聊天背景风格叠加（半透明 + 轻微模糊），不影响前方内容可读性。
 
-### 自定义背景上传（已删除）
-不再支持用户上传自定义背景图片，仅提供预设背景图和背景预设选择。
+### 使用方式
+```typescript
+// 获取主题配置 composable
+const bgConfig = useBackgroundConfig()
+
+// 切换主题
+bgConfig.setTheme('minimal-light')
+
+// 切换背景图（null 为无背景图）
+bgConfig.setBgImage('my-image-name')
+
+// 恢复默认
+bgConfig.resetToDefault()
+```
 
 ---
-*文档版本: v1.1*
+*文档版本: v1.2*
 *最后更新: 2026-05-31*
