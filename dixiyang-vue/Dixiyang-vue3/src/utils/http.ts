@@ -5,7 +5,7 @@ import type { ApiResponse } from '@/api/types'
 
 const http: AxiosInstance = axios.create({
   baseURL: '/api',
-  timeout: 1000000
+  timeout: 10000
 })
 
 // 请求拦截器：自动携带 Token

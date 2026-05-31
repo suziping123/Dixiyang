@@ -20,9 +20,9 @@
   --neon-secondary: #93c5fd;
 
   /* 深色背景 */
-  --dark-bg: #0a0a0c;
-  --dark-secondary: #0f0f12;
-  --dark-tertiary: #16161a;
+  --dark-bg: #161313;
+  --dark-secondary: #ebebef;
+  --dark-tertiary: #e0e0e4;
 
   /* 阴影系统 */
   --card-shadow: 0 20px 40px rgba(0,0,0,0.4);

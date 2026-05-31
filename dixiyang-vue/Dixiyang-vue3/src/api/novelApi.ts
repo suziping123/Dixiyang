@@ -17,14 +17,18 @@ export interface NovelDTO {
   coverUrl?: string;
 }
 
-// 小说VO类型定义
-export interface NovelVO extends NovelDTO {
+// 小说VO类型定义（后端 NovelVO 使用 @JsonProperty 返回 snake_case）
+export interface NovelVO {
   id: string | number;
+  title: string;
+  pen_name: string;
+  description: string;
+  cover_url: string;
   createTime?: string;
   updateTime?: string;
-  charCount?: number;
-  nodeCount?: number;
-  relationCount?: number;
+  char_count?: number;
+  node_count?: number;
+  relation_count?: number;
 }
 
 // 分页返回结果类型

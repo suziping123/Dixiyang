@@ -11,13 +11,11 @@ import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import http, { assertApiResponse } from '@/utils/http'
 import { useUserStore } from '@/stores/UserStore'
-import { useBackgroundConfig } from '@/composables/useBackgroundConfig'
-import type { LoginResponse, RegisterResponse, ApiResponse } from '@/api/types'
+import type { LoginResponse, RegisterResponse } from '@/api/types'
 
 export function useAuth() {
   const router = useRouter()
   const userStore = useUserStore()
-  const bgConfig = useBackgroundConfig()
   const isSignUp = ref(false)
 
   const loginForm = reactive({ username: '', password: '' })
@@ -32,9 +30,7 @@ export function useAuth() {
     try {
       const res = await http.post('/auth/login', loginForm)
       const apiRes = assertApiResponse<{ token: string; user: LoginResponse }>(res)
-      console.log('后端返回的原始数据:', apiRes)
       if (apiRes.code === 200) {
-        console.log('data内容:', apiRes.data)
         const { token, user } = apiRes.data
         // 修复：增加用户信息存在性校验，并使用非空断言满足 TS 类型要求
         if (!user) {
@@ -43,9 +39,6 @@ export function useAuth() {
         }
         userStore.setLoginInfo(token, user.username, String(user.userId), user.nickname!, user.email || '')
         ElMessage.success(`欢迎回来, ${user.nickname}`)
-
-        // 🆕 登录成功后，自动从后端加载用户的背景配置
-        await bgConfig.loadFromBackend()
 
         router.push('/home')
       } else {

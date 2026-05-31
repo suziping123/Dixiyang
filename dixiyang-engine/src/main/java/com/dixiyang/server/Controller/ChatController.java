@@ -8,6 +8,7 @@
     */
     package com.dixiyang.server.Controller;
 
+    import lombok.extern.slf4j.Slf4j;
     import org.springframework.ai.chat.client.ChatClient;
     import org.springframework.ai.document.Document;
     import org.springframework.web.bind.annotation.GetMapping;
@@ -33,6 +34,7 @@
      */
     @Tag(name = "聊天模块")
     @RestController
+    @Slf4j
     public class ChatController {
         
         private final ChatClient chatClient;
@@ -104,7 +106,7 @@
                         );
                     }
                 } catch (Exception e) {
-                    System.out.println("RAG 检索失败，仅使用数据库上下文: " + e.getMessage());
+                    log.error("RAG 检索失败，仅使用数据库上下文: {}", e.getMessage(), e);
                     // 继续使用仅数据库上下文的模式
                 }
             }

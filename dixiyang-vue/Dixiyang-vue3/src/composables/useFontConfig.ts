@@ -52,8 +52,8 @@ export function useFontConfig() {
         size.value = config.size !== undefined ? config.size : DEFAULT_CONFIG.size
         scale.value = config.scale !== undefined ? config.scale : DEFAULT_CONFIG.scale
       }
-    } catch (error) {
-      console.error('Failed to load font config from storage:', error)
+    } catch {
+      // 加载字体配置失败，使用默认值
     }
   }
 
@@ -68,8 +68,8 @@ export function useFontConfig() {
         scale: scale.value,
       }
       localStorage.setItem(FONT_STORAGE_KEY, JSON.stringify(config))
-    } catch (error) {
-      console.error('Failed to save font config to storage:', error)
+    } catch {
+      // 保存字体配置失败
     }
   }
 

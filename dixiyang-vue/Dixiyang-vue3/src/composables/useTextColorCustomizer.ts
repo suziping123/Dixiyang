@@ -209,7 +209,6 @@ export function useTextColorCustomizer() {
       const resData = res as any
       if (resData.code === 200) {
         syncMessage.value = '✅ 颜色已保存'
-        console.log('✅ 文本颜色配置已保存到后端')
         return true
       } else {
         syncMessage.value = '❌ 保存失败'
@@ -246,7 +245,6 @@ export function useTextColorCustomizer() {
           descriptionColor.value = bgConfig.fontColors.descriptionColor || DEFAULT_CONFIG.descriptionColor || ''
           linkColor.value = bgConfig.fontColors.linkColor || DEFAULT_CONFIG.linkColor || ''
           accentColor.value = bgConfig.fontColors.accentColor || DEFAULT_CONFIG.accentColor || ''
-          console.log('✅ 从后端加载文本颜色配置成功')
           return true
         }
       }

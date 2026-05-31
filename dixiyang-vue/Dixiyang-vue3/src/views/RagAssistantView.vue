@@ -326,9 +326,8 @@ const sendMessage = async () => {
           content: assertStringResponse(response),
           timestamp: new Date()
         })
-      } catch (ragError) {
-        // 如果失败，尝试降级模式（关闭RAG）
-        console.log('请求失败，尝试降级模式:', ragError)
+      } catch {
+        // RAG请求失败，尝试降级模式（关闭RAG）
 
         const fallbackResponse = await http.post('/chat', {
           message: message,

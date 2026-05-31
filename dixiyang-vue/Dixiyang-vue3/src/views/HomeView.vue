@@ -35,7 +35,7 @@
               <div class="novel-cover-wrapper">
                 <button class="novel-cover">
                   <img
-                    :src="novel.title === '硅基时代' ? SiliconAge : (novel.cover || defaultCover)"
+                    :src="novel.title === '硅基时代' ? SiliconAge : (novel.cover_url || defaultCover)"
                     alt="封面"
                   >
                 </button>
@@ -58,21 +58,21 @@
                   <div class="stat">
                     <svg class="stat-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h16V4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16v-2H4V6z"/></svg>
                     <span>节点</span>
-                    <b class="stat-value">{{ novel.nodeCount || 0 }}</b>
+                    <b class="stat-value">{{ novel.node_count || 0 }}</b>
                   </div>
                   <div class="stat" v-if="hoveredCard === novel.id">
                     <svg class="stat-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-5.04-6.71l-2.75 3.54-2.16-2.66c-.44-.53-1.25-.53-1.69 0-.44.54-.44 1.39 0 1.93l3 3.68c.44.53 1.25.53 1.69 0L21.27 9c.44-.54.44-1.39 0-1.93-.44-.54-1.25-.54-1.69 0l-6.62 8.22z"/></svg>
                     <span>关联</span>
-                    <b class="stat-value">{{ novel.relationCount || 0 }}</b>
+                    <b class="stat-value">{{ novel.relation_count || 0 }}</b>
                   </div>
                 </div>
                 <button class="enter-btn character-btn" @click.stop="openCharacterManager(novel)">
                   <span class="btn-text">角色管理</span>
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
                 </button>
-                <button class="enter-btn" @click.stop="deleteNovel(novel)">
+                <button class="enter-btn delete-btn" @click.stop="deleteNovel(novel)">
                   <span class="btn-text">删除小说</span>
-                  <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M5 13l4 4L19 7"/></svg>
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
                 </button>
                 <button class="enter-btn" @click.stop="openNovel(novel)">
                   <span class="btn-text">进入创作</span>
@@ -121,11 +121,11 @@
           </div>
           <div class="info-section">
             <strong>⏳ 历史线索：</strong>
-            <p>{{ selectedNovel.nodeCount || 0 }} 个节点已记录</p>
+            <p>{{ selectedNovel.node_count || 0 }} 个节点已记录</p>
           </div>
           <div class="info-section">
             <strong>🔗 关联世界：</strong>
-            <p>{{ selectedNovel.relationCount || 0 }} 个相关宇宙</p>
+            <p>{{ selectedNovel.relation_count || 0 }} 个相关宇宙</p>
           </div>
 
           <button class="enter-btn rag-enter-btn" @click="goToRagAssistant">
@@ -190,18 +190,19 @@ const bgConfig = useBackgroundConfig()
 const themeSystem = useThemeSystem()
 const textColorCustomizer = useTextColorCustomizer()
 
-// TS类型定义（补全缺失字段）
+// TS类型定义（与后端 NovelVO @JsonProperty 对齐，后端返回 snake_case）
 interface Novel {
   id: string | number
   title: string
-  cover?: string
+  cover_url?: string
   description?: string
-  penName?: string // 新增：模板用到的笔名字段
-  char_count?: number // 新增：角色数
-  nodeCount?: number // 新增：节点数
-  relationCount?: number // 新增：关联数
-  chapters?: number
-  [key: string]: unknown // 兜底：允许其他字段
+  pen_name?: string
+  char_count?: number
+  node_count?: number
+  relation_count?: number
+  createTime?: string
+  updateTime?: string
+  [key: string]: unknown
 }
 
 
@@ -257,12 +258,12 @@ const selectNovel = (novel: Novel) => {
 
 // 事件处理：进入小说编辑
 const openNovel = (novel: Novel) => {
-  router.push({ name: 'novel-editor', params: { id: novel.id } }).catch(err => console.error('跳转编辑页失败:', err))
+  router.push({ name: 'novel-editor', params: { id: novel.id } })
 }
 
 // 事件处理：进入角色管理
 const openCharacterManager = (novel: Novel) => {
-  router.push({ name: 'character-manager', params: { novelId: novel.id } }).catch(err => console.error('跳转角色管理页失败:', err))
+  router.push({ name: 'character-manager', params: { novelId: novel.id } })
 }
 async function deleteNovel(novel: Novel) {
   try {
@@ -280,9 +281,9 @@ async function deleteNovel(novel: Novel) {
           selectedNovel.value = null
         }
       })
-      .catch(err => console.error('删除小说失败:', err))
-  } catch (error) {
-    console.error('确认删除失败:', error)
+      .catch(() => {})
+  } catch {
+    // 用户取消确认
   }
 }
 
@@ -301,12 +302,12 @@ const handleCreateModalClose = () => {
 
 // 事件处理：跳转到RAG助手页面
 const showKnowledgeGraph = () => {
-  console.log('需要打开知识图谱窗口...')
+  // TODO: 实现知识图谱窗口
 }
 
 // 从概览抽屉进入RAG助手
 const goToRagAssistant = () => {
-  router.push('/rag-assistant').catch(() => console.log('RAG助手功能开发中...'))
+  router.push('/rag-assistant')
 }
 
 // 存储之前的小说数量，用于判断是否是新卡片
@@ -329,65 +330,65 @@ const fetchNovels = async () => {
       // 恢复背景动画
       bgConfig.setAnimEnabled(true)
 
-      // 入场动画：包含小说卡片和创建卡片，从下方滑入
-      if (hasNewCards || floatAnimation === null) {
+      // 入场动画：所有卡片同一起点同时滑入（无stagger）
+      if (hasNewCards || floatAnimation.length === 0) {
         gsap.from(".novel-card, .create-card", {
-          y: 50,
-          duration: 0.6,
-          stagger: 0.1,
-          ease: "back.out(1.2)",
+          y: 40,
+          opacity: 0,
+          duration: 0.5,
+          ease: "power2.out",
           onComplete: () => {
-            // 入场动画完成后启动悬浮动画
             startFloatAnimation()
           }
         });
       } else {
-        // 没有新卡片，直接确保悬浮动画正常
         startFloatAnimation()
       }
     });
-  } catch (error) {
-    console.error('获取小说失败:', error);
+  } catch {
+    // 获取小说列表失败
   } finally {
     isLoading.value = false;
   }
 }
 
 // 保存悬浮动画实例
-let floatAnimation: gsap.core.Animation | null = null
+let floatAnimation: gsap.core.Tween[] = []
 
-// 启动卡片悬浮动画（包含创建卡片）
+// 启动卡片悬浮动画（每张卡片独立随机幅度和节奏）
 const startFloatAnimation = () => {
   // 先清除之前的动画
-  if (floatAnimation) {
-    floatAnimation.kill()
+  if (floatAnimation.length) {
+    floatAnimation.forEach(tw => tw.kill())
+    floatAnimation = []
   }
-  floatAnimation = gsap.to(".novel-card, .create-card", {
-    y: 15,
-    duration: 4,
-    repeat: -1,
-    yoyo: true,
-    ease: "sine.inOut",
-    stagger: 0.2
+
+  const cards = document.querySelectorAll('.novel-card, .create-card')
+  cards.forEach((card) => {
+    const randomY = 5 + Math.random() * 15 // 5~20px 随机幅度
+    const randomDuration = 3 + Math.random() * 2 // 3~5秒 随机周期
+    const randomDelay = Math.random() * 2 // 0~2秒 随机延迟
+
+    const tw = gsap.to(card, {
+      y: randomY,
+      duration: randomDuration,
+      repeat: -1,
+      yoyo: true,
+      ease: 'sine.inOut',
+      delay: randomDelay,
+    })
+    floatAnimation.push(tw)
   })
 }
 
 // 生命周期：挂载
 onMounted(async () => {
-  await fetchNovels() // 等待数据加载
+  await fetchNovels()
 
-  // 初始化文字颜色配置
   textColorCustomizer.loadFromStorage()
   textColorCustomizer.applyCSSVariables()
 
-  // 初始化主题/背景
-  if (bgConfig.preset.value === 'custom' && bgConfig.customImageUrl.value) {
-    themeSystem.sampleCustomImageBrightness(bgConfig.customImageUrl.value).catch(() => {
-      themeSystem.updateTextColorByBrightness(0.3)
-    })
-  } else {
-    themeSystem.updateTextColorByBrightness(0.3)
-  }
+  themeSystem.updateTextColorByBrightness(0.3)
 })
 
 // 生命周期：卸载（清理定时器和动画）
@@ -395,33 +396,14 @@ onBeforeUnmount(() => {
   clickTimers.forEach(timer => clearTimeout(timer))
   clickTimers.clear()
   // 清理悬浮动画
-  if (floatAnimation) {
-    floatAnimation.kill()
+  if (floatAnimation.length) {
+    floatAnimation.forEach(tw => tw.kill())
+    floatAnimation = []
   }
 })
 </script>
 
 <style scoped>
-:root {
-  --glass-bg: rgba(246, 246, 246, 0.05);
-  --glass-border: rgba(255, 255, 255, 0.15);
-  --glass-border-hover: rgba(255, 255, 255, 0.3);
-  --neon-purple: #a855f7;
-  --neon-blue: #3b82f6;
-  --neon-cyan: #06b6d4;
-  --dark-bg: #000000;
-  --card-shadow: 0 20px 40px rgba(0,0,0,0.4);
-  --glow-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
-
-  /* 动态文字颜色变量 - 默认浅色文本（深色背景） */
-  --text-primary: #ffffff;
-  --text-secondary: rgba(255, 255, 255, 0.7);
-  --text-muted: rgba(255, 255, 255, 0.5);
-  --text-disabled: rgba(255, 255, 255, 0.3);
-  --description-color: rgb(255, 252, 252);
-  --description-secondary: rgba(255, 255, 255, 0.8);
-}
-
 /* ============ 主容器 ============ */
 .engine-container {
   min-height: 100vh;
@@ -442,14 +424,11 @@ onBeforeUnmount(() => {
   left: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle at 20% 50%, rgba(168, 85, 247, 0.12) 0%, transparent 50%),
-  radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.12) 0%, transparent 50%),
-  radial-gradient(circle at 50% 0%, rgba(6, 182, 212, 0.08) 0%, transparent 50%),
-  radial-gradient(circle at center, #1e1b4b 0%, #0a0a0c 70%);
+  background: transparent;
   z-index: 0;
-  animation: rotate 30s linear infinite;
   opacity: var(--bg-intensity, 1);
   transition: opacity 0.3s ease;
+  pointer-events: none;
 }
 
 .bg-gradient-animation.paused { animation-play-state: paused; }
@@ -857,6 +836,18 @@ onBeforeUnmount(() => {
 .enter-btn:hover .btn-icon {
   opacity: 1;
   transform: translateX(0);
+}
+
+.enter-btn.delete-btn {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.1));
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+.enter-btn.delete-btn:hover {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.3), rgba(220, 38, 38, 0.2));
+  border-color: rgba(239, 68, 68, 0.6);
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
 }
 
 .card-border-gradient {
