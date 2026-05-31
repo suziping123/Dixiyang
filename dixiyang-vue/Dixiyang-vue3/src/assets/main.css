@@ -178,7 +178,9 @@ html.theme-minimal-light {
 }
 
 /* ============================================
-   背景图 QQ 风格覆盖层
+   背景图
+   body 背景 = 图片（由 JS 设 inline style）
+   body::before = 半透明遮罩（保证文字可读）
    ============================================ */
 
 body.has-bg-image::before {
@@ -186,16 +188,22 @@ body.has-bg-image::before {
   position: fixed;
   inset: 0;
   z-index: 0;
-  background-image: var(--bg-image-url);
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
-  opacity: 0.5;
-  filter: blur(2px) saturate(0.85);
   pointer-events: none;
 }
 
+html.theme-dynamic body.has-bg-image::before {
+  background: rgba(10,10,12,0.30);
+}
+
+html.theme-minimal-dark body.has-bg-image::before {
+  background: rgba(0,0,0,0.35);
+}
+
+html.theme-minimal-light body.has-bg-image::before {
+  background: rgba(255,255,255,0.10);
+}
+
+/* 无背景图时 - 动态暗色用渐变 */
 body.theme-dynamic-bg {
   background: var(--surface-page);
   background-image: var(--bg-gradient);

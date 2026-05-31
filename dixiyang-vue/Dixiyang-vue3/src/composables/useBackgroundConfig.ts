@@ -10,7 +10,6 @@ export const THEMES: ThemeOption[] = [
   { id: 'minimal-light', label: '极简亮色', icon: '☀️', description: '纯色背景 · 深色文字' },
 ]
 
-/** 预设背景图 - 自动发现 src/images/back/ */
 const bgImageGlob = import.meta.glob<string>('@/images/back/*.{png,jpg,jpeg,webp}', { eager: false, query: '?url', import: 'default' })
 
 export interface BgImageItem { id: string; label: string; importFn: () => Promise<string> }
@@ -49,16 +48,14 @@ export function useBackgroundConfig() {
     const html = document.documentElement
     const body = document.body
 
-    // 1. 切主题 class
+    // 1. 主题 class 到 <html>
     html.className = `theme-${themeId.value}`
+
+    // 2. 清空 body 样式
     body.className = ''
+    body.style.cssText = ''
 
-    // 2. 动态暗色加背景动画
-    if (themeId.value === 'dynamic') {
-      body.classList.add('theme-dynamic-bg')
-    }
-
-    // 3. 背景图叠加（QQ 风格：通过 body::before 实现 blur+opacity）
+    // 3. 背景图直接作为 body 背景
     if (bgImageId.value) {
       const item = BG_IMAGES.find(i => i.id === bgImageId.value)
       if (item) {
@@ -66,18 +63,17 @@ export function useBackgroundConfig() {
           const url = await item.importFn()
           bgImageUrl.value = url
           body.classList.add('has-bg-image')
-          body.style.setProperty('--bg-image-url', `url('${url}')`)
-        } catch { clearBgImage(body) }
+          body.style.background = `url('${url}') center/cover no-repeat fixed`
+          return
+        } catch { /* fall through to no-image */ }
       }
-    } else {
-      clearBgImage(body)
     }
-  }
 
-  const clearBgImage = (body: HTMLElement) => {
+    // 4. 无背景图 → 主题固有背景
     bgImageUrl.value = undefined
-    body.classList.remove('has-bg-image')
-    body.style.removeProperty('--bg-image-url')
+    if (themeId.value === 'dynamic') {
+      body.classList.add('theme-dynamic-bg')
+    }
   }
 
   const setTheme = (id: ThemeId) => { themeId.value = id }
@@ -85,7 +81,6 @@ export function useBackgroundConfig() {
   const resetToDefault = () => { themeId.value = DEFAULT.themeId; bgImageId.value = undefined; bgImageUrl.value = undefined }
 
   watch([themeId, bgImageId], () => { saveToStorage(); applyTheme() })
-
   onMounted(() => { loadFromStorage(); applyTheme() })
 
   return { themeId, bgImageId, bgImageUrl, activeTheme, setTheme, setBgImage, resetToDefault, applyTheme }
