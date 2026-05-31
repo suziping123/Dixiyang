@@ -367,7 +367,7 @@ const goBack = () => {
 <style scoped>
 .settings-container {
   min-height: 100vh;
-  background: var(--dark-bg);
+  background: transparent;
   color: var(--text-primary);
   overflow: hidden;
   position: relative;
@@ -454,7 +454,7 @@ const goBack = () => {
 }
 
 .menu-item.active {
-  color: white;
+  color: var(--text-primary);
   background: rgba(59, 130, 246, 0.15);
   border-color: var(--neon-primary);
   box-shadow: inset 0 0 12px rgba(59, 130, 246, 0.1);
@@ -518,7 +518,7 @@ const goBack = () => {
 
 .form-label {
   font-weight: 600;
-  color: white;
+  color: var(--text-primary);
   font-size: 0.95rem;
 }
 
@@ -530,10 +530,10 @@ const goBack = () => {
 
 .form-input {
   padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--input-bg);
   border: 1px solid var(--glass-border);
   border-radius: 10px;
-  color: white;
+  color: var(--text-primary);
   font-size: 0.95rem;
   transition: all 0.3s;
 }
@@ -653,7 +653,7 @@ const goBack = () => {
 
 .checkbox-label {
   font-weight: 600;
-  color: white;
+  color: var(--text-primary);
   flex: 1;
 }
 

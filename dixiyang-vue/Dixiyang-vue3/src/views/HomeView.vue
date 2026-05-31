@@ -392,7 +392,7 @@ onBeforeUnmount(() => {
 /* ============ 主容器 ============ */
 .engine-container {
   min-height: 100vh;
-  background: var(--dark-bg);
+  background: transparent;
   color: var(--text-primary);
   overflow: hidden;
   position: relative;
