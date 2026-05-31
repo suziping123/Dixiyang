@@ -1,12 +1,11 @@
 import { ref, computed, watch } from 'vue'
 
-export type ThemeId = 'dark' | 'light'
+export type ThemeId = 'dark'
 
 interface ThemeOption { id: ThemeId; label: string; icon: string; description: string }
 
 export const THEMES: ThemeOption[] = [
-  { id: 'dark',  label: '极简暗色', icon: '🌙', description: '暗色玻璃 · 浅色文字' },
-  { id: 'light', label: '极简亮色', icon: '☀️', description: '亮色玻璃 · 深色文字' },
+  { id: 'dark', label: '暗色', icon: '🌙', description: '暗色玻璃 · 浅色文字' },
 ]
 
 const bgGlob = import.meta.glob<string>('@/images/back/*.{png,jpg,jpeg,webp}', { eager: false, query: '?url', import: 'default' })
@@ -21,79 +20,95 @@ export const BG_IMAGES: BgImageItem[] = Object.entries(bgGlob).map(([path, fn]) 
 
 interface Config { themeId: ThemeId; bgImageId?: string }
 const STORAGE_KEY = 'dixiyang_theme_config'
-const DEFAULT: Config = { themeId: 'light', bgImageId: undefined }
+const DEFAULT: Config = { themeId: 'dark', bgImageId: undefined }
 
-export function useBackgroundConfig() {
-  const themeId = ref<ThemeId>(DEFAULT.themeId)
-  const bgImageId = ref<string | undefined>(undefined)
-  const bgImageUrl = ref<string | undefined>(undefined)
-  const activeTheme = computed(() => THEMES.find(t => t.id === themeId.value) || THEMES[0])
+// === 模块级单例状态 ===
+const _themeId = ref<ThemeId>(DEFAULT.themeId)
+const _bgImageId = ref<string | undefined>(undefined)
+const _bgImageUrl = ref<string | undefined>(undefined)
 
-  const loadFromStorage = () => {
-    try {
-      const s = localStorage.getItem(STORAGE_KEY)
-      if (!s) return
-      const c = JSON.parse(s) as Partial<Config>
-      themeId.value = c.themeId || DEFAULT.themeId
-      bgImageId.value = c.bgImageId
-    } catch { /* */ }
+function saveToStorage() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ themeId: _themeId.value, bgImageId: _bgImageId.value }))
+}
+
+async function applyBackground() {
+  const body = document.body
+  if (!body) return
+
+  body.className = ''
+  body.style.background = ''
+  body.style.backgroundImage = ''
+
+  let bgEl = document.getElementById('theme-bg')
+  if (!bgEl) {
+    bgEl = document.createElement('div')
+    bgEl.id = 'theme-bg'
+    body.insertBefore(bgEl, body.firstChild)
   }
 
-  const saveToStorage = () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ themeId: themeId.value, bgImageId: bgImageId.value }))
-  }
-
-  const apply = async () => {
-    const html = document.documentElement
-    const body = document.body
-
-    // --- 主题 ---
-    html.className = `theme-${themeId.value}`
-    body.className = ''
-    body.style.background = ''
-    body.style.backgroundImage = ''
-
-    // --- 背景图（真实 DOM 元素，不依赖 body background） ---
-    let bgEl = document.getElementById('theme-bg')
-    if (!bgEl) {
-      bgEl = document.createElement('div')
-      bgEl.id = 'theme-bg'
-      // 直接插入到 body 的最前面
-      body.insertBefore(bgEl, body.firstChild)
-    }
-
-    if (bgImageId.value) {
-      const item = BG_IMAGES.find(i => i.id === bgImageId.value)
-      if (item) {
-        try {
-          const url = await item.importFn()
-          bgImageUrl.value = url
-          const isDark = themeId.value === 'dark'
-          const overlay = isDark
-            ? 'rgba(0,0,0,' + (item.darkOverlay ?? 0.15) + ')'
-            : 'rgba(255,255,255,0.1)'
-
-          bgEl.style.cssText = `
-            position: fixed; inset: 0; z-index: 0;
-            background: linear-gradient(${overlay}, ${overlay}),
-                        url('${url}') center/cover no-repeat fixed;
-            pointer-events: none;
-          `
-        } catch {
-          bgEl.style.cssText = 'display: none'
-        }
+  if (_bgImageId.value) {
+    const item = BG_IMAGES.find(i => i.id === _bgImageId.value)
+    if (item) {
+      try {
+        const url = await item.importFn()
+        _bgImageUrl.value = url
+        const overlay = 'rgba(0,0,0,' + (item.darkOverlay ?? 0.15) + ')'
+        bgEl.style.cssText = `
+          position: fixed; inset: 0; z-index: 0;
+          background: linear-gradient(${overlay}, ${overlay}),
+                      url('${url}') center/cover no-repeat fixed;
+          pointer-events: none;
+        `
+      } catch {
+        bgEl.style.cssText = 'display: none'
       }
-    } else {
-      bgImageUrl.value = undefined
-      bgEl.style.cssText = 'display: none'
     }
+  } else {
+    _bgImageUrl.value = undefined
+    bgEl.style.cssText = 'display: none'
   }
+}
 
-  const setTheme = (id: ThemeId) => { themeId.value = id }
-  const setBgImage = (id: string | undefined) => { bgImageId.value = id }
-  const resetToDefault = () => { themeId.value = DEFAULT.themeId; bgImageId.value = undefined }
+// === 模块级 watcher（单例，不会随组件销毁而失活） ===
+watch([_themeId, _bgImageId], () => {
+  saveToStorage()
+  document.documentElement.className = `theme-${_themeId.value}`
+  applyBackground()
+})
 
-  watch([themeId, bgImageId], () => { saveToStorage(); apply() })
+/** 在挂载前调用：读取 localStorage 并立即设置 html class（无闪烁） */
+export function initTheme() {
+  try {
+    const s = localStorage.getItem(STORAGE_KEY)
+    if (s) {
+      const c = JSON.parse(s) as Partial<Config>
+      _themeId.value = c.themeId || DEFAULT.themeId
+      _bgImageId.value = c.bgImageId
+    }
+  } catch { /* */ }
 
-  return { themeId, bgImageId, bgImageUrl, activeTheme, setTheme, setBgImage, resetToDefault, apply }
+  document.documentElement.className = `theme-${_themeId.value}`
+
+  if (document.body) {
+    document.body.className = ''
+    document.body.style.background = ''
+    document.body.style.backgroundImage = ''
+    // 背景图异步加载
+    applyBackground()
+  }
+}
+
+/** 组件内使用的 composable（读取单例 ref） */
+export function useBackgroundConfig() {
+  const activeTheme = computed(() => THEMES.find(t => t.id === _themeId.value) || THEMES[0])
+
+  return {
+    themeId: _themeId,
+    bgImageId: _bgImageId,
+    bgImageUrl: _bgImageUrl,
+    activeTheme,
+    setTheme: (id: ThemeId) => { _themeId.value = id },
+    setBgImage: (id: string | undefined) => { _bgImageId.value = id },
+    resetToDefault: () => { _themeId.value = DEFAULT.themeId; _bgImageId.value = undefined },
+  }
 }

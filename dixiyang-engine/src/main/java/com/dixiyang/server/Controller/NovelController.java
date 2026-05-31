@@ -31,7 +31,7 @@ public class NovelController {
                                       @RequestParam(defaultValue = "1") int page,
                                       @RequestParam(defaultValue = "10") int pageSize) {
         // 如果 userId 为空，可以给个默认值测试
-        if (userId == null) userId = 1L;
+        if (userId == null) return Result.error("用户ID不能为空");
         // 调用 Service，传入从 Token 解析出的真实 userId
         Page<NovelVO> novelPage = novelService.getUserNovelList(userId, page, pageSize);
         return Result.success("获取成功", novelPage);

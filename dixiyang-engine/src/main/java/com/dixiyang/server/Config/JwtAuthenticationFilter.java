@@ -46,6 +46,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         );
                 // 存入上下文后面可以直接拿
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+                request.setAttribute("userId", Long.parseLong(userId));
             } catch (RuntimeException e) {
                 log.warn("JWT 解析失败: {}", e.getMessage());
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);

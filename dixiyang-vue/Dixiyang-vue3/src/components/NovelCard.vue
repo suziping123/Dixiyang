@@ -7,8 +7,9 @@
       <div class="novel-cover-wrapper">
         <button class="novel-cover">
           <img
-            :src="coverUrl"
+            :src="coverUrl || defaultCover"
             :alt="novel.title"
+            @error="(e: Event) => { (e.target as HTMLImageElement).src = defaultCover }"
           >
         </button>
       </div>
@@ -59,6 +60,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { resolveCoverUrl } from '@/utils/localImages'
+import defaultCover from '@/images/default-cover.png'
 
 interface Novel {
   id: string | number
