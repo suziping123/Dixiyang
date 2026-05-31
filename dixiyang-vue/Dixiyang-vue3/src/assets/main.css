@@ -191,12 +191,12 @@ body.has-bg-image::before {
   background-position: center;
   background-repeat: no-repeat;
   background-attachment: fixed;
-  opacity: 0.35;
-  filter: blur(4px) saturate(0.75);
+  opacity: 0.5;
+  filter: blur(2px) saturate(0.85);
   pointer-events: none;
 }
 
-body.theme-dynamic.has-bg-image {
+body.theme-dynamic-bg {
   background: var(--surface-page);
   background-image: var(--bg-gradient);
   background-size: 200% 200%;
