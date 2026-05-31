@@ -1,10 +1,7 @@
 @import "tailwindcss";
 
 /* ============================================
-   全局主题系统 v2
-   每个 html.theme-xxx 定义完整表面-文字映射
-   新增变量用 --surface-* 和 --text-on-* 前缀
-   旧变量保持兼容
+   全局主题系统 v3 — 仅保留 dark / light
    ============================================ */
 
 :root {
@@ -18,72 +15,16 @@
   --font-scale: 1;
 }
 
-/* ========== 主题：动态暗色 ========== */
-html.theme-dynamic {
-  --surface-page: #0a0a0c;
-  --surface-glass: rgba(255,255,255,0.06);
-  --surface-glass-border: rgba(255,255,255,0.12);
-  --surface-glass-border-hover: rgba(255,255,255,0.28);
+/* ========== 极简暗色 ========== */
+html.theme-dark {
+  --surface-page: #0d0d0f;
+  --surface-glass: rgba(255,255,255,0.05);
+  --surface-glass-border: rgba(255,255,255,0.10);
+  --surface-glass-border-hover: rgba(255,255,255,0.22);
   --surface-card: rgba(255,255,255,0.04);
   --surface-input: rgba(255,255,255,0.05);
-  --surface-floating: rgba(15,15,20,0.85);
 
-  --text-on-page: #ffffff;
-  --text-on-glass: #ffffff;
-  --text-on-card: #ffffff;
-  --text-on-input: #ffffff;
-  --text-secondary: rgba(255,255,255,0.7);
-  --text-muted: rgba(255,255,255,0.5);
-  --text-disabled: rgba(255,255,255,0.3);
-  --description-color: #e8e88e;
-  --link-color: #06b6d4;
-
-  --accent-primary: #3b82f6;
-  --accent-secondary: #93c5fd;
-  --accent-purple: #a855f7;
-  --accent-cyan: #06b6d4;
-
-  --shadow-card: 0 20px 40px rgba(0,0,0,0.5);
-  --shadow-glow: 0 0 18px rgba(59,130,246,0.18);
-  --shadow-deep: 0 0 60px rgba(0,0,0,0.8);
-
-  --border-color: rgba(255,255,255,0.08);
-
-  /* 渐变背景动画 */
-  --bg-gradient: radial-gradient(circle at 20% 30%, rgba(168,85,247,0.10) 0%, transparent 45%),
-                 radial-gradient(circle at 80% 70%, rgba(59,130,246,0.10) 0%, transparent 45%),
-                 radial-gradient(circle at 50% 0%, rgba(6,182,212,0.06) 0%, transparent 50%);
-
-  /* ------ 兼容旧变量名 ------ */
-  --text-primary: var(--text-on-page);
-  --glass-bg: var(--surface-glass);
-  --glass-border: var(--surface-glass-border);
-  --glass-border-hover: var(--surface-glass-border-hover);
-  --dark-bg: var(--surface-page);
-  --input-bg: var(--surface-input);
-  --neon-primary: var(--accent-primary);
-  --neon-blue: var(--accent-primary);
-  --neon-cyan: var(--accent-cyan);
-  --neon-purple: var(--accent-purple);
-  --card-shadow: var(--shadow-card);
-  --glow-shadow: var(--shadow-glow);
-  --deep-shadow: var(--shadow-deep);
-}
-
-/* ========== 主题：极简暗色 ========== */
-html.theme-minimal-dark {
-  --surface-page: #0d0d0f;
-  --surface-glass: rgba(255,255,255,0.04);
-  --surface-glass-border: rgba(255,255,255,0.08);
-  --surface-glass-border-hover: rgba(255,255,255,0.20);
-  --surface-card: rgba(255,255,255,0.03);
-  --surface-input: rgba(255,255,255,0.04);
-  --surface-floating: rgba(15,15,20,0.88);
-
-  --text-on-page: #eeeeee;
-  --text-on-glass: #eeeeee;
-  --text-on-card: #eeeeee;
-  --text-on-input: #eeeeee;
+  --text-primary: #eeeeee;
   --text-secondary: rgba(238,238,238,0.70);
   --text-muted: rgba(238,238,238,0.50);
   --text-disabled: rgba(238,238,238,0.30);
@@ -101,9 +42,7 @@ html.theme-minimal-dark {
 
   --border-color: rgba(255,255,255,0.06);
 
-  --bg-gradient: none;
-
-  --text-primary: var(--text-on-page);
+  /* 兼容旧变量名 */
   --glass-bg: var(--surface-glass);
   --glass-border: var(--surface-glass-border);
   --glass-border-hover: var(--surface-glass-border-hover);
@@ -115,23 +54,18 @@ html.theme-minimal-dark {
   --neon-purple: var(--accent-purple);
   --card-shadow: var(--shadow-card);
   --glow-shadow: var(--shadow-glow);
-  --deep-shadow: var(--shadow-deep);
 }
 
-/* ========== 主题：极简亮色 ========== */
-html.theme-minimal-light {
+/* ========== 极简亮色 ========== */
+html.theme-light {
   --surface-page: #f5f5f7;
   --surface-glass: rgba(255,255,255,0.75);
   --surface-glass-border: rgba(0,0,0,0.08);
   --surface-glass-border-hover: rgba(0,0,0,0.18);
   --surface-card: rgba(255,255,255,0.85);
   --surface-input: rgba(255,255,255,0.85);
-  --surface-floating: rgba(245,245,247,0.92);
 
-  --text-on-page: #1a1a2e;
-  --text-on-glass: #1a1a2e;
-  --text-on-card: #1a1a2e;
-  --text-on-input: #1a1a2e;
+  --text-primary: #1a1a2e;
   --text-secondary: rgba(26,26,46,0.72);
   --text-muted: rgba(26,26,46,0.50);
   --text-disabled: rgba(26,26,46,0.30);
@@ -149,9 +83,6 @@ html.theme-minimal-light {
 
   --border-color: rgba(0,0,0,0.06);
 
-  --bg-gradient: none;
-
-  --text-primary: var(--text-on-page);
   --glass-bg: var(--surface-glass);
   --glass-border: var(--surface-glass-border);
   --glass-border-hover: var(--surface-glass-border-hover);
@@ -163,54 +94,10 @@ html.theme-minimal-light {
   --neon-purple: var(--accent-purple);
   --card-shadow: var(--shadow-card);
   --glow-shadow: var(--shadow-glow);
-  --deep-shadow: var(--shadow-deep);
 }
 
 /* ============================================
-   动态暗色 - 背景动画
-   ============================================ */
-
-@keyframes gradientShift {
-  0%   { background-position: 0% 50%; }
-  33%  { background-position: 100% 0%; }
-  66%  { background-position: 50% 100%; }
-  100% { background-position: 0% 50%; }
-}
-
-/* ============================================
-   动态暗色 - 背景动画（无背景图时）
-   ============================================ */
-
-body.has-bg-image::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-}
-
-html.theme-dynamic body.has-bg-image::before {
-  background: rgba(10,10,12,0.30);
-}
-
-html.theme-minimal-dark body.has-bg-image::before {
-  background: rgba(0,0,0,0.35);
-}
-
-html.theme-minimal-light body.has-bg-image::before {
-  background: rgba(255,255,255,0.10);
-}
-
-/* 无背景图时 - 动态暗色用渐变 */
-body.theme-dynamic-bg {
-  background: var(--surface-page);
-  background-image: var(--bg-gradient);
-  background-size: 200% 200%;
-  animation: gradientShift 15s ease-in-out infinite;
-}
-
-/* ============================================
-   全局基础样式
+   全局基础
    ============================================ */
 
 * { box-sizing: border-box; }
@@ -218,33 +105,20 @@ body.theme-dynamic-bg {
 html, body {
   margin: 0; padding: 0;
   background: var(--surface-page);
-  color: var(--text-on-page);
+  color: var(--text-primary);
   font-family: var(--font-family);
   font-size: var(--font-size-base);
   line-height: 1.6;
   scrollbar-width: thin;
-  scrollbar-color: rgba(99,102,241,0.5) rgba(255,255,255,0.1);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background 0.4s ease, color 0.4s ease;
-}
-
-/* 动态暗色背景渐变 + 动画 */
-body.theme-dynamic-bg {
-  background: var(--surface-page);
-  background-image: var(--bg-gradient);
-  background-size: 200% 200%;
-  animation: gradientShift 15s ease-in-out infinite;
 }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
 ::-webkit-scrollbar-thumb { background: rgba(59,130,246,0.4); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(59,130,246,0.7); }
-
-/* ============================================
-   排版
-   ============================================ */
 
 h1, h2, h3, h4, h5, h6 { margin: 0; font-weight: 700; letter-spacing: -0.5px; line-height: 1.2; }
 h1 { font-size: calc(3rem * var(--font-scale, 1)); }
@@ -253,9 +127,9 @@ h3 { font-size: calc(1.875rem * var(--font-scale, 1)); }
 h4 { font-size: calc(1.5rem * var(--font-scale, 1)); }
 h5 { font-size: calc(1.25rem * var(--font-scale, 1)); }
 h6 { font-size: calc(1rem * var(--font-scale, 1)); }
-p { margin: 0; line-height: 1.6; color: var(--text-on-page); }
+p { margin: 0; line-height: 1.6; color: var(--text-primary); }
 
-a { color: var(--link-color); text-decoration: none; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+a { color: var(--link-color); text-decoration: none; transition: all 0.3s; }
 a:hover { color: var(--accent-primary); text-shadow: 0 0 8px rgba(59,130,246,0.4); }
 
 button { font-family: inherit; cursor: pointer; outline: none; border: none; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1); }
@@ -265,7 +139,7 @@ input, textarea, select {
   background: var(--surface-input);
   border: 1px solid var(--surface-glass-border);
   border-radius: 12px;
-  color: var(--text-on-input);
+  color: var(--text-primary);
   padding: 12px 16px;
   font-family: inherit;
   font-size: 1rem;
@@ -280,7 +154,7 @@ input:focus, textarea:focus, select:focus {
 input::placeholder { color: var(--text-muted); }
 
 /* ============================================
-   玻璃拟态通用类
+   玻璃拟态
    ============================================ */
 
 .glass, .glass-sm, .glass-lg, .glass-xl {
@@ -288,15 +162,11 @@ input::placeholder { color: var(--text-muted); }
   backdrop-filter: blur(16px);
   border: 1px solid var(--surface-glass-border);
   border-radius: 16px;
-  color: var(--text-on-glass);
+  color: var(--text-primary);
 }
 .glass-sm { backdrop-filter: blur(12px); border-radius: 12px; }
 .glass-lg { backdrop-filter: blur(20px); border-radius: 24px; }
 .glass-xl { backdrop-filter: blur(25px); border-radius: 32px; }
-
-.shadow-glow { box-shadow: 0 0 20px rgba(59,130,246,0.15); }
-.shadow-deep { box-shadow: var(--shadow-deep); }
-.shadow-card { box-shadow: var(--shadow-card), var(--shadow-glow); }
 
 .glass-card {
   background: var(--surface-glass);
@@ -304,50 +174,38 @@ input::placeholder { color: var(--text-muted); }
   border: 1px solid var(--surface-glass-border);
   border-radius: 24px;
   transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
-  color: var(--text-on-glass);
+  color: var(--text-primary);
 }
 .glass-card:hover {
   border-color: var(--surface-glass-border-hover);
   box-shadow: 0 0 20px rgba(59,130,246,0.15);
 }
 
-.novel-card:hover {
-  animation: cardHover 0.3s ease-out forwards;
-}
+.shadow-glow { box-shadow: 0 0 20px rgba(59,130,246,0.15); }
+.shadow-deep { box-shadow: var(--shadow-deep); }
+.shadow-card { box-shadow: var(--shadow-card), var(--shadow-glow); }
+
+.novel-card:hover { animation: cardHover 0.3s ease-out forwards; }
 
 /* ============================================
    动画
    ============================================ */
 
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes fadeOutDown { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(20px); } }
-@keyframes slideInLeft { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: translateX(0); } }
-@keyframes slideInRight { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-@keyframes glow { 0%, 100% { box-shadow: 0 0 20px rgba(59,130,246,0.12); } 50% { box-shadow: 0 0 40px rgba(59,130,246,0.25); } }
+@keyframes cardHover { from { transform: translateY(0); box-shadow: var(--shadow-card), var(--shadow-glow); } to { transform: translateY(-5px); box-shadow: 0 25px 50px rgba(0,0,0,0.5), 0 0 30px rgba(59,130,246,0.25); } }
+@keyframes buttonHover { from { transform: translateY(0); } to { transform: translateY(-2px); } }
 @keyframes shimmer { 0% { background-position: -1000px 0; } 100% { background-position: 1000px 0; } }
 @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-@keyframes cardHover { from { transform: translateY(0); box-shadow: var(--shadow-card), var(--shadow-glow); } to { transform: translateY(-5px); box-shadow: 0 25px 50px rgba(0,0,0,0.5), 0 0 30px rgba(59,130,246,0.25); } }
-
-.animate-fade-in-up { animation: fadeInUp 0.6s ease-out; }
-.animate-fade-out-down { animation: fadeOutDown 0.6s ease-out; }
-.animate-slide-in-left { animation: slideInLeft 0.6s ease-out; }
-.animate-slide-in-right { animation: slideInRight 0.6s ease-out; }
-.animate-pulse { animation: pulse 2s ease-in-out infinite; }
-.animate-glow { animation: glow 2s ease-in-out infinite; }
-.animate-scale-in { animation: scaleIn 0.4s ease-out; }
 
 button:hover { animation: buttonHover 0.3s ease-out forwards; }
-@keyframes buttonHover { from { transform: translateY(0); } to { transform: translateY(-2px); } }
+
+.animate-fade-in-up { animation: fadeInUp 0.6s ease-out; }
+.animate-scale-in { animation: scaleIn 0.4s ease-out; }
 
 /* ============================================
    渐变文本
    ============================================ */
 
-.gradient-text-primary {
-  background: linear-gradient(135deg, var(--text-on-page) 0%, rgba(255,255,255,0.7) 100%);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-}
 .gradient-text-neon {
   background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-purple) 100%);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
@@ -358,15 +216,14 @@ button:hover { animation: buttonHover 0.3s ease-out forwards; }
 }
 
 /* ============================================
-   媒体 / 实用
+   其他
    ============================================ */
 
 img, video { max-width: 100%; height: auto; display: block; border-radius: 12px; }
 code, pre { font-family: 'Courier New', 'Fira Code', monospace; background: rgba(0,0,0,0.3); border-radius: 6px; }
 code { padding: 2px 6px; font-size: 0.9em; }
-pre { padding: 16px; overflow-x: auto; line-height: 1.5; }
+pre { padding: 16px; overflow-x: auto; }
 pre code { padding: 0; }
-.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border-width: 0; }
 
 table { width: 100%; border-collapse: collapse; background: var(--surface-glass); backdrop-filter: blur(10px); border-radius: 12px; overflow: hidden; }
 th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border-color); }
@@ -379,20 +236,10 @@ tr:hover { background: rgba(59,130,246,0.04); }
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; } }
-@media (prefers-color-scheme: dark) { :root { color-scheme: dark; } }
-
-/* ============================================
-   响应式
-   ============================================ */
-
 @media (max-width: 1920px) { html { font-size: 15px; } }
 @media (max-width: 1024px) { html { font-size: 14px; } }
 @media (max-width: 768px) { html { font-size: 13px; } h1 { font-size: 2rem; } h2 { font-size: 1.5rem; } h3 { font-size: 1.25rem; } }
 @media (max-width: 480px) { html { font-size: 12px; } h1 { font-size: 1.5rem; } h2 { font-size: 1.25rem; } h3 { font-size: 1rem; } }
-
-/* ============================================
-   Element Plus 主题覆盖
-   ============================================ */
 
 :root {
   --el-color-primary: var(--accent-primary);
@@ -400,7 +247,7 @@ tr:hover { background: rgba(59,130,246,0.04); }
   --el-bg-color: var(--surface-page);
   --el-fill-color-blank: transparent;
   --el-border-color-base: var(--surface-glass-border);
-  --el-text-color-primary: var(--text-on-page);
+  --el-text-color-primary: var(--text-primary);
   --el-text-color-regular: var(--text-secondary);
   --el-text-color-secondary: var(--text-muted);
   --el-text-color-placeholder: var(--text-muted);
