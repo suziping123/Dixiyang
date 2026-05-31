@@ -48,14 +48,10 @@ export function useBackgroundConfig() {
     const html = document.documentElement
     const body = document.body
 
-    // 1. 主题 class 到 <html>
     html.className = `theme-${themeId.value}`
-
-    // 2. 清空 body 样式
     body.className = ''
     body.style.cssText = ''
 
-    // 3. 背景图直接作为 body 背景
     if (bgImageId.value) {
       const item = BG_IMAGES.find(i => i.id === bgImageId.value)
       if (item) {
@@ -63,13 +59,19 @@ export function useBackgroundConfig() {
           const url = await item.importFn()
           bgImageUrl.value = url
           body.classList.add('has-bg-image')
-          body.style.background = `url('${url}') center/cover no-repeat fixed`
+
+          // 多背景叠加：上层遮罩 + 下层图片
+          const overlay = themeId.value === 'minimal-light'
+            ? 'linear-gradient(rgba(255,255,255,0.15), rgba(255,255,255,0.15))'
+            : 'linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.35))'
+
+          body.style.background = `${overlay}, url('${url}') center/cover no-repeat fixed`
           return
-        } catch { /* fall through to no-image */ }
+        } catch { /* fall through */ }
       }
     }
 
-    // 4. 无背景图 → 主题固有背景
+    // 无背景图 → 主题固有背景
     bgImageUrl.value = undefined
     if (themeId.value === 'dynamic') {
       body.classList.add('theme-dynamic-bg')
