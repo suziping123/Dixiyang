@@ -325,36 +325,47 @@ npm run test:unit
 ## 主题系统
 
 ### 全局主题（3套）
-每个主题是完整的 CSS class，定义所有页面元素的配色和风格。
+每个主题是完整的 CSS class（`html.theme-xxx`），定义所有页面元素的表面色和文字色。
 
-| 主题 | class | 背景 | 文字 | 适用场景 |
-|------|-------|------|------|---------|
-| 动态暗色 | `theme-dynamic` | 暗色动画渐变 | 浅色 | 沉浸式创作 |
+| 主题 | class | 背景 | 文字色 | 特点 |
+|------|-------|------|--------|------|
+| 动态暗色 | `theme-dynamic` | 暗色动画渐变 | 浅色 | ⭐ 默认，沉浸式 |
 | 极简暗色 | `theme-minimal-dark` | 纯黑 | 浅色 | 专注写作 |
-| 极简亮色 | `theme-minimal-light` | 纯白 | 深色 | **默认**，日常使用 |
+| 极简亮色 | `theme-minimal-light` | 纯白 | 深色 | 日常使用 |
 
-切换主题只需修改 `<html>` 的 class，全部 CSS 变量由 `main.css` 中的 class 定义。
+### CSS 变量体系
+```
+--surface-page        页面背景色
+--surface-glass       玻璃拟态背景色
+--surface-glass-border  玻璃边框色
+--surface-card        卡片背景色
+--surface-input       输入框背景色
 
-### 背景图预设
-图片存放在 `src/images/back/`，通过 `import.meta.glob` 自动发现。
-新增背景图只需将图片放入该目录，重启 dev server 即可自动识别。
-背景图以 QQ 聊天背景风格叠加（半透明 + 轻微模糊），不影响前方内容可读性。
+--text-on-page        直接放在页面背景上的文字
+--text-on-glass       玻璃拟态上的文字
+--text-on-card        卡片上的文字
+--text-on-input       输入框内的文字
+--text-secondary      次要文字
+--text-muted          弱化文字
 
-### 使用方式
+--accent-primary      主强调色
+--accent-cyan         青色强调色
+--accent-purple       紫色强调色
+```
+
+旧变量名 `--text-primary`、`--glass-bg`、`--neon-*` 等保留兼容。
+
+### 背景图
+图片放 `src/images/back/`，通过 `import.meta.glob` 自动发现。以 QQ 风格叠加（opacity: 0.35 + blur(4px)）。
+
+使用：
 ```typescript
-// 获取主题配置 composable
-const bgConfig = useBackgroundConfig()
-
-// 切换主题
-bgConfig.setTheme('minimal-light')
-
-// 切换背景图（null 为无背景图）
-bgConfig.setBgImage('my-image-name')
-
-// 恢复默认
-bgConfig.resetToDefault()
+const bg = useBackgroundConfig()
+bg.setTheme('minimal-light')       // 切主题
+bg.setBgImage('filename')          // 切背景图
+bg.setBgImage(undefined)           // 清除背景图
 ```
 
 ---
-*文档版本: v1.2*
+*文档版本: v1.3*
 *最后更新: 2026-05-31*
