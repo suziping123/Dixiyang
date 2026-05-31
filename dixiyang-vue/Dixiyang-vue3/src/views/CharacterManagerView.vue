@@ -8,7 +8,7 @@
 -->
 <template>
   <div class="character-manager-container">
-    <div class="bg-gradient-animation" :class="{ paused: !bgConfig.animEnabled.value }" :style="{ '--bg-intensity': (bgConfig.intensity.value as any) / 100 }"></div>
+    <div class="bg-gradient-animation"></div>
 
     <FloatingNav />
 
@@ -303,7 +303,6 @@ const resetForm = () => {
 
 const openCreateDialog = () => {
   resetForm()
-  bgConfig.setAnimEnabled(false)
   showDialog.value = true
 }
 
@@ -318,7 +317,6 @@ const openEditDialog = (character: CharacterVO) => {
   form.background = character.background || ''
   form.personality = character.personality || ''
   jsonToExtraFields(character.extra as string | Record<string, unknown> | undefined)
-  bgConfig.setAnimEnabled(false)
   showDialog.value = true
 }
 
@@ -346,7 +344,6 @@ const saveCharacter = async () => {
     }
 
     showDialog.value = false
-    bgConfig.setAnimEnabled(true)
     await fetchCharacters()
   } catch (error) {
     console.error('保存角色失败:', error)

@@ -1,6 +1,6 @@
 <template>
   <div class="rag-page">
-    <div class="bg-gradient-animation" :class="{ paused: !bgConfig.animEnabled.value }"></div>
+    <div class="bg-gradient-animation"></div>
 
     <FloatingNav />
 
