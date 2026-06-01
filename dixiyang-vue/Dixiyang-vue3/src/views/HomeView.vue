@@ -32,8 +32,7 @@
               <!-- 封面层 -->
               <div class="novel-cover-wrapper">
                 <button class="novel-cover">
-                  <img
-                    :src="novel.title === '硅基时代' ? SiliconAge : (novel.cover_url || defaultCover)"
+                  <img :src="resolveNovelCover(novel.cover_url)"
                     alt="封面"
                     @error="(e: Event) => { (e.target as HTMLImageElement).src = defaultCover }"
                   >
@@ -177,7 +176,8 @@ import http from '@/utils/http'
 import { confirmDelete } from '@/utils/confirm'
 // 资源导入
 import defaultCover from '@/images/default-cover.png'
-import SiliconAge from '@/images/silicon Age.png'
+import { resolveNovelCover } from '@/utils/localImages'
+import SiliconAge from '@/images/presets/silicon-age.png'
 
 
 // 路由/状态初始化

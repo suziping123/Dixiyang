@@ -6,14 +6,28 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Java/Maven 相关
+*.class
+*.jar
+*.war
+*.ear
+hs_err_pid*
+replay_pid*
+
+# Spring Boot 相关
+*.pid
+spring-boot-devtools.properties
+
 # 构建产物
 dist/
 build/
 target/
+out/
 
 # 日志文件
 logs/
 *.log
+*.out
 
 # IDE相关
 .idea/
@@ -24,23 +38,42 @@ logs/
 *.njsproj
 *.sln
 *.sw?
+.classpath
+.project
+.settings/
+.factorypath
 
 # 操作系统相关
 .DS_Store
 Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# 环境变量
+# 环境变量（保留示例文件）
 .env
 .env.local
 .env.*.local
+!.env.example
+!.env.template
 
 # 测试相关
 coverage/
 .nyc_output/
+jacoco/
 
 # 临时文件
 *.tmp
 *.temp
 .cache/
+.tmp/
 
-src/main/resources/application.yml
+# Docker 相关
+docker-compose.override.yml
+
+# 前端相关
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# 文档生成（可选，根据需要调整）
+# *.md
