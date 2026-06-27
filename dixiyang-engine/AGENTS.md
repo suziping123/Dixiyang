@@ -151,6 +151,7 @@ src/main/java/com/dixiyang/server/
 
 ### 小说管理接口
 - `GET /novel/listall?page=1&pageSize=10` - 获取小说列表
+- `GET /novel/{id}` - 获取小说详情
 - `POST /novel/create` - 创建小说
 - `POST /novel/update/{novelId}` - 更新小说
 - `POST /novel/delete/{novelId}` - 删除小说
@@ -162,6 +163,22 @@ src/main/java/com/dixiyang/server/
 - `POST /novelCharacter/create` - 创建角色
 - `POST /novelCharacter/update/{id}` - 更新角色
 - `POST /novelCharacter/delete/{id}` - 删除角色
+
+### 时间线管理接口
+- `GET /timeline/all/{novelId}` - 获取小说所有时间线
+- `POST /timeline/create` - 创建时间线
+- `POST /timeline/update/{id}` - 更新时间线
+- `POST /timeline/delete/{id}` - 删除时间线
+
+### 故事节点接口
+- `GET /storyNode/all/{novelId}` - 获取小说所有故事节点
+- `GET /storyNode/timeline/{timelineId}` - 获取时间线下的故事节点
+- `POST /storyNode/create` - 创建故事节点
+- `POST /storyNode/update/{id}` - 更新故事节点
+- `POST /storyNode/delete/{id}` - 删除故事节点
+
+### 文件上传接口
+- `POST /upload/novel-cover` - 上传小说封面（MD5去重）
 
 ### RAG 聊天接口
 - `GET /chat?message=xxx&useRag=true` - GET 方式聊天
