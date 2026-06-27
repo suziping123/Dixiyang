@@ -23,6 +23,7 @@ src/
 ├── api/              # API接口定义
 │   ├── characterApi.ts    # 角色相关API
 │   ├── novelApi.ts        # 小说相关API
+│   ├── timelineApi.ts     # 时间线相关API
 │   └── types.ts           # 类型定义
 ├── assets/           # 静态资源
 │   ├── logo.svg
@@ -34,6 +35,7 @@ src/
 │   ├── FloatingNav.vue          # 浮动导航组件
 │   ├── FontControl.vue          # 字体控制组件
 │   ├── NovelCard.vue            # 小说卡片组件
+│   ├── NovelPageHeader.vue      # 小说页面共享头部（封面+标题+换封面）
 │   ├── SettingsSection.vue      # 设置部分组件
 │   └── TextColorCustomizer.vue  # 文本颜色定制组件
 ├── composables/      # 组合式函数
@@ -49,6 +51,7 @@ src/
 │   └── index.ts
 ├── stores/           # 状态管理
 │   ├── UserStore.ts             # 用户状态
+│   ├── novelStore.ts            # 小说信息共享状态
 │   └── counter.ts               # 计数器示例
 ├── utils/            # 工具函数
 │   ├── colorUtils.ts            # 颜色工具
@@ -62,7 +65,8 @@ src/
 │   ├── LoginView.vue            # 登录页面
 │   ├── NovelEditorView.vue      # 小说编辑页面
 │   ├── RagAssistantView.vue     # RAG助手页面
-│   └── SettingsView.vue         # 设置页面
+│   ├── SettingsView.vue         # 设置页面
+│   └── TimelineView.vue         # 时间线管理页面
 ├── App.vue           # 根组件
 └── main.ts           # 入口文件
 ```
@@ -143,9 +147,11 @@ http.interceptors.response.use(
 
 #### 小说管理
 - `GET /novel/listall?page=1&pageSize=10` - 获取小说列表
+- `GET /novel/{id}` - 获取小说详情
 - `POST /novel/create` - 创建小说
 - `POST /novel/update/{novelId}` - 更新小说
 - `POST /novel/delete/{novelId}` - 删除小说
+- `POST /upload/novel-cover` - 上传小说封面
 
 #### 角色管理
 - `GET /novelCharacter/list/{novelId}?page=1&pageSize=10` - 获取角色列表（分页）
@@ -154,6 +160,18 @@ http.interceptors.response.use(
 - `POST /novelCharacter/create` - 创建角色
 - `POST /novelCharacter/update/{id}` - 更新角色
 - `POST /novelCharacter/delete/{id}` - 删除角色
+
+#### 时间线管理
+- `GET /timeline/all/{novelId}` - 获取所有时间线
+- `POST /timeline/create` - 创建时间线
+- `POST /timeline/update/{id}` - 更新时间线
+- `POST /timeline/delete/{id}` - 删除时间线
+
+#### 故事节点
+- `GET /storyNode/timeline/{timelineId}` - 获取时间线下的故事节点
+- `POST /storyNode/create` - 创建故事节点
+- `POST /storyNode/update/{id}` - 更新故事节点
+- `POST /storyNode/delete/{id}` - 删除故事节点
 
 #### RAG 聊天
 - `POST /chat` - AI 对话
@@ -168,13 +186,20 @@ http.interceptors.response.use(
 - 用户信息
 - Token 管理
 
+### novelStore
+管理当前小说信息（各子页面共享）：
+- 当前小说信息（名称、封面等）
+- `loadNovel(id)` - 加载小说信息
+- `updateCover(id, url)` - 更新封面
+
 ## 路由配置
 
 使用 Vue Router 进行路由管理，主要路由包括：
 - `/login` - 登录页面
 - `/home` - 首页
-- `/character-manager/:id` - 角色管理页面
 - `/novel-editor/:id` - 小说编辑页面
+- `/novel/:novelId/characters` - 角色管理页面
+- `/novel/:novelId/timeline` - 时间线管理页面
 - `/rag-assistant` - RAG 助手页面
 - `/settings` - 设置页面
 
