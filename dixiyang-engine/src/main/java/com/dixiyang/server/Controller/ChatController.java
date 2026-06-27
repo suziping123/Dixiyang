@@ -11,6 +11,7 @@
     import lombok.extern.slf4j.Slf4j;
     import org.springframework.ai.chat.client.ChatClient;
     import org.springframework.ai.document.Document;
+    import org.springframework.beans.factory.annotation.Autowired;
     import org.springframework.web.bind.annotation.GetMapping;
     import org.springframework.web.bind.annotation.PostMapping;
     import org.springframework.web.bind.annotation.RequestBody;
@@ -41,16 +42,21 @@
         private final EmbeddingService embeddingService;
         private final INovelCharacterService characterService;
         private final IStoryNodeService storyNodeService;
+        private final boolean ragEnabled;
 
-        // 注入所需依赖
+        // 注入所需依赖（EmbeddingService 为可选）
         public ChatController(ChatClient.Builder builder, 
-                            EmbeddingService embeddingService,
+                            @Autowired(required = false) EmbeddingService embeddingService,
                             INovelCharacterService characterService,
                             IStoryNodeService storyNodeService) {
             this.chatClient = builder.build();
             this.embeddingService = embeddingService;
             this.characterService = characterService;
             this.storyNodeService = storyNodeService;
+            this.ragEnabled = (embeddingService != null);
+            if (!ragEnabled) {
+                log.warn("⚠️ RAG 功能已禁用（向量存储未配置），仅使用数据库上下文");
+            }
         }
 
         /**
@@ -91,7 +97,7 @@
             }
             
             // 3. RAG 检索增强（可选）
-            if (request.getUseRag() != null && request.getUseRag()) {
+            if (ragEnabled && request.getUseRag() != null && request.getUseRag()) {
                 try {
                     List<Document> relatedDocs = embeddingService.similaritySearch(finalMessage);
                     

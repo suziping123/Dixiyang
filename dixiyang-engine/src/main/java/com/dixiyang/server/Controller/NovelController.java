@@ -57,6 +57,17 @@ public class NovelController {
         return result ? Result.success("删除成功") : Result.error("删除失败");
     }
 
+    /**
+     * 根据ID获取小说详情（子页面用来显示小说名称和封面）
+     * GET /api/novel/{novelId}
+     */
+    @GetMapping("/{novelId}")
+    public Result<NovelVO> getById(@PathVariable Long novelId) {
+        NovelVO novelVO = novelService.getById(novelId);
+        if (novelVO == null) return Result.error("小说不存在");
+        return Result.success("获取成功", novelVO);
+    }
+
     @PostMapping("/update/{novelId}")
     public Result<NovelVO> update(@RequestAttribute(value = "userId", required = false) Long userId, // 改为非必填
                                   @PathVariable Long novelId,
@@ -64,7 +75,7 @@ public class NovelController {
         // 如果 userId 为空，可以给个默认值测试
         if (userId == null) userId = 1L;
         // 调用 Service，传入从 Token 解析出的真实 userId
-        NovelVO novelVO = novelService.updateNovel(userId, novelId, novel, null);
+        NovelVO novelVO = novelService.updateNovel(userId, novelId, novel, novel.getCoverUrl());
         return Result.success("更新成功", novelVO);
      }
 }

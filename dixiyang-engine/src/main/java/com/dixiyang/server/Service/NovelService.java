@@ -49,5 +49,11 @@ public interface NovelService {
      * @return 更新后的小说详情
      */
     NovelVO updateNovel(Long userId, Long novelId, Novels novel, String cover);
-    
+
+    /**
+     * 6. 根据ID获取小说信息（不区分用户）
+     * @param novelId 小说ID
+     * @return 小说VO，不存在返回null
+     */
+    NovelVO getById(Long novelId);
 }
