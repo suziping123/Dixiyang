@@ -2,7 +2,6 @@ spring:
   application:
     name: dixiyang-engine
 
-
   # 数据库连接
   sql:
     init:
@@ -10,8 +9,8 @@ spring:
   # 1. 数据库连接
   datasource:
     url: jdbc:mysql://127.0.0.1:3306/dixiyang?useSSL=false&serverTimezone=UTC&characterEncoding=utf8
-    username: root
-    password: 123321
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:123321}
 
   # 2. 文件上传配置 (正确路径是在 spring.servlet.multipart) （对应 file 表需求）
   servlet:
@@ -32,7 +31,7 @@ spring:
         enabled: false
     # DeepSeek 云端模型 - 用于聊天
     openai:
-      api-key: "sk-e046df4f946c4dafb243396ea6a054a0"
+      api-key: ${DEEPSEEK_API_KEY:}
       base-url: https://api.deepseek.com
       chat:
         options:
@@ -49,7 +48,7 @@ spring:
         # 第一次运行建议设为 true，它会自动帮你创建 collection
         initialize-schema: true
         # 如果你的 Qdrant 没设置 API Key，这里可以省略或留空
-        api-key: ""
+        api-key: ${QDRANT_API_KEY:}
         # 是否开启安全性校验（本地 Docker 默认不开启）
         use-tls: false
         enable: false

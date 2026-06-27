@@ -28,20 +28,67 @@ Dixiyang/
 
 ## 快速开始
 
-### 后端启动
+### 环境要求
+
+- JDK 17+
+- Maven 3.6+
+- MySQL 8.0+
+- Node.js 18+
+- Docker（推荐，用于 MySQL/Redis/Qdrant）
+
+### 1. 配置环境变量
+
+```bash
+# 复制示例配置文件
+cp .env.example .env
+
+# 编辑 .env 填入你自己的配置
+```
+
+**必须配置的变量：**
+
+| 变量 | 说明 | 示例 |
+|------|------|------|
+| `DB_USERNAME` | MySQL 用户名 | `root` |
+| `DB_PASSWORD` | MySQL 密码 | `your_password` |
+| `DEEPSEEK_API_KEY` | DeepSeek API 密钥 | `sk-xxx` |
+
+> ⚠️ **安全提醒**：`.env` 文件包含敏感信息，已在 `.gitignore` 中排除，不要提交到 git！
+
+### 2. 启动数据库（Docker）
+
+```bash
+docker run -d --name mysql-hmdp \
+  -p 3306:3306 \
+  -e MYSQL_ROOT_PASSWORD=123321 \
+  -e MYSQL_DATABASE=dixiyang \
+  mysql:8.0
+```
+
+### 3. 后端启动
 
 ```bash
 cd dixiyang-engine
+
+# IDEA 用户：确保项目 SDK 设置为 JDK 17
+# 命令行用户：
+export JAVA_HOME=~/.sdkman/candidates/java/17.0.10-tem
 mvn spring-boot:run
 ```
 
-### 前端启动
+后端启动后访问：http://localhost:8084/api
+
+### 4. 前端启动
 
 ```bash
 cd dixiyang-vue/Dixiyang-vue3
 npm install
 npm run dev
 ```
+
+前端启动后访问：http://localhost:5173
+
+> 前端通过 Vite 代理将 `/api` 请求转发到后端 8084 端口
 
 ## 文档导航
 
@@ -79,11 +126,11 @@ npm run dev
 - ✅ 用户认证与授权
 - ✅ 小说管理（CRUD）
 - ✅ 角色管理（CRUD）
+- ✅ 时间线管理（CRUD + 行内编辑）
+- ✅ 故事节点管理（CRUD）
+- ✅ 封面上传（MD5去重）
 - ✅ RAG 智能创作助手
-- ⚠️ 故事节点管理（部分实现）
-- ⚠️ 时间线管理（待完善）
-- ❌ 文件上传（待实现）
-- ❌ 用户配置（待实现）
+- ⚠️ 用户配置（待完善）
 
 ## 开发状态
 
