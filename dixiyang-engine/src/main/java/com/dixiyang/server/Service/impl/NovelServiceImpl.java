@@ -115,7 +115,7 @@ public class NovelServiceImpl implements NovelService {
         if (novel.getTitle() != null) existing.setTitle(novel.getTitle());
         if (novel.getDescription() != null) existing.setDescription(novel.getDescription());
         if (novel.getPenName() != null) existing.setPenName(novel.getPenName());
-        if (coverUrl != null) existing.setCoverUrl(coverUrl);
+        if (novel.getCoverUrl() != null) existing.setCoverUrl(novel.getCoverUrl());
         // 更新时间通常由数据库自动填充或手动设置
         // existing.setUpdateTime(LocalDateTime.now());
 
@@ -159,5 +159,14 @@ public class NovelServiceImpl implements NovelService {
         int result = novelMapper.delete(queryWrapper);
 
         return result > 0;
+    }
+
+    @Override
+    public NovelVO getById(Long novelId) {
+        Novels novel = novelMapper.selectById(novelId);
+        if (novel == null) return null;
+        NovelVO vo = new NovelVO();
+        BeanUtils.copyProperties(novel, vo);
+        return vo;
     }
 }

@@ -42,7 +42,7 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> auth
                         // 3. 允许所有人访问公开接口（注意路径要匹配你的 Controller）
-                        .requestMatchers("/user/**","/novel/**","/auth/**","/chat/**","/novelCharacter/**","/timeline/**","/storyNode/**","/error").permitAll()
+                        .requestMatchers("/user/**","/novel/**","/auth/**","/chat/**","/novelCharacter/**","/timeline/**","/storyNode/**","/upload/**","/uploads/**","/error").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter,

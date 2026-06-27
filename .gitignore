@@ -75,5 +75,8 @@ package-lock.json
 yarn.lock
 pnpm-lock.yaml
 
+# 用户上传文件
+uploads/
+
 # 文档生成（可选，根据需要调整）
 # *.md

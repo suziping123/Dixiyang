@@ -33,4 +33,19 @@ public class StoryNode {
 
     @TableField("vector_id")
     private String vectorId;
+
+    @TableField("event_date")
+    private String eventDate;
+
+    @TableField("event_type")
+    private String eventType;
+
+    @TableField("importance")
+    private Integer importance;
+
+    @TableField("character_names")
+    private String characterNames;
+
+    @TableField("tags")
+    private String tags;
 }

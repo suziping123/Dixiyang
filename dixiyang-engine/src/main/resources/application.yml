@@ -9,9 +9,9 @@ spring:
       mode: never
   # 1. 数据库连接
   datasource:
-    url: jdbc:mysql://localhost:3306/dixiyang
+    url: jdbc:mysql://127.0.0.1:3306/dixiyang?useSSL=false&serverTimezone=UTC&characterEncoding=utf8
     username: root
-    password: 123456
+    password: 123321
 
   # 2. 文件上传配置 (正确路径是在 spring.servlet.multipart) （对应 file 表需求）
   servlet:
@@ -21,8 +21,9 @@ spring:
 
   # 3. Spring AI 混合配置
   ai:
-    # Ollama 本地模型 - 用于向量化（嵌入）
+    # Ollama 本地模型 - 暂时禁用
     ollama:
+      enabled: false
       base-url: http://localhost:11434
       embedding:
         options:
@@ -31,7 +32,7 @@ spring:
         enabled: false
     # DeepSeek 云端模型 - 用于聊天
     openai:
-      api-key: sk-e046df4f946c4dafb243396ea6a054a0
+      api-key: "sk-e046df4f946c4dafb243396ea6a054a0"
       base-url: https://api.deepseek.com
       chat:
         options:
@@ -39,6 +40,7 @@ spring:
           temperature: 0.7
           max-tokens: 2000
       
+    # Qdrant 向量数据库 - 暂时禁用（需要 Ollama 提供 embedding）
     vectorstore:
       qdrant:
         host: localhost
@@ -47,25 +49,26 @@ spring:
         # 第一次运行建议设为 true，它会自动帮你创建 collection
         initialize-schema: true
         # 如果你的 Qdrant 没设置 API Key，这里可以省略或留空
-        api-key: ${Qdrant_API_KEY}
+        api-key: ""
         # 是否开启安全性校验（本地 Docker 默认不开启）
         use-tls: false
-  data:
-    redis:
-      host: localhost
-      port: 6379
-      password:  # 无密码留空即可
-      database: 0
-      timeout: 10s  # 推荐用这种简洁写法（10s = 10000ms）
-      # Spring Boot 3.x 中 lettuce 连接池配置的正确写法
-      lettuce:
-        pool:
-          max-active: 8        # 最大活跃连接数（保留）
-          max-idle: 8          # 最大空闲连接数（保留）
-          min-idle: 0          # 最小空闲连接数（保留）
-          max-wait: PT0S       # 替换 -1ms，含义是“无等待超时（一直等）”，符合 3.x 规范
-        shutdown-timeout: 100ms  # 新增：连接池关闭超时时间（推荐加
-      
+        enable: false
+#  data:
+#    redis:
+#      host: localhost
+#      port: 6379
+#      password:  # 无密码留空即可
+#      database: 0
+#      timeout: 10s  # 推荐用这种简洁写法（10s = 10000ms）
+#      # Spring Boot 3.x 中 lettuce 连接池配置的正确写法
+#      lettuce:
+#        pool:
+#          max-active: 8        # 最大活跃连接数（保留）
+#          max-idle: 8          # 最大空闲连接数（保留）
+#          min-idle: 0          # 最小空闲连接数（保留）
+#          max-wait: PT0S       # 替换 -1ms，含义是“无等待超时（一直等）”，符合 3.x 规范
+#        shutdown-timeout: 100ms  # 新增：连接池关闭超时时间（推荐加
+#
 # 4. 服务端口配置 (必须和 spring 平级)
 server:
   port: 8084
