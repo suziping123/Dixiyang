@@ -27,8 +27,9 @@
         </nav>
 
         <div class="sidebar-footer">
-          <button class="btn-back" @click="goBack">
-            ← 返回首页
+          <button class="back-btn" @click="goBack">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+            返回首页
           </button>
         </div>
       </aside>
@@ -474,23 +475,9 @@ const goBack = () => {
   border-top: 1px solid var(--glass-border);
 }
 
-.btn-back {
+.sidebar-footer .back-btn {
   width: 100%;
-  padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  color: rgba(255, 255, 255, 0.6);
-  cursor: pointer;
-  transition: all 0.3s;
-  font-size: 0.95rem;
-  font-weight: 500;
-}
-
-.btn-back:hover {
-  color: var(--neon-cyan);
-  border-color: var(--neon-cyan);
-  background: rgba(6, 182, 212, 0.05);
+  justify-content: center;
 }
 
 /* ============ 主内容区 ============ */

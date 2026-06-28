@@ -436,8 +436,6 @@ onMounted(async () => {
 .mode-btn { padding: 6px 14px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; transition: all 0.3s; }
 .mode-btn:hover { border-color: var(--neon-blue); color: var(--text-primary); }
 .mode-btn.active { background: linear-gradient(135deg, var(--neon-blue), var(--neon-cyan)); color: white; border-color: transparent; }
-.back-btn { display: flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 10px; color: var(--text-secondary); font-size: 0.9rem; transition: all 0.3s; }
-.back-btn:hover { border-color: var(--neon-blue); color: var(--neon-blue); }
 
 .filter-bar { display: flex; gap: 16px; align-items: center; padding: 12px 20px; margin-bottom: 16px; flex-wrap: wrap; }
 .type-tags { display: flex; gap: 8px; flex-wrap: wrap; }

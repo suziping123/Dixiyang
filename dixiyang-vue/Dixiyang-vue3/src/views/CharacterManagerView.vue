@@ -82,7 +82,7 @@
       <div class="back-section">
         <button class="back-btn" @click="goBack">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-          返回小说
+          返回
         </button>
       </div>
     </main>
@@ -660,30 +660,6 @@ onMounted(() => {
 .back-section {
   margin-top: 40px;
   text-align: center;
-}
-
-.back-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 30px;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: 8px;
-  color: var(--text-primary);
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.back-btn:hover {
-  border-color: var(--neon-blue);
-  color: var(--neon-blue);
-}
-
-.back-btn svg {
-  width: 20px;
-  height: 20px;
 }
 
 /* 额外字段样式 */

@@ -43,6 +43,7 @@
 import { ref, onMounted } from 'vue'
 import { useBackgroundConfig, BG_IMAGES, getCustomBgImages, addCustomBg, removeCustomBg } from '@/composables/useBackgroundConfig'
 import { uploadBgImage } from '@/api/novelApi'
+import { confirmDelete } from '@/utils/confirm'
 import { ElMessage } from 'element-plus'
 
 interface Props { mode?: 'compact' | 'full' }
@@ -90,13 +91,17 @@ const onBgFileUpload = async (e: Event) => {
   }
 }
 
-const handleDeleteCustom = (id: string) => {
+const handleDeleteCustom = async (id: string) => {
+  const confirmed = await confirmDelete('确定要删除这个自定义背景吗？')
+  if (!confirmed) return
+
   removeCustomBg(id)
   delete loaded.value[id]
   refreshBgList()
   if (cfg.bgImageId.value === id) {
     cfg.setBgImage(undefined)
   }
+  ElMessage.success('已删除')
 }
 </script>
 
@@ -145,18 +150,18 @@ const handleDeleteCustom = (id: string) => {
   height: 22px;
   border-radius: 50%;
   border: none;
-  background: rgba(0,0,0,0.6);
-  color: white;
+  background: rgba(0,0,0,0.5);
+  color: rgba(255,255,255,0.6);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0;
-  transition: opacity 0.2s, background 0.2s;
+  opacity: 0.5;
+  transition: opacity 0.2s, background 0.2s, color 0.2s;
   z-index: 1;
 }
-.bg-image-card:hover .bg-delete-btn { opacity: 1; }
-.bg-delete-btn:hover { background: rgba(239,68,68,0.8); }
+.bg-image-card:hover .bg-delete-btn { opacity: 1; color: white; }
+.bg-delete-btn:hover { background: rgba(239,68,68,0.9); color: white; }
 
 @media (max-width: 768px) { .full-mode { padding: 16px; } .bg-image-grid { grid-template-columns: repeat(2, 1fr); } }
 </style>
