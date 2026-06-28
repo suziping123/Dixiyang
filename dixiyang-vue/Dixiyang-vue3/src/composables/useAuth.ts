@@ -11,6 +11,7 @@ import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import http, { assertApiResponse } from '@/utils/http'
 import { useUserStore } from '@/stores/UserStore'
+import { loadFromServer } from '@/composables/useBackgroundConfig'
 import type { LoginResponse, RegisterResponse } from '@/api/types'
 
 export function useAuth() {
@@ -38,6 +39,8 @@ export function useAuth() {
           return
         }
         userStore.setLoginInfo(token, user.username, String(user.userId), user.nickname!, user.email || '')
+        // 登录后立即从服务器加载背景配置
+        loadFromServer()
         ElMessage.success(`欢迎回来, ${user.nickname}`)
 
         router.push('/home')
