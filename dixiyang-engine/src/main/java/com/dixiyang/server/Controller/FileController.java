@@ -1,5 +1,8 @@
 package com.dixiyang.server.Controller;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.dixiyang.server.Common.Result;
 import com.dixiyang.server.Entity.Novels;
@@ -38,21 +41,19 @@ public class FileController {
     @Autowired
     private UserConfigMapper userConfigMapper;
 
+    // ==================== 封面 ====================
+
     @PostMapping("/novel-cover")
     public Result<String> uploadNovelCover(@RequestParam("file") MultipartFile file) {
-        return doUpload(file, COVERS_DIR, "covers", COVER_TYPES, 10 * 1024 * 1024);
+        return doUpload(file, COVERS_DIR, "covers", COVER_TYPES);
     }
 
-    /**
-     * 删除封面：删物理文件 + 清数据库 cover_url
-     */
     @DeleteMapping("/novel-cover")
     public Result<Void> deleteNovelCover(@RequestParam("url") String url,
                                           @RequestParam("novelId") Long novelId) {
-        Result<Void> fileResult = doDelete(url, COVERS_DIR);
+        Result<Void> fileResult = doDeleteFile(url, COVERS_DIR);
         if (fileResult.getCode() != 200) return fileResult;
 
-        // 清数据库引用
         Novels novel = novelMapper.selectById(novelId);
         if (novel != null && url.equals(novel.getCoverUrl())) {
             novel.setCoverUrl(null);
@@ -61,49 +62,63 @@ public class FileController {
         return Result.success(null);
     }
 
+    // ==================== 背景图 ====================
+
     @PostMapping("/background")
     public Result<String> uploadBackground(@RequestParam("file") MultipartFile file) {
-        return doUpload(file, BACKGROUNDS_DIR, "backgrounds", BG_TYPES, 10 * 1024 * 1024);
+        return doUpload(file, BACKGROUNDS_DIR, "backgrounds", BG_TYPES);
     }
 
-    /**
-     * 删除背景：删物理文件 + 清 user_config.custom_bgs 中对应项
-     */
     @DeleteMapping("/background")
     public Result<Void> deleteBackground(@RequestParam("url") String url,
                                           @RequestParam("userId") Long userId) {
-        Result<Void> fileResult = doDelete(url, BACKGROUNDS_DIR);
+        Result<Void> fileResult = doDeleteFile(url, BACKGROUNDS_DIR);
         if (fileResult.getCode() != 200) return fileResult;
 
-        // 清数据库引用
+        // 从 user_config.custom_bgs JSON 数组中移除
         UserConfig config = userConfigMapper.selectOne(
                 new LambdaQueryWrapper<UserConfig>().eq(UserConfig::getUserId, userId));
         if (config != null && config.getCustomBgs() != null) {
-            String updated = config.getCustomBgs().replaceAll(
-                    "\\{\"id\":\"[^\"]*\",\"url\":\"" + url.replace("/", "\\/") + "\",\"label\":\"[^\"]*\"\\},?",
-                    "");
-            if (updated.isEmpty()) updated = null;
-            config.setCustomBgs(updated);
+            JSONArray arr = JSON.parseArray(config.getCustomBgs());
+            JSONArray updated = new JSONArray();
+            for (int i = 0; i < arr.size(); i++) {
+                JSONObject item = arr.getJSONObject(i);
+                if (!url.equals(item.getString("url"))) {
+                    updated.add(item);
+                }
+            }
+            config.setCustomBgs(updated.isEmpty() ? null : updated.toJSONString());
             userConfigMapper.updateById(config);
         }
         return Result.success(null);
     }
 
+    // ==================== 内部方法 ====================
+
     private Result<String> doUpload(MultipartFile file, String dir, String urlPrefix,
-                                     Set<String> allowedTypes, long maxSize) {
+                                     Set<String> allowedTypes) {
         if (file.isEmpty()) return Result.error("文件不能为空");
 
         String contentType = file.getContentType();
         if (contentType == null || !allowedTypes.contains(contentType)) {
             return Result.error("不支持的文件格式");
         }
-        if (file.getSize() > maxSize) {
-            return Result.error("文件大小超过限制");
+        if (file.getSize() > 10 * 1024 * 1024) {
+            return Result.error("文件大小不能超过10MB");
         }
 
         try {
             Path uploadPath = Paths.get(dir);
             Files.createDirectories(uploadPath);
+
+            // MD5 去重：相同内容直接复用
+            byte[] fileBytes = file.getBytes();
+            String md5 = org.apache.commons.codec.digest.DigestUtils.md5Hex(fileBytes);
+            Path md5File = uploadPath.resolve(md5 + ".md5");
+            if (Files.exists(md5File)) {
+                String existingUrl = Files.readString(md5File);
+                return Result.success("文件已存在，已复用", existingUrl);
+            }
 
             String ext = switch (contentType) {
                 case "image/jpeg" -> ".jpg";
@@ -117,6 +132,8 @@ public class FileController {
             file.transferTo(uploadPath.resolve(filename).toFile());
 
             String url = "/api/uploads/" + urlPrefix + "/" + filename;
+            Files.writeString(md5File, url);
+
             log.info("上传文件: {}", filename);
             return Result.success("上传成功", url);
         } catch (IOException e) {
@@ -125,7 +142,7 @@ public class FileController {
         }
     }
 
-    private Result<Void> doDelete(String url, String dir) {
+    private Result<Void> doDeleteFile(String url, String dir) {
         if (url == null || url.isBlank()) return Result.error("URL不能为空");
 
         String prefix = "/api/uploads/";
@@ -134,8 +151,22 @@ public class FileController {
         try {
             String relative = url.substring(prefix.length());
             Path filePath = Paths.get(dir, relative.substring(relative.indexOf('/') + 1));
-            boolean deleted = Files.deleteIfExists(filePath);
-            if (deleted) log.info("删除文件: {}", filePath.getFileName());
+            Files.deleteIfExists(filePath);
+
+            // 清理 MD5 映射
+            Path uploadPath = Paths.get(dir);
+            try (var stream = Files.list(uploadPath)) {
+                stream.filter(p -> p.toString().endsWith(".md5"))
+                      .forEach(p -> {
+                          try {
+                              if (url.equals(Files.readString(p))) {
+                                  Files.deleteIfExists(p);
+                              }
+                          } catch (IOException ignored) {}
+                      });
+            }
+
+            log.info("删除文件: {}", filePath.getFileName());
             return Result.success(null);
         } catch (IOException e) {
             log.error("删除失败", e);
@@ -143,7 +174,7 @@ public class FileController {
         }
     }
 
-    /** 供其他 Service 调用：根据 URL 删除物理文件（不改数据库，由调用方负责） */
+    /** 供其他 Service 调用：只删物理文件，不改数据库 */
     public static void deleteFileByUrl(String url) {
         if (url == null || !url.startsWith("/api/uploads/")) return;
 
