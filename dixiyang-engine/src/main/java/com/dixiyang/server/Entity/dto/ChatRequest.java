@@ -23,4 +23,8 @@ public class ChatRequest {
     private Boolean includeCharacters = true;
     // 是否包含故事节点
     private Boolean includeStory = true;
+    // 会话ID（用于编辑上下文注入、重新生成等）
+    private String sessionId;
+    // 重新生成时指定消息索引（-1 表示普通对话）
+    private Integer regenerateIndex = -1;
 }

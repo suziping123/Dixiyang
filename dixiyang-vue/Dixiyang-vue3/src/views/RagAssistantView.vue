@@ -4,19 +4,50 @@
 
     <FloatingNav />
 
-    <!-- 顶部导航 -->
     <header class="page-header">
       <div class="header-content">
-        <h1 class="page-title">✧ RAG 智能创作助手</h1>
+        <h1 class="page-title">RAG 智能创作助手</h1>
         <p class="page-subtitle">基于你的创作宇宙，智能生成与角色相关的故事内容</p>
       </div>
     </header>
 
     <div class="rag-container">
+      <!-- 最左侧：历史会话 -->
+      <aside class="session-panel">
+        <div class="session-header">
+          <h3>历史会话</h3>
+          <div class="session-actions">
+            <button class="new-btn" @click="loadSessions(selectedNovel?.id)" title="刷新列表">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>
+            </button>
+            <button class="new-btn" @click="handleNewSession" title="新建对话">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="session-list">
+          <div
+            v-for="s in sessions"
+            :key="s.sessionId"
+            class="session-item"
+            :class="{ active: s.sessionId === currentSessionId }"
+            @click="handleSelectSession(s.sessionId)"
+          >
+            <span class="session-title">{{ s.title }}</span>
+            <button class="del-btn" @click.stop="handleDeleteSession(s.sessionId)" title="删除">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="session-empty" v-if="sessions.length === 0">
+          <span>暂无历史记录</span>
+        </div>
+      </aside>
+
       <!-- 左侧：上下文选择面板 -->
       <aside class="context-panel">
         <div class="panel-section">
-          <h3>📚 选择小说</h3>
+          <h3>选择小说</h3>
           <div class="selector-list">
             <div
               v-for="novel in novels"
@@ -32,7 +63,7 @@
         </div>
 
         <div class="panel-section" v-if="selectedNovel">
-          <h3>👤 选择角色</h3>
+          <h3>选择角色</h3>
           <div class="selector-list">
             <div
               v-for="char in characters"
@@ -48,7 +79,7 @@
         </div>
 
         <div class="panel-section" v-if="selectedNovel">
-          <h3>⏳ 故事节点</h3>
+          <h3>故事节点</h3>
           <div class="selector-list">
             <div
               v-for="node in storyNodes"
@@ -64,7 +95,7 @@
         </div>
 
         <div class="panel-section">
-          <h3>⚙️ 生成选项</h3>
+          <h3>生成选项</h3>
           <div class="options-group">
             <label class="option-item">
               <input type="checkbox" v-model="options.useRag" />
@@ -86,7 +117,7 @@
       <main class="chat-area">
         <div class="chat-header">
           <div class="chat-info">
-            <h2>💬 创作对话</h2>
+            <h2>创作对话</h2>
             <p v-if="selectedNovel">当前语境：{{ selectedNovel.title }}</p>
           </div>
           <div class="chat-stats">
@@ -95,50 +126,53 @@
           </div>
         </div>
 
-        <div class="messages-container" ref="messagesRef">
-          <div class="welcome-message" v-if="messages.length === 0">
-            <div class="welcome-icon">✨</div>
-            <h3>开始你的创作之旅</h3>
-            <p>选择左侧的小说、角色和故事节点，我将基于这些信息为你提供创作帮助</p>
-            <div class="suggestions">
-              <button
-                v-for="suggestion in suggestions"
-                :key="suggestion"
-                class="suggestion-btn"
-                @click="useSuggestion(suggestion)"
-              >
-                {{ suggestion }}
-              </button>
-            </div>
-          </div>
-
-          <div
-            v-for="(msg, index) in messages"
-            :key="index"
-            class="message-item"
-            :class="msg.role"
-          >
-            <div class="message-avatar">
-              <span v-if="msg.role === 'user'">👤</span>
-              <span v-else>🤖</span>
-            </div>
-            <div class="message-content">
-              <div class="message-text" v-html="formatMessage(msg.content)"></div>
-              <div class="message-time">{{ formatTime(msg.timestamp) }}</div>
-            </div>
-          </div>
-
-          <div v-if="isLoading" class="message-item assistant">
-            <div class="message-avatar">🤖</div>
-            <div class="message-content">
-              <div class="typing-indicator">
-                <span class="dot"></span>
-                <span class="dot"></span>
-                <span class="dot"></span>
+          <div class="messages-container" ref="messagesRef">
+            <div class="welcome-message" v-if="messages.length === 0 && !isStreaming">
+              <div class="welcome-icon">✨</div>
+              <h3>开始你的创作之旅</h3>
+              <p>选择左侧的小说、角色和故事节点，我将基于这些信息为你提供创作帮助</p>
+              <div class="suggestions">
+                <button
+                  v-for="suggestion in suggestions"
+                  :key="suggestion"
+                  class="suggestion-btn"
+                  @click="useSuggestion(suggestion)"
+                >
+                  {{ suggestion }}
+                </button>
               </div>
             </div>
+
+            <ChatMessage
+              v-for="(msg, index) in messages"
+              :key="index"
+              :message="msg"
+              @regenerate="handleRegenerate(index)"
+              @edit="openEditModal(index)"
+              class="message-item-wrapper"
+            />
+
+            <!-- 正在流式输出的消息 -->
+            <template v-if="isStreaming">
+              <ChatMessage
+                v-if="currentContent || currentThinking"
+                :message="{ role: 'assistant', content: '', timestamp: new Date() }"
+                :streaming-content="currentContent"
+                :streaming-thinking="currentThinking"
+                :is-streaming="true"
+              />
+              <div v-else class="message-item assistant">
+                <div class="message-avatar">🤖</div>
+                <div class="message-content">
+                  <div class="typing-indicator">
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                  </div>
+                </div>
+              </div>
+            </template>
           </div>
-        </div>
 
         <div class="input-area">
           <div class="input-wrapper">
@@ -146,49 +180,71 @@
               v-model="inputMessage"
               placeholder="输入你的创作需求或问题..."
               @keydown.enter="handleSend"
-              :disabled="isLoading"
+              :disabled="isStreaming"
               rows="1"
               ref="textareaRef"
             ></textarea>
             <button
+              v-if="isStreaming"
+              class="cancel-btn"
+              @click="cancelStream"
+              title="停止生成"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h12v12H6z"/></svg>
+            </button>
+            <button
+              v-else
               class="send-btn"
-              @click="sendMessage"
-              :disabled="isLoading || !inputMessage.trim()"
+              @click="sendStreamMessage"
+              :disabled="!inputMessage.trim()"
             >
               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
             </button>
           </div>
           <div class="input-hint">
-            <span>💡 提示：选择角色和节点可以获得更精准的创作建议</span>
+            <span>提示：选择角色和节点可以获得更精准的创作建议</span>
           </div>
         </div>
       </main>
     </div>
   </div>
+  <EditMessageModal ref="editModalRef" @save="handleEditSave" />
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
-import { useBackgroundConfig } from '@/composables/useBackgroundConfig'
+import { useChatStream } from '@/composables/useChatStream'
+import { useUserStore } from '@/stores/UserStore'
 import FloatingNav from '@/components/FloatingNav.vue'
-import http, { assertStringResponse } from '@/utils/http'
+import ChatMessage from '@/components/chat/ChatMessage.vue'
+import EditMessageModal from '@/components/chat/EditMessageModal.vue'
+import http from '@/utils/http'
 
-const router = useRouter()
-const bgConfig = useBackgroundConfig()
+const userStore = useUserStore()
+const userId = userStore.userId || (() => {
+  const stored = localStorage.getItem('userInfo')
+  return stored ? JSON.parse(stored).id : undefined
+})()
 
-// 状态管理
+const {
+  messages, currentContent, currentThinking, isStreaming,
+  currentSessionId, sessions,
+  sendMessage, cancelStream, loadSessions, loadSessionMessages,
+  newSession, deleteSession, regenerateMessage,
+  editMessage
+} = useChatStream(userId)
+
 const novels = ref<any[]>([])
 const characters = ref<any[]>([])
 const storyNodes = ref<any[]>([])
 const selectedNovel = ref<any>(null)
 const selectedCharacters = ref<number[]>([])
 const selectedNodes = ref<number[]>([])
-const messages = ref<Array<{role: 'user' | 'assistant', content: string, timestamp: Date}>>([])
 const inputMessage = ref('')
-const isLoading = ref(false)
 const messagesRef = ref<HTMLElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
+const editModalRef = ref<InstanceType<typeof EditMessageModal> | null>(null)
+const editingIndex = ref<number>(-1)
 
 const options = ref({
   useRag: true,
@@ -203,7 +259,6 @@ const suggestions = [
   '建议角色之间的互动场景'
 ]
 
-// 加载小说列表
 const loadNovels = async () => {
   try {
     const res = await http.get('/novel/listall', { params: { page: 1, pageSize: 100 } })
@@ -213,13 +268,10 @@ const loadNovels = async () => {
   }
 }
 
-// 选择小说
 const selectNovel = async (novel: any) => {
   selectedNovel.value = novel
   selectedCharacters.value = []
   selectedNodes.value = []
-
-  // 加载该小说的角色 - /novelCharacter/all 返回直接列表
   try {
     const res = await http.get(`/novelCharacter/all/${novel.id}`)
     characters.value = Array.isArray(res.data) ? res.data : []
@@ -227,8 +279,6 @@ const selectNovel = async (novel: any) => {
     console.error('加载角色失败:', error)
     characters.value = []
   }
-
-  // 加载该小说的故事节点
   try {
     const res = await http.get(`/storyNode/all/${novel.id}`)
     storyNodes.value = Array.isArray(res.data) ? res.data : []
@@ -236,134 +286,41 @@ const selectNovel = async (novel: any) => {
     console.error('加载故事节点失败:', error)
     storyNodes.value = []
   }
+  await loadSessions(novel.id)
 }
 
-// 切换角色选择
 const toggleCharacter = (char: any) => {
   const idx = selectedCharacters.value.indexOf(char.id)
-  if (idx > -1) {
-    selectedCharacters.value.splice(idx, 1)
-  } else {
-    selectedCharacters.value.push(char.id)
-  }
+  if (idx > -1) selectedCharacters.value.splice(idx, 1)
+  else selectedCharacters.value.push(char.id)
 }
 
-// 切换节点选择
 const toggleNode = (node: any) => {
   const idx = selectedNodes.value.indexOf(node.id)
-  if (idx > -1) {
-    selectedNodes.value.splice(idx, 1)
-  } else {
-    selectedNodes.value.push(node.id)
-  }
+  if (idx > -1) selectedNodes.value.splice(idx, 1)
+  else selectedNodes.value.push(node.id)
 }
 
-// 构建上下文提示
-const buildContextPrompt = () => {
-  let context = ''
-
-  if (selectedNovel.value && options.value.includeCharacters) {
-    const selectedChars = characters.value.filter(c => selectedCharacters.value.includes(c.id))
-    if (selectedChars.length > 0) {
-      context += '【角色信息】\n'
-      selectedChars.forEach(char => {
-        context += `- ${char.name}（${char.gender || '性别未知'}，${char.age || '年龄未知'}岁）:\n`
-        if (char.appearance) context += `  * 外貌：${char.appearance}\n`
-        if (char.personality) context += `  * 性格：${char.personality}\n`
-        if (char.background) context += `  * 背景：${char.background}\n`
-      })
-      context += '\n'
-    }
-  }
-
-  if (selectedNovel.value && options.value.includeStory) {
-    const selectedNds = storyNodes.value.filter(n => selectedNodes.value.includes(n.id))
-    if (selectedNds.length > 0) {
-      context += '【故事节点】\n'
-      selectedNds.forEach(node => {
-        context += `- ${node.title}:\n`
-        if (node.content) context += `  内容：${node.content}\n`
-      })
-      context += '\n'
-    }
-  }
-
-  return context
-}
-
-// 发送消息
-const sendMessage = async () => {
+const sendStreamMessage = async () => {
   const message = inputMessage.value.trim()
-  if (!message || isLoading.value) return
-
-  // 添加用户消息
-  messages.value.push({
-    role: 'user',
-    content: message,
-    timestamp: new Date()
-  })
+  if (!message || isStreaming.value) return
   inputMessage.value = ''
   scrollToBottom()
-
-  try {
-      isLoading.value = true
-
-      try {
-        // 【优化架构】仅传 ID，让后端从数据库查数据构建上下文
-        // 好处：1.减少网络传输 2.数据一致性 3.可加Redis缓存
-        const response = await http.post('/chat', {
-          message: message,
-          useRag: options.value.useRag,
-          novelId: selectedNovel.value?.id,
-          characterIds: selectedCharacters.value,
-          storyNodeIds: selectedNodes.value,
-          includeCharacters: options.value.includeCharacters,
-          includeStory: options.value.includeStory
-        })
-
-        messages.value.push({
-          role: 'assistant',
-          content: assertStringResponse(response),
-          timestamp: new Date()
-        })
-      } catch {
-        // RAG请求失败，尝试降级模式（关闭RAG）
-
-        const fallbackResponse = await http.post('/chat', {
-          message: message,
-          useRag: false,
-          novelId: selectedNovel.value?.id,
-          characterIds: selectedCharacters.value,
-          storyNodeIds: selectedNodes.value,
-          includeCharacters: options.value.includeCharacters,
-          includeStory: options.value.includeStory
-        })
-
-        messages.value.push({
-          role: 'assistant',
-          content: assertStringResponse(fallbackResponse),
-          timestamp: new Date()
-        })
-      }
-
-    scrollToBottom()
-  } catch (error) {
-    console.error('发送消息失败:', error)
-    messages.value.push({
-      role: 'assistant',
-      content: '抱歉，生成内容失败，请稍后重试。',
-      timestamp: new Date()
-    })
-    scrollToBottom()
-  } finally {
-    isLoading.value = false
-  }
+  await sendMessage(message, {
+    useRag: options.value.useRag,
+    novelId: selectedNovel.value?.id,
+    characterIds: selectedCharacters.value,
+    storyNodeIds: selectedNodes.value,
+    includeCharacters: options.value.includeCharacters,
+    includeStory: options.value.includeStory
+  })
+  scrollToBottom()
 }
 
 const handleSend = (e: KeyboardEvent) => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault()
-    sendMessage()
+    sendStreamMessage()
   }
 }
 
@@ -380,18 +337,48 @@ const scrollToBottom = () => {
   })
 }
 
-const formatMessage = (content: string) => {
-  return content
-    .replace(/\n/g, '<br>')
-    .replace(/【(.*?)】/g, '<strong>【$1】</strong>')
+const handleNewSession = () => {
+  newSession()
 }
 
-const formatTime = (date: Date) => {
-  return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+const handleSelectSession = async (sessionId: string) => {
+  await loadSessionMessages(sessionId)
+  nextTick(scrollToBottom)
 }
 
-onMounted(() => {
-  loadNovels()
+const openEditModal = (index: number) => {
+  const msg = messages.value[index]
+  if (!msg || msg.role !== 'assistant') return
+  editingIndex.value = index
+  editModalRef.value?.open(msg.content)
+}
+
+const handleEditSave = async (newContent: string) => {
+  const idx = editingIndex.value
+  if (idx < 0) return
+  const ok = await editMessage(idx, newContent)
+  if (ok) editingIndex.value = -1
+}
+
+const handleRegenerate = async (index: number) => {
+  scrollToBottom()
+  await regenerateMessage(index, {
+    useRag: options.value.useRag,
+    novelId: selectedNovel.value?.id,
+    characterIds: selectedCharacters.value,
+    storyNodeIds: selectedNodes.value,
+    includeCharacters: options.value.includeCharacters,
+    includeStory: options.value.includeStory
+  })
+  scrollToBottom()
+}
+
+const handleDeleteSession = async (sessionId: string) => {
+  await deleteSession(sessionId, selectedNovel.value?.id)
+}
+
+onMounted(async () => {
+  await loadNovels()
 })
 </script>
 
@@ -404,7 +391,6 @@ onMounted(() => {
   overflow: hidden;
 }
 
-/* 背景动画 */
 .bg-gradient-animation {
   position: fixed;
   top: -50%;
@@ -426,7 +412,6 @@ onMounted(() => {
   to { transform: rotate(360deg); }
 }
 
-/* 页面头部 */
 .page-header {
   position: relative;
   z-index: 10;
@@ -457,7 +442,6 @@ onMounted(() => {
   font-size: 0.95rem;
 }
 
-/* 主容器 */
 .rag-container {
   position: relative;
   z-index: 1;
@@ -466,12 +450,145 @@ onMounted(() => {
   margin: 0 auto;
   height: calc(100vh - 120px);
   padding: 20px;
-  gap: 20px;
+  gap: 12px;
 }
 
-/* 左侧面板 */
+/* 历史会话面板 */
+.session-panel {
+  width: 220px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.session-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.session-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--neon-cyan);
+}
+
+.new-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.05);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.new-btn:hover {
+  background: rgba(59,130,246,0.2);
+  color: var(--neon-cyan);
+  border-color: var(--neon-cyan);
+}
+
+.new-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.session-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.session-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.session-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid transparent;
+}
+
+.session-item:hover {
+  background: rgba(59,130,246,0.1);
+  border-color: rgba(59,130,246,0.2);
+}
+
+.session-item.active {
+  background: rgba(59,130,246,0.15);
+  border-color: rgba(59,130,246,0.3);
+}
+
+.session-title {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.del-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.session-item:hover .del-btn {
+  opacity: 1;
+}
+
+.del-btn:hover {
+  color: #ef4444;
+  background: rgba(239,68,68,0.15);
+}
+
+.del-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.session-empty {
+  text-align: center;
+  padding: 20px 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
 .context-panel {
-  width: 320px;
+  width: 280px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -540,7 +657,6 @@ onMounted(() => {
   border-radius: 10px;
 }
 
-/* 选项组 */
 .options-group {
   display: flex;
   flex-direction: column;
@@ -562,7 +678,6 @@ onMounted(() => {
   accent-color: var(--neon-blue);
 }
 
-/* 右侧聊天区域 */
 .chat-area {
   flex: 1;
   display: flex;
@@ -572,6 +687,7 @@ onMounted(() => {
   border: 1px solid var(--glass-border);
   border-radius: 16px;
   overflow: hidden;
+  min-width: 0;
 }
 
 .chat-header {
@@ -608,7 +724,6 @@ onMounted(() => {
   font-weight: 600;
 }
 
-/* 消息容器 */
 .messages-container {
   flex: 1;
   overflow-y: auto;
@@ -663,7 +778,6 @@ onMounted(() => {
   transform: translateY(-2px);
 }
 
-/* 消息项 */
 .message-item {
   display: flex;
   gap: 12px;
@@ -696,35 +810,6 @@ onMounted(() => {
   min-width: 0;
 }
 
-.message-text {
-  padding: 12px 16px;
-  border-radius: 18px;
-  line-height: 1.6;
-  word-wrap: break-word;
-}
-
-.message-item.assistant .message-text {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--text-secondary);
-  border-bottom-left-radius: 4px;
-}
-
-.message-item.user .message-text {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(168, 85, 247, 0.2));
-  border: 1px solid rgba(59, 130, 246, 0.4);
-  color: var(--text-primary);
-  border-bottom-right-radius: 4px;
-}
-
-.message-time {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  margin-top: 6px;
-  padding: 0 4px;
-}
-
-/* 打字指示器 */
 .typing-indicator {
   display: flex;
   gap: 4px;
@@ -756,7 +841,6 @@ onMounted(() => {
   }
 }
 
-/* 输入区域 */
 .input-area {
   padding: 20px;
   border-top: 1px solid var(--glass-border);
@@ -823,6 +907,32 @@ onMounted(() => {
   height: 24px;
 }
 
+.cancel-btn {
+  width: 50px;
+  height: 50px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+  flex-shrink: 0;
+}
+
+.cancel-btn:hover {
+  background: rgba(239, 68, 68, 0.3);
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+}
+
+.cancel-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
 .input-hint {
   margin-top: 10px;
   font-size: 0.8rem;
@@ -830,13 +940,14 @@ onMounted(() => {
   text-align: center;
 }
 
-/* 滚动条样式 */
+.session-list::-webkit-scrollbar,
 .context-panel::-webkit-scrollbar,
 .messages-container::-webkit-scrollbar,
 .selector-list::-webkit-scrollbar {
   width: 6px;
 }
 
+.session-list::-webkit-scrollbar-track,
 .context-panel::-webkit-scrollbar-track,
 .messages-container::-webkit-scrollbar-track,
 .selector-list::-webkit-scrollbar-track {
@@ -844,6 +955,7 @@ onMounted(() => {
   border-radius: 3px;
 }
 
+.session-list::-webkit-scrollbar-thumb,
 .context-panel::-webkit-scrollbar-thumb,
 .messages-container::-webkit-scrollbar-thumb,
 .selector-list::-webkit-scrollbar-thumb {
@@ -851,43 +963,40 @@ onMounted(() => {
   border-radius: 3px;
 }
 
+.session-list::-webkit-scrollbar-thumb:hover,
 .context-panel::-webkit-scrollbar-thumb:hover,
 .messages-container::-webkit-scrollbar-thumb:hover,
 .selector-list::-webkit-scrollbar-thumb:hover {
   background: rgba(59, 130, 246, 0.8);
 }
 
-/* 响应式 */
+@media (max-width: 1200px) {
+  .session-panel { width: 180px; }
+  .context-panel { width: 240px; }
+}
+
 @media (max-width: 1024px) {
   .rag-container {
     flex-direction: column;
     height: auto;
     min-height: calc(100vh - 120px);
   }
-
-  .context-panel {
+  .session-panel {
     width: 100%;
-    max-height: 300px;
+    max-height: 150px;
   }
-
-  .chat-area {
-    min-height: 500px;
+  .session-list {
+    flex-direction: row;
+    overflow-x: auto;
   }
+  .session-item { white-space: nowrap; flex-shrink: 0; }
+  .context-panel { width: 100%; max-height: 300px; }
+  .chat-area { min-height: 500px; }
 }
 
 @media (max-width: 768px) {
-  .page-header {
-    padding: 20px;
-  }
-
-  .rag-container {
-    padding: 10px;
-  }
-
-  .chat-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
+  .page-header { padding: 20px; }
+  .rag-container { padding: 10px; }
+  .chat-header { flex-direction: column; align-items: flex-start; gap: 12px; }
 }
 </style>

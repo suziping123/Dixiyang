@@ -8,7 +8,7 @@ spring:
       mode: never
   # 1. 数据库连接
   datasource:
-    url: jdbc:mysql://127.0.0.1:3306/dixiyang?useSSL=false&serverTimezone=UTC&characterEncoding=utf8
+    url: jdbc:mysql://127.0.0.1:3306/dixiyang?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:123321}
 
@@ -75,6 +75,12 @@ server:
     context-path: /api # 这样所有接口都会带上 /api 前缀，符合前后端分离规范
     # 文件上传配置其实是属于 spring.servlet.multipart 的
     # 注意：Spring Boot 3 中 multipart 配置路径如下
+
+# 5. 聊天内容文件存储
+app:
+  chat:
+    storage-path: ${CHAT_STORAGE_PATH:storage/chat}
+    max-file-size: ${CHAT_MAX_FILE_SIZE:102400}
 
 # MyBatis-Plus 配置
 mybatis-plus:

@@ -67,3 +67,27 @@ export interface StoryNode {
   parentId?: number
   orderNum?: number
 }
+
+// 时间线类型
+export interface Timeline {
+  id?: number
+  novelId: number
+  name: string
+  parentId?: number | null
+  description?: string
+  createTime?: string
+}
+
+// 时间线故事节点（扩展类型）
+export interface TimelineNode {
+  id: number
+  novelId: number
+  timelineId: number
+  title: string
+  content: string
+  eventDate: string
+  eventType: 'birth' | 'war' | 'politics' | 'major'
+  importance: number
+  characterNames: string
+  tags: string
+}
