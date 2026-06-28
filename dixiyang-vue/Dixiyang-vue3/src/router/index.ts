@@ -66,6 +66,12 @@ const router = createRouter({
       component: RagAssistantView,
       meta: { requiresAuth: true }
     },
+    {
+      path: '/novel/:novelId/timeline',
+      name: 'timeline',
+      component: () => import('../views/TimelineView.vue'),
+      meta: { requiresAuth: true }
+    },
   ],
 })
 

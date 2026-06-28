@@ -91,7 +91,6 @@ const handleNavClick = (idx: number) => {
   position: absolute;
   left: -100px;
   top: 50%;
-  transform: translateY(-50%);
   background: var(--glass-bg);
   backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
@@ -102,6 +101,9 @@ const handleNavClick = (idx: number) => {
   gap: 25px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   transition: left 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform: translateY(-50%) translateZ(0);
+  will-change: transform, backdrop-filter;
+  backface-visibility: hidden;
 }
 
 .floating-nav.visible {

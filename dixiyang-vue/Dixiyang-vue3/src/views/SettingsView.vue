@@ -36,240 +36,240 @@
 
       <!-- 主内容区 -->
       <main class="settings-content">
-        <!-- Account Section -->
-        <div v-show="activeCategory === 'account'" class="section-wrapper">
-          <SettingsSection title="个人账户" description="管理你的账户信息和安全设置">
+<!-- Account Section -->
+      <div v-if="activeCategory === 'account'" class="section-wrapper">
+        <SettingsSection title="个人账户" description="管理你的账户信息和安全设置">
+          <div class="form-group">
+            <label class="form-label">昵称</label>
+            <div class="input-wrapper">
+              <input
+                v-model="accountForm.nickname"
+                type="text"
+                class="form-input"
+                placeholder="输入昵称"
+                @blur="saveAccountInfo"
+              />
+              <span class="input-hint">你在系统中显示的名字</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">邮箱</label>
+            <div class="input-wrapper">
+              <input
+                v-model="accountForm.email"
+                type="email"
+                class="form-input"
+                placeholder="输入邮箱地址"
+                @blur="saveAccountInfo"
+              />
+              <span class="input-hint">用于账户恢复和通知</span>
+            </div>
+          </div>
+
+          <!-- TODO: [Account] 未来添加 - 修改密码表单 -->
+          <!-- TODO: [Account] 未来添加 - 三方账户绑定（GitHub/Google等） -->
+          <!-- TODO: [Account] 未来添加 - 账户升级/会员选项 -->
+        </SettingsSection>
+      </div>
+
+      <!-- Display Section -->
+      <div v-if="activeCategory === 'display'" class="section-wrapper">
+        <SettingsSection title="背景与界面" description="自定义你的视觉体验">
+          <BackgroundControl mode="full" />
+
+          <!-- 字体系统 -->
+          <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(255, 255, 255, 0.1)">
+            <FontControl mode="full" />
+          </div>
+
+          <!-- TODO: [Display] 未来添加 - 对比度设置 -->
+          <!-- TODO: [Display] 未来添加 - 界面语言选择 -->
+        </SettingsSection>
+      </div>
+
+      <!-- Creation Section -->
+      <div v-if="activeCategory === 'creation'" class="section-wrapper">
+        <SettingsSection title="创作偏好" description="配置编辑器和创作工具的默认行为">
+          <!-- 新小说默认配置 -->
+          <div class="subsection">
+            <h4 class="subsection-title">新小说配置</h4>
             <div class="form-group">
-              <label class="form-label">昵称</label>
-              <div class="input-wrapper">
-                <input
-                  v-model="accountForm.nickname"
-                  type="text"
-                  class="form-input"
-                  placeholder="输入昵称"
-                  @blur="saveAccountInfo"
-                />
-                <span class="input-hint">你在系统中显示的名字</span>
-              </div>
+              <label class="form-label">默认笔名</label>
+              <input
+                v-model="creationPrefs.defaultPenName"
+                type="text"
+                class="form-input"
+                placeholder="输入默认笔名"
+                @blur="saveCreationPrefs"
+              />
             </div>
+          </div>
 
+          <!-- 角色编辑器偏好 -->
+          <div class="subsection">
+            <h4 class="subsection-title">角色编辑器</h4>
             <div class="form-group">
-              <label class="form-label">邮箱</label>
-              <div class="input-wrapper">
-                <input
-                  v-model="accountForm.email"
-                  type="email"
-                  class="form-input"
-                  placeholder="输入邮箱地址"
-                  @blur="saveAccountInfo"
-                />
-                <span class="input-hint">用于账户恢复和通知</span>
-              </div>
+              <label class="form-label">默认性别</label>
+              <select v-model="creationPrefs.defaultCharGender" class="form-input" @change="saveCreationPrefs">
+                <option value="">---</option>
+                <option value="male">男性</option>
+                <option value="female">女性</option>
+                <option value="other">其他</option>
+              </select>
             </div>
-
-            <!-- TODO: [Account] 未来添加 - 修改密码表单 -->
-            <!-- TODO: [Account] 未来添加 - 三方账户绑定（GitHub/Google等） -->
-            <!-- TODO: [Account] 未来添加 - 账户升级/会员选项 -->
-          </SettingsSection>
-        </div>
-
-        <!-- Display Section -->
-        <div v-show="activeCategory === 'display'" class="section-wrapper">
-          <SettingsSection title="背景与界面" description="自定义你的视觉体验">
-            <BackgroundControl mode="full" />
-
-            <!-- 字体系统 -->
-            <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(255, 255, 255, 0.1)">
-              <FontControl mode="full" />
-            </div>
-
-            <!-- TODO: [Display] 未来添加 - 对比度设置 -->
-            <!-- TODO: [Display] 未来添加 - 界面语言选择 -->
-          </SettingsSection>
-        </div>
-
-        <!-- Creation Section -->
-        <div v-show="activeCategory === 'creation'" class="section-wrapper">
-          <SettingsSection title="创作偏好" description="配置编辑器和创作工具的默认行为">
-            <!-- 新小说默认配置 -->
-            <div class="subsection">
-              <h4 class="subsection-title">新小说配置</h4>
-              <div class="form-group">
-                <label class="form-label">默认笔名</label>
-                <input
-                  v-model="creationPrefs.defaultPenName"
-                  type="text"
-                  class="form-input"
-                  placeholder="输入默认笔名"
-                  @blur="saveCreationPrefs"
-                />
-              </div>
-            </div>
-
-            <!-- 角色编辑器偏好 -->
-            <div class="subsection">
-              <h4 class="subsection-title">角色编辑器</h4>
-              <div class="form-group">
-                <label class="form-label">默认性别</label>
-                <select v-model="creationPrefs.defaultCharGender" class="form-input" @change="saveCreationPrefs">
-                  <option value="">---</option>
-                  <option value="male">男性</option>
-                  <option value="female">女性</option>
-                  <option value="other">其他</option>
-                </select>
-              </div>
-              <div class="toggle-item">
-                <label class="form-label">显示自定义属性</label>
-                <button
-                  class="toggle-switch"
-                  :class="{ active: creationPrefs.showCustomProps }"
-                  @click="creationPrefs.showCustomProps = !creationPrefs.showCustomProps; saveCreationPrefs()"
-                >
-                  <span></span>
-                </button>
-              </div>
-            </div>
-
-            <!-- 故事节点编辑器偏好 -->
-            <div class="subsection">
-              <h4 class="subsection-title">故事节点编辑器</h4>
-              <div class="form-group">
-                <label class="form-label">编辑器类型</label>
-                <select v-model="creationPrefs.editorType" class="form-input" @change="saveCreationPrefs">
-                  <option value="richtext">富文本编辑器</option>
-                  <option value="markdown">Markdown编辑器</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">自动保存间隔（秒）</label>
-                <input
-                  v-model.number="creationPrefs.autoSaveInterval"
-                  type="number"
-                  min="10"
-                  max="300"
-                  class="form-input"
-                  @blur="saveCreationPrefs"
-                />
-              </div>
-              <div class="toggle-item">
-                <label class="form-label">显示字数统计</label>
-                <button
-                  class="toggle-switch"
-                  :class="{ active: creationPrefs.showWordCount }"
-                  @click="creationPrefs.showWordCount = !creationPrefs.showWordCount; saveCreationPrefs()"
-                >
-                  <span></span>
-                </button>
-              </div>
-            </div>
-
-            <!-- 时间线显示偏好 -->
-            <div class="subsection">
-              <h4 class="subsection-title">时间线显示</h4>
-              <div class="form-group">
-                <label class="form-label">默认展开深度</label>
-                <input
-                  v-model.number="creationPrefs.timelineDefaultDepth"
-                  type="number"
-                  min="1"
-                  max="5"
-                  class="form-input"
-                  @blur="saveCreationPrefs"
-                />
-              </div>
-            </div>
-
-            <!-- TODO: [创作偏好] 未来添加 - 性格特征预设库 -->
-            <!-- TODO: [创作偏好] 未来添加 - 节点密度视图设置 -->
-            <!-- TODO: [创作偏好] 未来添加 - 关联线条样式设置 -->
-          </SettingsSection>
-        </div>
-
-        <!-- AI Section -->
-        <div v-show="activeCategory === 'ai'" class="section-wrapper">
-          <SettingsSection title="RAG 助手设置" description="配置 AI 建议和智能功能">
-            <div class="subsection">
-              <h4 class="subsection-title">建议类型</h4>
-              <div class="checkbox-group">
-                <label class="checkbox-item">
-                  <input
-                    v-model="aiPrefs.suggestions.character"
-                    type="checkbox"
-                    @change="saveAiPrefs"
-                  />
-                  <span class="checkbox-label">角色建议</span>
-                  <span class="checkbox-desc">基于已有角色数据提供建议</span>
-                </label>
-                <label class="checkbox-item">
-                  <input
-                    v-model="aiPrefs.suggestions.story"
-                    type="checkbox"
-                    @change="saveAiPrefs"
-                  />
-                  <span class="checkbox-label">故事建议</span>
-                  <span class="checkbox-desc">基于故事节点内容提供建议</span>
-                </label>
-                <label class="checkbox-item">
-                  <input
-                    v-model="aiPrefs.suggestions.relation"
-                    type="checkbox"
-                    @change="saveAiPrefs"
-                  />
-                  <span class="checkbox-label">关系建议</span>
-                  <span class="checkbox-desc">基于小说关系提供建议</span>
-                </label>
-              </div>
-            </div>
-
-            <!-- TODO: [RAG助手] 未来添加 - AI模型选择（GPT-4/本地/Claude等） -->
-            <!-- TODO: [RAG助手] 未来添加 - 提示词模板库 -->
-            <!-- TODO: [RAG助手] 未来添加 - 建议数量和风格设置 -->
-            <!-- TODO: [RAG助手] 未来添加 - 知识库微调设置 -->
-          </SettingsSection>
-        </div>
-
-        <!-- Data Section -->
-        <div v-show="activeCategory === 'data'" class="section-wrapper">
-          <SettingsSection title="数据管理" description="备份、导出和管理你的创作数据">
-            <div class="subsection">
-              <h4 class="subsection-title">数据导出</h4>
-              <p class="subsection-desc">导出你的创作数据为本地文件</p>
-              <div class="button-group">
-                <button class="btn-action" @click="handleExportAll">
-                  📤 导出全部小说
-                </button>
-                <button class="btn-action" @click="handleExportCharacters">
-                  📤 导出角色库
-                </button>
-              </div>
-            </div>
-
-            <!-- TODO: [数据管理] 未来添加 - 导入功能 -->
-            <!-- TODO: [数据管理] 未来添加 - 版本历史面板（关联 StoryNode 编辑历史） -->
-            <!-- TODO: [数据管理] 未来添加 - 小说分类管理 -->
-            <!-- TODO: [数据管理] 未来添加 - 标签管理 -->
-            <!-- TODO: [数据管理] 未来添加 - 自动备份设置 -->
-            <!-- TODO: [数据管理] 未来添加 - 云同步选项 -->
-          </SettingsSection>
-        </div>
-
-        <!-- Security Section -->
-        <div v-show="activeCategory === 'security'" class="section-wrapper">
-          <SettingsSection title="账户安全" description="管理登录会话和安全选项">
-            <div class="subsection">
-              <h4 class="subsection-title">登录会话</h4>
-              <button class="btn-danger" @click="handleLogout">
-                🚪 登出当前会话
+            <div class="toggle-item">
+              <label class="form-label">显示自定义属性</label>
+              <button
+                class="toggle-switch"
+                :class="{ active: creationPrefs.showCustomProps }"
+                @click="creationPrefs.showCustomProps = !creationPrefs.showCustomProps; saveCreationPrefs()"
+              >
+                <span></span>
               </button>
             </div>
+          </div>
 
-            <!-- TODO: [账户安全] 未来添加 - 已登录设备列表 -->
-            <!-- TODO: [账户安全] 未来添加 - 登录历史 -->
-            <!-- TODO: [账户安全] 未来添加 - 两步验证设置 -->
-            <!-- TODO: [账户安全] 未来添加 - IP白名单 -->
-            <!-- TODO: [账户安全] 未来添加 - 活跃会话管理 -->
-          </SettingsSection>
-        </div>
+          <!-- 故事节点编辑器偏好 -->
+          <div class="subsection">
+            <h4 class="subsection-title">故事节点编辑器</h4>
+            <div class="form-group">
+              <label class="form-label">编辑器类型</label>
+              <select v-model="creationPrefs.editorType" class="form-input" @change="saveCreationPrefs">
+                <option value="richtext">富文本编辑器</option>
+                <option value="markdown">Markdown编辑器</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">自动保存间隔（秒）</label>
+              <input
+                v-model.number="creationPrefs.autoSaveInterval"
+                type="number"
+                min="10"
+                max="300"
+                class="form-input"
+                @blur="saveCreationPrefs"
+              />
+            </div>
+            <div class="toggle-item">
+              <label class="form-label">显示字数统计</label>
+              <button
+                class="toggle-switch"
+                :class="{ active: creationPrefs.showWordCount }"
+                @click="creationPrefs.showWordCount = !creationPrefs.showWordCount; saveCreationPrefs()"
+              >
+                <span></span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 时间线显示偏好 -->
+          <div class="subsection">
+            <h4 class="subsection-title">时间线显示</h4>
+            <div class="form-group">
+              <label class="form-label">默认展开深度</label>
+              <input
+                v-model.number="creationPrefs.timelineDefaultDepth"
+                type="number"
+                min="1"
+                max="5"
+                class="form-input"
+                @blur="saveCreationPrefs"
+              />
+            </div>
+          </div>
+
+          <!-- TODO: [创作偏好] 未来添加 - 性格特征预设库 -->
+          <!-- TODO: [创作偏好] 未来添加 - 节点密度视图设置 -->
+          <!-- TODO: [创作偏好] 未来添加 - 关联线条样式设置 -->
+        </SettingsSection>
+      </div>
+
+      <!-- AI Section -->
+      <div v-if="activeCategory === 'ai'" class="section-wrapper">
+        <SettingsSection title="RAG 助手设置" description="配置 AI 建议和智能功能">
+          <div class="subsection">
+            <h4 class="subsection-title">建议类型</h4>
+            <div class="checkbox-group">
+              <label class="checkbox-item">
+                <input
+                  v-model="aiPrefs.suggestions.character"
+                  type="checkbox"
+                  @change="saveAiPrefs"
+                />
+                <span class="checkbox-label">角色建议</span>
+                <span class="checkbox-desc">基于已有角色数据提供建议</span>
+              </label>
+              <label class="checkbox-item">
+                <input
+                  v-model="aiPrefs.suggestions.story"
+                  type="checkbox"
+                  @change="saveAiPrefs"
+                />
+                <span class="checkbox-label">故事建议</span>
+                <span class="checkbox-desc">基于故事节点内容提供建议</span>
+              </label>
+              <label class="checkbox-item">
+                <input
+                  v-model="aiPrefs.suggestions.relation"
+                  type="checkbox"
+                  @change="saveAiPrefs"
+                />
+                <span class="checkbox-label">关系建议</span>
+                <span class="checkbox-desc">基于小说关系提供建议</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- TODO: [RAG助手] 未来添加 - AI模型选择（GPT-4/本地/Claude等） -->
+          <!-- TODO: [RAG助手] 未来添加 - 提示词模板库 -->
+          <!-- TODO: [RAG助手] 未来添加 - 建议数量和风格设置 -->
+          <!-- TODO: [RAG助手] 未来添加 - 知识库微调设置 -->
+        </SettingsSection>
+      </div>
+
+      <!-- Data Section -->
+      <div v-if="activeCategory === 'data'" class="section-wrapper">
+        <SettingsSection title="数据管理" description="备份、导出和管理你的创作数据">
+          <div class="subsection">
+            <h4 class="subsection-title">数据导出</h4>
+            <p class="subsection-desc">导出你的创作数据为本地文件</p>
+            <div class="button-group">
+              <button class="btn-action" @click="handleExportAll">
+                📤 导出全部小说
+              </button>
+              <button class="btn-action" @click="handleExportCharacters">
+                📤 导出角色库
+              </button>
+            </div>
+          </div>
+
+          <!-- TODO: [数据管理] 未来添加 - 导入功能 -->
+          <!-- TODO: [数据管理] 未来添加 - 版本历史面板（关联 StoryNode 编辑历史） -->
+          <!-- TODO: [数据管理] 未来添加 - 小说分类管理 -->
+          <!-- TODO: [数据管理] 未来添加 - 标签管理 -->
+          <!-- TODO: [数据管理] 未来添加 - 自动备份设置 -->
+          <!-- TODO: [数据管理] 未来添加 - 云同步选项 -->
+        </SettingsSection>
+      </div>
+
+      <!-- Security Section -->
+      <div v-if="activeCategory === 'security'" class="section-wrapper">
+        <SettingsSection title="账户安全" description="管理登录会话和安全选项">
+          <div class="subsection">
+            <h4 class="subsection-title">登录会话</h4>
+            <button class="btn-danger" @click="handleLogout">
+              🚪 登出当前会话
+            </button>
+          </div>
+
+          <!-- TODO: [账户安全] 未来添加 - 已登录设备列表 -->
+          <!-- TODO: [账户安全] 未来添加 - 登录历史 -->
+          <!-- TODO: [账户安全] 未来添加 - 两步验证设置 -->
+          <!-- TODO: [账户安全] 未来添加 - IP白名单 -->
+          <!-- TODO: [账户安全] 未来添加 - 活跃会话管理 -->
+        </SettingsSection>
+      </div>
       </main>
     </div>
   </div>
@@ -413,6 +413,9 @@ const goBack = () => {
   top: 0;
   height: 100vh;
   overflow-y: auto;
+  transform: translateZ(0);
+  will-change: transform, backdrop-filter;
+  backface-visibility: hidden;
 }
 
 .sidebar-header {

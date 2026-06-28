@@ -26,7 +26,7 @@
 
         <div v-else-if="novels.length > 0" class="galaxy-grid">
           <div v-for="novel in novels" :key="novel.id" class="novel-card-wrapper" @mouseenter="hoveredCard = novel.id" @mouseleave="hoveredCard = null">
-            <div class="glass-card novel-card" :class="{ flipped: flippedCards.has(novel.id) }" @click="handleCardClick(novel, $event)">
+            <div class="glass-card novel-card" :class="{ flipped: flippedCards.has(novel.id) }" @click="handleCardClick(novel, $event)" title="点击查看宇宙概览，快速双击翻转">
               <div class="card-glow" :style="{ opacity: hoveredCard === novel.id ? 1 : 0 }"></div>
 
               <!-- 封面层 -->
@@ -64,19 +64,18 @@
                     <b class="stat-value">{{ novel.relation_count || 0 }}</b>
                   </div>
                 </div>
-                <button class="enter-btn character-btn" @click.stop="openCharacterManager(novel)">
-                  <span class="btn-text">角色管理</span>
-                  <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-                </button>
-                <button class="enter-btn timeline-btn" @click.stop="openTimeline(novel)">
-                  <span class="btn-text">时间线</span>
-                  <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
-                </button>
-                <button class="enter-btn delete-btn" @click.stop="deleteNovel(novel)">
-                  <span class="btn-text">删除小说</span>
-                  <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                </button>
-                <button class="enter-btn" @click.stop="openNovel(novel)">
+                <div class="card-actions-row">
+                  <button class="action-btn-sm character-btn" @click.stop="openCharacterManager(novel)" title="角色管理">
+                    <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                  </button>
+                  <button class="action-btn-sm timeline-btn" @click.stop="openTimeline(novel)" title="时间线管理">
+                    <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+                  </button>
+                  <button class="action-btn-sm delete-btn" @click.stop="deleteNovel(novel)" title="删除小说">
+                    <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                  </button>
+                </div>
+                <button class="enter-btn" @click.stop="openNovel(novel)" title="进入创作">
                   <span class="btn-text">进入创作</span>
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M5 13l4 4L19 7"/></svg>
                 </button>
@@ -792,7 +791,6 @@ onBeforeUnmount(() => {
 }
 
 .enter-btn {
-  margin-top: auto;
   width: 100%;
   padding: 12px 14px;
   border-radius: 12px;
@@ -813,7 +811,71 @@ onBeforeUnmount(() => {
   font-size: 0.85rem;
 }
 
-.btn-icon {
+.card-actions-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.action-btn-sm {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.action-btn-sm .btn-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  opacity: 0.7;
+  transition: all 0.3s;
+  transform: none;
+}
+
+.action-btn-sm:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.action-btn-sm:hover .btn-icon {
+  opacity: 1;
+}
+
+.action-btn-sm.character-btn:hover,
+.action-btn-sm.character-btn:hover .btn-icon {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.4);
+  color: #22c55e;
+  opacity: 1;
+}
+
+.action-btn-sm.timeline-btn:hover,
+.action-btn-sm.timeline-btn:hover .btn-icon {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #6366f1;
+  opacity: 1;
+}
+
+.action-btn-sm.delete-btn:hover,
+.action-btn-sm.delete-btn:hover .btn-icon {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+  opacity: 1;
+}
+
+.enter-btn .btn-icon {
+  width: 1.2rem;
+  height: 1.2rem;
   opacity: 0;
   transform: translateX(-8px);
   transition: all 0.3s;
@@ -829,18 +891,6 @@ onBeforeUnmount(() => {
 .enter-btn:hover .btn-icon {
   opacity: 1;
   transform: translateX(0);
-}
-
-.enter-btn.delete-btn {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.1));
-  border-color: rgba(239, 68, 68, 0.3);
-  color: #ef4444;
-}
-
-.enter-btn.delete-btn:hover {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.3), rgba(220, 38, 38, 0.2));
-  border-color: rgba(239, 68, 68, 0.6);
-  box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
 }
 
 .card-border-gradient {

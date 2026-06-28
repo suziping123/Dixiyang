@@ -7,9 +7,10 @@
  * @Description: 预设封面图注册表
  *
  * cover_url 格式约定：
- *   - "preset:xxx"  → 从预设目录自动查找（如 "preset:silicon-age"）
- *   - "https://..."  → 直接作为远程 URL 使用
- *   - 空/null        → 使用默认封面
+ *   - "preset:xxx"      → 从预设目录自动查找（如 "preset:silicon-age"）
+ *   - "https://..."     → 直接作为远程 URL 使用
+ *   - "/api/uploads/..." → 本地上传的文件（相对路径，自动拼接当前域名）
+ *   - 空/null            → 使用默认封面
  *
  * 新增预设封面步骤：
  *   1. 把图片放到 src/images/presets/ 目录
@@ -50,9 +51,11 @@ const PRESET_COVERS: PresetCover[] = Object.keys(presetModules).map(path => {
 const presetMap = new Map(PRESET_COVERS.map(c => [c.id, c]))
 
 export function resolveNovelCover(coverUrl: string | undefined): string {
-  if (coverUrl?.startsWith('http')) return coverUrl
+  if (!coverUrl) return DEFAULT_COVER
+  if (coverUrl.startsWith('http')) return coverUrl
+  if (coverUrl.startsWith('/')) return coverUrl
 
-  if (coverUrl?.startsWith('preset:')) {
+  if (coverUrl.startsWith('preset:')) {
     const key = coverUrl.slice(7)
     const preset = presetMap.get(key)
     if (preset) return preset.thumb
@@ -73,6 +76,10 @@ export function resolveCoverUrl(coverUrl: string | undefined): string {
   }
 
   if (coverUrl.startsWith('http://') || coverUrl.startsWith('https://')) {
+    return coverUrl
+  }
+
+  if (coverUrl.startsWith('/')) {
     return coverUrl
   }
 

@@ -125,6 +125,9 @@ input::placeholder { color: var(--text-muted); }
   border: 1px solid var(--surface-glass-border);
   border-radius: 16px;
   color: var(--text-primary);
+  transform: translateZ(0);
+  will-change: transform, backdrop-filter;
+  backface-visibility: hidden;
 }
 .glass-sm { backdrop-filter: blur(12px); border-radius: 12px; }
 .glass-lg { backdrop-filter: blur(20px); border-radius: 24px; }
@@ -137,6 +140,9 @@ input::placeholder { color: var(--text-muted); }
   border-radius: 24px;
   transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
   color: var(--text-primary);
+  transform: translateZ(0);
+  will-change: transform, backdrop-filter;
+  backface-visibility: hidden;
 }
 .glass-card:hover {
   border-color: var(--surface-glass-border-hover);
