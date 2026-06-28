@@ -192,7 +192,7 @@ export function initTheme() {
 }
 
 /** 从服务器加载背景配置并覆盖本地 */
-async function loadFromServer() {
+export async function loadFromServer() {
   const data = await fetchFromServer()
   if (!data) { _loaded.value = true; return }
 
