@@ -17,7 +17,10 @@
       />
       <div class="subtitle-text-group">
         <p class="subtitle">{{ pageTitle }} - <span class="user-name">{{ novelStore.currentNovel?.title || '未知' }}</span></p>
-        <button class="cover-change-btn" @click="showCoverDialog = true">更换封面</button>
+        <div class="cover-actions">
+          <button class="cover-change-btn" @click="showCoverDialog = true">更换封面</button>
+          <button v-if="hasCover" class="cover-delete-btn" @click="removeCover">删除封面</button>
+        </div>
       </div>
     </div>
   </header>
@@ -50,7 +53,8 @@ import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import BackgroundControl from '@/components/BackgroundControl.vue'
 import { useNovelStore } from '@/stores/novelStore'
-import { uploadNovelCover } from '@/api/novelApi'
+import { uploadNovelCover, deleteNovelCover } from '@/api/novelApi'
+import { confirmDelete } from '@/utils/confirm'
 import { resolveNovelCover } from '@/utils/localImages'
 import defaultCoverImg from '@/images/default-cover.png'
 
@@ -66,6 +70,7 @@ const isUploading = ref(false)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const coverSrc = computed(() => resolveNovelCover(novelStore.currentNovel?.cover_url))
 const defaultCover = defaultCoverImg
+const hasCover = computed(() => !!novelStore.currentNovel?.cover_url)
 
 const triggerUpload = () => fileInputRef.value?.click()
 const onFileChange = (e: Event) => {
@@ -96,6 +101,17 @@ const saveCover = async () => {
     }
   } catch (e) { console.error(e) }
   finally { isUploading.value = false }
+}
+
+const removeCover = async () => {
+  if (!novelStore.currentNovel?.id || !novelStore.currentNovel?.cover_url) return
+  const confirmed = await confirmDelete('确定要删除封面吗？')
+  if (!confirmed) return
+  try {
+    await deleteNovelCover(novelStore.currentNovel.cover_url, novelStore.currentNovel.id)
+    novelStore.currentNovel = { ...novelStore.currentNovel, cover_url: '' }
+    ElMessage.success('封面已删除')
+  } catch (e) { console.error(e) }
 }
 </script>
 
@@ -167,7 +183,12 @@ const saveCover = async () => {
   gap: 4px;
 }
 
-.cover-change-btn {
+.cover-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.cover-change-btn, .cover-delete-btn {
   padding: 3px 10px;
   font-size: 0.75rem;
   background: transparent;
@@ -181,6 +202,14 @@ const saveCover = async () => {
 .cover-change-btn:hover {
   border-color: rgba(255,255,255,0.5);
   color: #fff;
+}
+.cover-delete-btn {
+  border-color: rgba(239,68,68,0.3);
+  color: rgba(239,68,68,0.7);
+}
+.cover-delete-btn:hover {
+  border-color: rgba(239,68,68,0.8);
+  color: #ef4444;
 }
 
 .novel-cover-thumb {

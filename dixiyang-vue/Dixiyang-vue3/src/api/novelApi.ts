@@ -59,11 +59,15 @@ export const uploadNovelCover = async (file: File) => {
   const formData = new FormData();
   formData.append('file', file);
   const res = await http.post('/upload/novel-cover', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    }
+    headers: { 'Content-Type': 'multipart/form-data' }
   });
-  return assertApiResponse<{ coverUrl: string }>(res);
+  return assertApiResponse<string>(res);
+};
+
+// 删除小说封面（物理文件 + 清数据库 cover_url）
+export const deleteNovelCover = async (url: string, novelId: string | number) => {
+  const res = await http.delete('/upload/novel-cover', { params: { url, novelId } });
+  return assertApiResponse<void>(res);
 };
 
 // 上传背景图
