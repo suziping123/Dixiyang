@@ -65,8 +65,12 @@ interface BackgroundConfig {
   customBgs?: string  // JSON string
 }
 
-function getUserId(): string | null {
-  return localStorage.getItem('userId') || null
+function getUserId(): number | null {
+  const raw = localStorage.getItem('userId')
+  if (!raw) return null
+  const id = Number(raw)
+  if (!id || isNaN(id)) return null
+  return id
 }
 
 async function fetchFromServer(): Promise<BackgroundConfig | null> {

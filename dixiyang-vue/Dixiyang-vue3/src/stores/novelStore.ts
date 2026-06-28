@@ -26,10 +26,12 @@ export const useNovelStore = defineStore('novel', () => {
   }
 
   async function updateCover(novelId: number | string, coverUrl: string) {
+    const id = Number(novelId)
+    if (!id || isNaN(id)) return
     try {
-      const res = await http.post(`/novel/update/${novelId}`, { coverUrl })
+      const res = await http.post(`/novel/update/${id}`, { coverUrl })
       assertApiResponse(res)
-      if (currentNovel.value && String(currentNovel.value.id) === String(novelId)) {
+      if (currentNovel.value && String(currentNovel.value.id) === String(id)) {
         currentNovel.value = { ...currentNovel.value, cover_url: coverUrl }
       }
     } catch (e) {

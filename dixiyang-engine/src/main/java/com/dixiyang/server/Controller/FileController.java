@@ -149,24 +149,26 @@ public class FileController {
         if (!url.startsWith(prefix)) return Result.error("无法删除非本系统文件");
 
         try {
-            String relative = url.substring(prefix.length());
-            Path filePath = Paths.get(dir, relative.substring(relative.indexOf('/') + 1));
+            // 提取文件名：/api/uploads/backgrounds/xxx.jpg → xxx.jpg
+            String filename = url.substring(url.lastIndexOf('/') + 1);
+            Path filePath = Paths.get(dir, filename);
             Files.deleteIfExists(filePath);
+            log.info("删除文件: {}", filename);
 
-            // 清理 MD5 映射
-            Path uploadPath = Paths.get(dir);
-            try (var stream = Files.list(uploadPath)) {
-                stream.filter(p -> p.toString().endsWith(".md5"))
-                      .forEach(p -> {
-                          try {
-                              if (url.equals(Files.readString(p))) {
-                                  Files.deleteIfExists(p);
-                              }
-                          } catch (IOException ignored) {}
-                      });
+            // 清理 MD5 映射文件
+            Path dirPath = Paths.get(dir);
+            try (var stream = Files.list(dirPath)) {
+                stream.filter(p -> p.toString().endsWith(".md5")).forEach(p -> {
+                    try {
+                        String content = Files.readString(p).trim();
+                        if (url.equals(content) || filename.equals(content)) {
+                            Files.deleteIfExists(p);
+                            log.info("清理MD5: {}", p.getFileName());
+                        }
+                    } catch (IOException ignored) {}
+                });
             }
 
-            log.info("删除文件: {}", filePath.getFileName());
             return Result.success(null);
         } catch (IOException e) {
             log.error("删除失败", e);

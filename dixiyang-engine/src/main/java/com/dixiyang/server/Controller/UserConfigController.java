@@ -37,7 +37,9 @@ public class UserConfigController {
      */
     @PostMapping("/background")
     public Result<Void> updateBackgroundConfig(@RequestBody UserConfig dto) {
-        if (dto.getUserId() == null) return Result.error("userId不能为空");
+        if (dto.getUserId() == null || dto.getUserId() <= 0) {
+            return Result.error("无效的userId");
+        }
 
         UserConfig existing = userConfigMapper.selectOne(
                 new LambdaQueryWrapper<UserConfig>()

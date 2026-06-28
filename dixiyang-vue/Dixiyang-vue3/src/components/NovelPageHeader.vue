@@ -104,11 +104,12 @@ const saveCover = async () => {
 }
 
 const removeCover = async () => {
-  if (!novelStore.currentNovel?.id || !novelStore.currentNovel?.cover_url) return
+  const id = Number(novelStore.currentNovel?.id)
+  if (!id || isNaN(id) || !novelStore.currentNovel?.cover_url) return
   const confirmed = await confirmDelete('确定要删除封面吗？')
   if (!confirmed) return
   try {
-    await deleteNovelCover(novelStore.currentNovel.cover_url, novelStore.currentNovel.id)
+    await deleteNovelCover(novelStore.currentNovel.cover_url, id)
     novelStore.currentNovel = { ...novelStore.currentNovel, cover_url: '' }
     ElMessage.success('封面已删除')
   } catch (e) { console.error(e) }
