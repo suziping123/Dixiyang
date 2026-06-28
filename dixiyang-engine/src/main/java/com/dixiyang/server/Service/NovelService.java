@@ -44,11 +44,10 @@ public interface NovelService {
      * 5. 更新小说信息
      * @param userId 当前登录用户ID
      * @param novelId 小说ID
-     * @param novel 小说信息（title, penName, description）
-     * @param cover 封面文件 (可选)
+     * @param novel 小说信息（title, penName, description, coverUrl）
      * @return 更新后的小说详情
      */
-    NovelVO updateNovel(Long userId, Long novelId, Novels novel, String cover);
+    NovelVO updateNovel(Long userId, Long novelId, Novels novel);
 
     /**
      * 6. 根据ID获取小说信息（不区分用户）

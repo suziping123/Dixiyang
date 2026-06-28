@@ -40,13 +40,9 @@ const handleClick = () => emit('click')
 
 .create-card {
   border: 2px dashed rgba(255, 255, 255, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .create-card:hover {
-  border-color: var(--neon-blue);
   box-shadow: 0 0 30px rgba(59, 130, 246, 0.3);
   background: rgba(59, 130, 246, 0.08);
 }
@@ -59,13 +55,8 @@ const handleClick = () => emit('click')
 .novel-card-wrapper:hover { transform: translateY(-8px); }
 
 .card-create-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
   gap: 16px;
   color: var(--text-secondary);
-  text-align: center;
 }
 
 .create-icon {

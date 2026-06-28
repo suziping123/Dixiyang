@@ -1,0 +1,37 @@
+/* ====== 加号/创建图标工具类 ====== */
+.create-icon {
+  display: block;
+  margin: 0 auto 12px;
+  transition: color 0.3s ease, transform 0.3s ease;
+}
+.create-icon.sm { width: 2.5rem; height: 2.5rem; }
+.create-icon.md { width: 3rem;   height: 3rem; }
+.create-icon.lg { width: 60px;   height: 60px; }
+
+/* 默认 hover 动画（各页面可覆盖） */
+.create-card:hover .create-icon {
+  color: var(--accent-cyan);
+  transform: scale(1.2) rotate(90deg);
+}
+
+/* ====== 创建卡片工具类 ====== */
+.create-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 2px dashed var(--glass-border);
+  transition: all 0.3s ease;
+  text-align: center;
+}
+.create-card:hover {
+  border-color: var(--accent-primary);
+}
+.card-create-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}

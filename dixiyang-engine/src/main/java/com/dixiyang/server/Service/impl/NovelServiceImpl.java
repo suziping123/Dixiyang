@@ -102,7 +102,7 @@ public class NovelServiceImpl implements NovelService {
 
     @Override
     @Transactional
-    public NovelVO updateNovel(Long userId, Long novelId, Novels novel, String coverUrl) {
+    public NovelVO updateNovel(Long userId, Long novelId, Novels novel) {
         // 1. 严格权限检查
         Novels existing = novelMapper.selectOne(new LambdaQueryWrapper<Novels>()
                 .eq(Novels::getId, novelId)

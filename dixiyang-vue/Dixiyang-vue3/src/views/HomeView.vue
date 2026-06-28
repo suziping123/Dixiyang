@@ -68,6 +68,10 @@
                   <span class="btn-text">角色管理</span>
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
                 </button>
+                <button class="enter-btn timeline-btn" @click.stop="openTimeline(novel)">
+                  <span class="btn-text">时间线</span>
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+                </button>
                 <button class="enter-btn delete-btn" @click.stop="deleteNovel(novel)">
                   <span class="btn-text">删除小说</span>
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
@@ -258,6 +262,9 @@ const openNovel = (novel: Novel) => {
 // 事件处理：进入角色管理
 const openCharacterManager = (novel: Novel) => {
   router.push({ name: 'character-manager', params: { novelId: novel.id } })
+}
+const openTimeline = (novel: Novel) => {
+  router.push({ name: 'timeline', params: { novelId: novel.id } })
 }
 async function deleteNovel(novel: Novel) {
   try {
@@ -852,23 +859,14 @@ onBeforeUnmount(() => {
 /* ============ 创建卡片 ============ */
 .create-card {
   border: 2px dashed rgba(255, 255, 255, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
   min-height: 320px;
 }
 
 .create-card:hover {
-  border-color: var(--neon-cyan);
   box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);
 }
 
 .card-create-content {
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   gap: 12px;
 }
 
@@ -876,12 +874,6 @@ onBeforeUnmount(() => {
   width: 3rem;
   height: 3rem;
   color: rgba(6, 182, 212, 0.6);
-  transition: all 0.3s;
-}
-
-.create-card:hover .create-icon {
-  color: var(--neon-cyan);
-  transform: scale(1.2) rotate(90deg);
 }
 
 .card-create-content span {
