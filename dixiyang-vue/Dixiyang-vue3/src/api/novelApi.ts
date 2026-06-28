@@ -78,9 +78,9 @@ export const uploadBgImage = async (file: File) => {
   return assertApiResponse<{ bgUrl: string }>(res);
 };
 
-// 删除背景图（物理文件）
-export const deleteBgImage = async (url: string) => {
-  const res = await http.delete('/upload/background', { params: { url } });
+// 删除背景图（物理文件 + 清数据库索引）
+export const deleteBgImage = async (url: string, userId: string | number) => {
+  const res = await http.delete('/upload/background', { params: { url, userId } });
   return assertApiResponse<void>(res);
 };
 
