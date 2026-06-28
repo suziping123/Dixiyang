@@ -22,14 +22,14 @@
     </div>
   </header>
 
-  <el-dialog v-model="showCoverDialog" title="更换封面" width="480px">
+  <el-dialog v-model="showCoverDialog" title="更换封面" width="480px" align-center>
     <el-tabs v-model="coverTab">
       <el-tab-pane label="上传文件" name="upload">
         <div class="cover-upload-area" @click="triggerUpload" @drop.prevent="onDrop" @dragover.prevent>
           <input ref="fileInputRef" type="file" accept="image/*" style="display:none" @change="onFileChange" />
           <img v-if="coverPreview" :src="coverPreview" class="cover-preview" />
           <div v-else class="upload-placeholder">
-            <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor" ><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
             <p>点击或拖拽上传封面</p>
           </div>
         </div>
@@ -173,14 +173,14 @@ const saveCover = async () => {
   background: transparent;
   border: 1px solid var(--glass-border);
   border-radius: 6px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.3s;
   width: fit-content;
 }
 .cover-change-btn:hover {
-  border-color: var(--neon-blue);
-  color: var(--neon-blue);
+  border-color: rgba(255,255,255,0.5);
+  color: #fff;
 }
 
 .novel-cover-thumb {
@@ -197,22 +197,54 @@ const saveCover = async () => {
   border-color: var(--neon-blue);
   box-shadow: 0 0 12px rgba(59,130,246,0.3);
 }
-
 .cover-upload-area {
   width: 100%;
-  min-height: 180px;
+  height: 200px; /* 或者你需要的任意高度 */
   border: 2px dashed var(--glass-border);
-  border-radius: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  
+  /* 使用 flex 让内部的占位符区域整体居中 */
   display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: border-color 0.4s ease, box-shadow 0.4s ease;
+}
+.cover-upload-area:hover {
+  border-color: rgba(255,255,255,0.5);
+}
+
+/* 2. 让占位符内部的 SVG 和文字垂直居中排列 */
+.upload-placeholder {
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s;
-  overflow: hidden;
+  color: rgba(255,255,255,0.45);
+  transition: color 0.4s ease;
 }
-.cover-upload-area:hover { border-color: var(--neon-blue); }
-.upload-placeholder { text-align: center; color: var(--text-muted); }
-.upload-placeholder svg { margin-bottom: 8px; }
+
+.cover-upload-area:hover .upload-placeholder {
+  color: rgba(255,255,255,0.9);
+}
+
+.cover-upload-area:hover .upload-placeholder svg {
+  transform: rotate(180deg);
+  color: #fff;
+}
+
+/* 2. 必须为 SVG 本身配置 transition，否则转动会极其生硬 */
+.upload-placeholder svg {
+  margin-bottom: 8px;     
+  display: inline-block;        /* 确保 SVG 作为块级/行内块级元素渲染，否则 transform 可能会失效 */
+  transform-origin: center;     /* 显式指定以 SVG 的正中心为旋转轴心 */
+  transition: transform 0.5s ease-in-out, color 0.2s; /* 确保写了 transform */
+}
+
+.upload-placeholder p {
+  margin: 0;              /* 清除 P 标签自带的默认外边距 */
+  font-size: 14px;
+}
 .cover-preview { max-width: 100%; max-height: 240px; object-fit: contain; }
 
 .user-name {

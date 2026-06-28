@@ -75,7 +75,7 @@ public class NovelController {
         // 如果 userId 为空，可以给个默认值测试
         if (userId == null) userId = 1L;
         // 调用 Service，传入从 Token 解析出的真实 userId
-        NovelVO novelVO = novelService.updateNovel(userId, novelId, novel, novel.getCoverUrl());
+        NovelVO novelVO = novelService.updateNovel(userId, novelId, novel);
         return Result.success("更新成功", novelVO);
      }
 }

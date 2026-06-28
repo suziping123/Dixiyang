@@ -13,18 +13,7 @@
     <FloatingNav />
 
     <main class="main-stage">
-      <header class="stage-header">
-        <div class="header-top">
-          <div class="logo-wrapper">
-            <h1 class="logo-text">DIXIYANG <span class="engine-span">ENGINE</span></h1>
-            <div class="glow-line"></div>
-          </div>
-          <div class="header-controls">
-            <BackgroundControl mode="compact" />
-          </div>
-        </div>
-        <p class="subtitle">角色管理 - 小说：<span class="user-name">{{ novelTitle || '未知小说' }}</span></p>
-      </header>
+      <NovelPageHeader page-title="角色管理" />
 
       <div class="character-section">
         <div class="section-header">
@@ -183,19 +172,20 @@ import { ref, onMounted, reactive, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Delete } from '@element-plus/icons-vue'
-import BackgroundControl from '@/components/BackgroundControl.vue'
 import FloatingNav from '@/components/FloatingNav.vue'
+import NovelPageHeader from '@/components/NovelPageHeader.vue'
 import { useBackgroundConfig } from '@/composables/useBackgroundConfig'
 import { useTextColorCustomizer } from '@/composables/useTextColorCustomizer'
 import type { CharacterVO, CharacterDTO } from '@/api/characterApi'
 import { getCharacterList, createCharacter, updateCharacter, deleteCharacter as deleteCharacterApi } from '@/api/characterApi'
+import { useNovelStore } from '@/stores/novelStore'
 
 const router = useRouter()
 const route = useRoute()
 const bgConfig = useBackgroundConfig()
 const textColorCustomizer = useTextColorCustomizer()
+const novelStore = useNovelStore()
 
-const novelTitle = ref('')
 const isLoading = ref(true)
 const isSaving = ref(false)
 const isDeleting = ref(false)
@@ -380,8 +370,8 @@ onMounted(() => {
   if (novelId.value) {
     form.novelId = novelId.value
     fetchCharacters()
+    novelStore.loadNovel(novelId.value)
   }
-  novelTitle.value = `小说 ${route.params.novelId}`
 
   textColorCustomizer.loadFromStorage()
   textColorCustomizer.applyCSSVariables()
@@ -403,69 +393,6 @@ onMounted(() => {
   position: relative;
   z-index: 1;
   padding: 80px 120px;
-}
-
-.stage-header {
-  margin-bottom: 40px;
-}
-
-.header-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 30px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-}
-
-.logo-wrapper {
-  position: relative;
-}
-
-.logo-text {
-  font-size: 2.5rem;
-  font-weight: 900;
-  letter-spacing: 0.3em;
-  background: linear-gradient(135deg, var(--neon-blue), var(--neon-cyan), var(--neon-purple));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  text-shadow: 0 0 40px rgba(59, 130, 246, 0.5);
-  margin: 0;
-}
-
-.engine-span {
-  font-size: 1.5rem;
-  font-weight: 300;
-  letter-spacing: 0.2em;
-  margin-left: 10px;
-}
-
-.glow-line {
-  position: absolute;
-  bottom: -10px;
-  left: 0;
-  width: 100%;
-  height: 3px;
-  background: linear-gradient(90deg, transparent, var(--neon-blue), var(--neon-cyan), transparent);
-  border-radius: 2px;
-  animation: glowPulse 2s ease-in-out infinite;
-}
-
-@keyframes glowPulse {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
-}
-
-.subtitle {
-  font-size: 1.1rem;
-  color: var(--text-secondary);
-  margin-top: 30px;
-}
-
-.user-name {
-  color: var(--neon-cyan);
-  font-weight: 600;
 }
 
 /* 角色区域 */
@@ -520,6 +447,7 @@ onMounted(() => {
 
 .character-card-wrapper {
   position: relative;
+  height: 100%;
 }
 
 .glass-card {
@@ -532,6 +460,13 @@ onMounted(() => {
   overflow: hidden;
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   height: 100%;
+}
+
+.character-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
 }
 
 .character-card:hover {
@@ -575,7 +510,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 16px;
+  margin: 0 auto 16px;
 }
 
 .avatar-text {
@@ -592,6 +527,7 @@ onMounted(() => {
 
 .character-info {
   display: flex;
+  justify-content: center;
   gap: 8px;
   margin-bottom: 12px;
 }
@@ -618,6 +554,7 @@ onMounted(() => {
 
 .card-actions {
   display: flex;
+  justify-content: center;
   gap: 10px;
 }
 
@@ -660,28 +597,22 @@ onMounted(() => {
 
 /* 创建卡片 */
 .create-card {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   min-height: 280px;
-  cursor: pointer;
-  border: 2px dashed var(--glass-border);
+  height: 100%;
 }
 
 .create-card:hover {
-  border-color: var(--neon-blue);
   transform: translateY(-5px);
 }
 
 .card-create-content {
-  text-align: center;
+  width: 100%;
 }
 
 .create-icon {
   width: 48px;
   height: 48px;
   color: var(--neon-blue);
-  margin-bottom: 12px;
 }
 
 .create-card span {

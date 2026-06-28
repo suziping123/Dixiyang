@@ -6,7 +6,7 @@
         <p class="section-desc">当前：暗色玻璃 · 浅色文字</p>
       </div>
 
-      <div v-if="bgList.length" class="settings-section">
+      <div class="settings-section">
         <h3 class="section-title">背景图</h3>
         <p class="section-desc">独立于主题，可单独选择</p>
         <div class="bg-image-grid">
@@ -16,11 +16,22 @@
             <img v-if="loaded[img.id]" :src="loaded[img.id]" :alt="img.label" class="bg-image-thumb" />
             <div v-else class="bg-image-placeholder">加载中</div>
             <span class="bg-image-label">{{ img.label }}</span>
+            <button v-if="img.isCustom" class="bg-delete-btn" @click.stop="handleDeleteCustom(img.id)" title="删除">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            </button>
           </button>
           <button class="bg-image-card no-bg" :class="{ active: !cfg.bgImageId.value }"
             @click="cfg.setBgImage(undefined)">
             <span class="bg-image-empty">✕</span>
             <span class="bg-image-label">无</span>
+          </button>
+          <button class="bg-image-card upload-card" @click="triggerBgUpload">
+            <input ref="bgFileInput" type="file" accept="image/jpeg,image/png,image/webp" style="display:none"
+                   @change="onBgFileUpload" />
+            <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor" class="upload-icon">
+              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+            <span class="bg-image-label">上传背景</span>
           </button>
         </div>
       </div>
@@ -30,20 +41,63 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useBackgroundConfig, BG_IMAGES } from '@/composables/useBackgroundConfig'
+import { useBackgroundConfig, BG_IMAGES, getCustomBgImages, addCustomBg, removeCustomBg } from '@/composables/useBackgroundConfig'
+import { uploadBgImage } from '@/api/novelApi'
+import { ElMessage } from 'element-plus'
 
 interface Props { mode?: 'compact' | 'full' }
 withDefaults(defineProps<Props>(), { mode: 'compact' })
 
 const cfg = useBackgroundConfig()
-const bgList = BG_IMAGES
+const bgList = ref([...BG_IMAGES, ...getCustomBgImages()])
 const loaded = ref<Record<string, string>>({})
+const bgFileInput = ref<HTMLInputElement | null>(null)
+const isUploading = ref(false)
+
+const refreshBgList = () => {
+  bgList.value = [...BG_IMAGES, ...getCustomBgImages()]
+}
 
 onMounted(async () => {
-  for (const img of BG_IMAGES) {
+  for (const img of bgList.value) {
     try { loaded.value[img.id] = await img.importFn() } catch { /* */ }
   }
 })
+
+const triggerBgUpload = () => bgFileInput.value?.click()
+
+const onBgFileUpload = async (e: Event) => {
+  const target = e.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+
+  if (isUploading.value) return
+  isUploading.value = true
+
+  try {
+    const res = await uploadBgImage(file)
+    const url = (res as any).data
+    const id = addCustomBg(url, file.name.replace(/\.[^.]+$/, ''))
+    loaded.value[id] = url
+    refreshBgList()
+    ElMessage.success('背景上传成功')
+  } catch (err) {
+    console.error('背景上传失败:', err)
+    ElMessage.error('背景上传失败，请重试')
+  } finally {
+    isUploading.value = false
+    target.value = ''
+  }
+}
+
+const handleDeleteCustom = (id: string) => {
+  removeCustomBg(id)
+  delete loaded.value[id]
+  refreshBgList()
+  if (cfg.bgImageId.value === id) {
+    cfg.setBgImage(undefined)
+  }
+}
 </script>
 
 <style scoped>
@@ -63,6 +117,46 @@ onMounted(async () => {
 .bg-image-label { position: absolute; bottom: 0; left: 0; right: 0; padding: 3px 6px; background: rgba(0,0,0,0.55); color: white; font-size: 0.7rem; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bg-image-card.no-bg { display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .bg-image-empty { font-size: 1.6rem; color: var(--text-muted); }
+
+.upload-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-style: dashed;
+}
+.upload-card:hover {
+  border-color: var(--accent-cyan);
+}
+.upload-icon {
+  color: var(--text-muted);
+  transition: color 0.3s, transform 0.3s;
+}
+.upload-card:hover .upload-icon {
+  color: var(--accent-cyan);
+  transform: scale(1.15) rotate(90deg);
+}
+
+.bg-delete-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0,0,0,0.6);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s, background 0.2s;
+  z-index: 1;
+}
+.bg-image-card:hover .bg-delete-btn { opacity: 1; }
+.bg-delete-btn:hover { background: rgba(239,68,68,0.8); }
 
 @media (max-width: 768px) { .full-mode { padding: 16px; } .bg-image-grid { grid-template-columns: repeat(2, 1fr); } }
 </style>

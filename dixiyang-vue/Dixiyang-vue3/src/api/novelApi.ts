@@ -66,7 +66,25 @@ export const uploadNovelCover = async (file: File) => {
   return assertApiResponse<{ coverUrl: string }>(res);
 };
 
+// 上传背景图
+export const uploadBgImage = async (file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await http.post('/upload/background', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+  return assertApiResponse<{ bgUrl: string }>(res);
+};
+
 // 删除小说
 export const deleteNovel = (novelId: string | number) => {
   return http.post(`/novel/delete/${novelId}`);
+};
+
+// 根据ID获取单本小说详情（子页面用来显示小说名称和封面）
+export const getNovelById = async (novelId: string | number) => {
+  const res = await http.get(`/novel/${novelId}`);
+  return assertApiResponse<NovelVO>(res);
 };

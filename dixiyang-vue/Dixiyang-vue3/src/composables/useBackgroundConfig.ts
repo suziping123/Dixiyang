@@ -10,13 +10,50 @@ export const THEMES: ThemeOption[] = [
 
 const bgGlob = import.meta.glob<string>('@/images/back/*.{png,jpg,jpeg,webp}', { eager: false, query: '?url', import: 'default' })
 
-export interface BgImageItem { id: string; label: string; importFn: () => Promise<string>; darkOverlay?: number }
+export interface BgImageItem { id: string; label: string; importFn: () => Promise<string>; darkOverlay?: number; isCustom?: boolean }
 
 export const BG_IMAGES: BgImageItem[] = Object.entries(bgGlob).map(([path, fn]) => ({
   id: path.split('/').pop()!.replace(/\.[^.]+$/, ''),
   label: path.split('/').pop()!.replace(/\.[^.]+$/, ''),
   importFn: fn as () => Promise<string>,
 }))
+
+// === 自定义背景图管理 ===
+const CUSTOM_BG_KEY = 'dixiyang_custom_bgs'
+
+interface CustomBg { id: string; url: string; label: string }
+
+function getCustomBgs(): CustomBg[] {
+  try {
+    return JSON.parse(localStorage.getItem(CUSTOM_BG_KEY) || '[]')
+  } catch { return [] }
+}
+
+function saveCustomBgs(bgs: CustomBg[]) {
+  localStorage.setItem(CUSTOM_BG_KEY, JSON.stringify(bgs))
+}
+
+export function addCustomBg(url: string, label?: string) {
+  const bgs = getCustomBgs()
+  const id = 'custom_' + Date.now()
+  bgs.push({ id, url, label: label || `自定义 ${bgs.length + 1}` })
+  saveCustomBgs(bgs)
+  return id
+}
+
+export function removeCustomBg(id: string) {
+  const bgs = getCustomBgs().filter(b => b.id !== id)
+  saveCustomBgs(bgs)
+}
+
+export function getCustomBgImages(): BgImageItem[] {
+  return getCustomBgs().map(bg => ({
+    id: bg.id,
+    label: bg.label,
+    importFn: async () => bg.url,
+    isCustom: true,
+  }))
+}
 
 interface Config { themeId: ThemeId; bgImageId?: string }
 const STORAGE_KEY = 'dixiyang_theme_config'
@@ -47,7 +84,9 @@ async function applyBackground() {
   }
 
   if (_bgImageId.value) {
-    const item = BG_IMAGES.find(i => i.id === _bgImageId.value)
+    // 先查预设图，再查自定义图
+    const allImages = [...BG_IMAGES, ...getCustomBgImages()]
+    const item = allImages.find(i => i.id === _bgImageId.value)
     if (item) {
       try {
         const url = await item.importFn()
