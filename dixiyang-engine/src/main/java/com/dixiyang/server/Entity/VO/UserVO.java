@@ -1,5 +1,6 @@
 package com.dixiyang.server.Entity.VO;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 /**
@@ -8,6 +9,7 @@ import lombok.Data;
  */
 @Data
 public class UserVO {
+    @JsonProperty("userId")
     private Long id;
     private String username;
     private String nickname;
