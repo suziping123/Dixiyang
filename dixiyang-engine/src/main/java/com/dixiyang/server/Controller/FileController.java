@@ -21,44 +21,33 @@ public class FileController {
 
     private static final Logger log = LoggerFactory.getLogger(FileController.class);
 
-    private static final String UPLOAD_ROOT = "/home/lijiajia/项目/Dixiyang/uploads";
-    private static final String COVERS_DIR = UPLOAD_ROOT + "/covers";
-    private static final String BACKGROUNDS_DIR = UPLOAD_ROOT + "/backgrounds";
+    private static final String COVERS_DIR = "/home/lijiajia/项目/Dixiyang/uploads/covers";
+    private static final String BACKGROUNDS_DIR = "/home/lijiajia/项目/Dixiyang/uploads/backgrounds";
 
-    private static final Set<String> COVER_TYPES = Set.of(
-            "image/jpeg", "image/png", "image/webp", "image/gif"
-    );
-    private static final Set<String> BG_TYPES = Set.of(
-            "image/jpeg", "image/png", "image/webp"
-    );
-
-    // ==================== 封面上传 ====================
+    private static final Set<String> COVER_TYPES = Set.of("image/jpeg", "image/png", "image/webp", "image/gif");
+    private static final Set<String> BG_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
 
     @PostMapping("/novel-cover")
     public Result<String> uploadNovelCover(@RequestParam("file") MultipartFile file) {
-        return doUpload(file, "cover", COVER_TYPES, 10 * 1024 * 1024);
+        return doUpload(file, COVERS_DIR, "covers", COVER_TYPES, 10 * 1024 * 1024);
     }
 
     @DeleteMapping("/novel-cover")
     public Result<Void> deleteNovelCover(@RequestParam("url") String url) {
-        return doDelete(url, "cover");
+        return doDelete(url, COVERS_DIR);
     }
-
-    // ==================== 背景图上传 ====================
 
     @PostMapping("/background")
     public Result<String> uploadBackground(@RequestParam("file") MultipartFile file) {
-        return doUpload(file, "background", BG_TYPES, 10 * 1024 * 1024);
+        return doUpload(file, BACKGROUNDS_DIR, "backgrounds", BG_TYPES, 10 * 1024 * 1024);
     }
 
     @DeleteMapping("/background")
     public Result<Void> deleteBackground(@RequestParam("url") String url) {
-        return doDelete(url, "background");
+        return doDelete(url, BACKGROUNDS_DIR);
     }
 
-    // ==================== 内部方法 ====================
-
-    private Result<String> doUpload(MultipartFile file, String type,
+    private Result<String> doUpload(MultipartFile file, String dir, String urlPrefix,
                                      Set<String> allowedTypes, long maxSize) {
         if (file.isEmpty()) return Result.error("文件不能为空");
 
@@ -71,21 +60,9 @@ public class FileController {
         }
 
         try {
-            String subDir = "cover".equals(type) ? COVERS_DIR : BACKGROUNDS_DIR;
-            Path uploadPath = Paths.get(subDir);
+            Path uploadPath = Paths.get(dir);
             Files.createDirectories(uploadPath);
 
-            byte[] fileBytes = file.getBytes();
-            String md5 = org.apache.commons.codec.digest.DigestUtils.md5Hex(fileBytes);
-
-            // MD5 去重
-            Path md5File = uploadPath.resolve(md5 + ".md5");
-            if (Files.exists(md5File)) {
-                String existingUrl = Files.readString(md5File);
-                return Result.success("文件已存在，已复用之前的文件", existingUrl);
-            }
-
-            // 生成文件名
             String ext = switch (contentType) {
                 case "image/jpeg" -> ".jpg";
                 case "image/png" -> ".png";
@@ -93,96 +70,51 @@ public class FileController {
                 case "image/gif" -> ".gif";
                 default -> ".bin";
             };
+
             String filename = UUID.randomUUID().toString().replace("-", "") + ext;
+            file.transferTo(uploadPath.resolve(filename).toFile());
 
-            // 写入文件
-            Path filePath = uploadPath.resolve(filename);
-            file.transferTo(filePath.toFile());
-
-            // 保存 MD5 映射
-            String fileUrl = "/api/uploads/" + type + "s/" + filename;
-            Files.writeString(md5File, fileUrl);
-
-            log.info("上传{}成功: {}", type, filename);
-            return Result.success("上传成功", fileUrl);
+            String url = "/api/uploads/" + urlPrefix + "/" + filename;
+            log.info("上传文件: {}", filename);
+            return Result.success("上传成功", url);
         } catch (IOException e) {
-            log.error("上传{}失败", type, e);
+            log.error("上传失败", e);
             return Result.error("上传失败: " + e.getMessage());
         }
     }
 
-    private Result<Void> doDelete(String url, String type) {
-        if (url == null || url.isBlank()) {
-            return Result.error("URL不能为空");
-        }
+    private Result<Void> doDelete(String url, String dir) {
+        if (url == null || url.isBlank()) return Result.error("URL不能为空");
 
-        // 只允许删除本系统上传的文件
-        String prefix = "/api/uploads/" + type + "s/";
-        if (!url.startsWith(prefix)) {
-            return Result.error("无法删除非本系统文件");
-        }
+        // 只允许删除 /api/uploads/ 下的文件
+        String prefix = "/api/uploads/";
+        if (!url.startsWith(prefix)) return Result.error("无法删除非本系统文件");
 
         try {
-            String subDir = "cover".equals(type) ? COVERS_DIR : BACKGROUNDS_DIR;
-            Path uploadPath = Paths.get(subDir);
-
-            // 从 URL 提取文件名
-            String filename = url.substring(prefix.length());
-            Path filePath = uploadPath.resolve(filename);
-
-            // 删除物理文件
+            String relative = url.substring(prefix.length()); // e.g. "covers/xxx.jpg"
+            Path filePath = Paths.get(dir, relative.substring(relative.indexOf('/') + 1));
             boolean deleted = Files.deleteIfExists(filePath);
-            if (deleted) {
-                log.info("删除{}文件: {}", type, filename);
-            }
-
-            // 清理 MD5 映射文件（遍历查找指向该 URL 的 md5 文件）
-            try (var stream = Files.list(uploadPath)) {
-                stream.filter(p -> p.toString().endsWith(".md5"))
-                      .forEach(md5File -> {
-                          try {
-                              String mappedUrl = Files.readString(md5File);
-                              if (url.equals(mappedUrl)) {
-                                  Files.deleteIfExists(md5File);
-                                  log.info("清理MD5映射: {}", md5File.getFileName());
-                              }
-                          } catch (IOException ignored) {}
-                      });
-            }
-
+            if (deleted) log.info("删除文件: {}", filePath.getFileName());
             return Result.success(null);
         } catch (IOException e) {
-            log.error("删除{}文件失败", type, e);
+            log.error("删除失败", e);
             return Result.error("删除失败: " + e.getMessage());
         }
     }
 
-    // ==================== 工具方法（供其他 Service 调用） ====================
-
-    /**
-     * 根据 URL 删除物理文件（供 NovelServiceImpl 等调用）
-     */
+    /** 供其他 Service 调用：根据 URL 删除物理文件 */
     public static void deleteFileByUrl(String url) {
-        if (url == null || url.isBlank()) return;
+        if (url == null || !url.startsWith("/api/uploads/")) return;
 
-        Path filePath = null;
-        if (url.startsWith("/api/uploads/covers/")) {
-            String filename = url.substring("/api/uploads/covers/".length());
-            filePath = Paths.get(COVERS_DIR, filename);
-        } else if (url.startsWith("/api/uploads/backgrounds/")) {
-            String filename = url.substring("/api/uploads/backgrounds/".length());
-            filePath = Paths.get(BACKGROUNDS_DIR, filename);
-        }
+        String relative = url.substring("/api/uploads/".length());
+        String dir = relative.startsWith("covers/") ? COVERS_DIR : BACKGROUNDS_DIR;
+        String filename = relative.substring(relative.indexOf('/') + 1);
 
-        if (filePath != null) {
-            try {
-                boolean deleted = Files.deleteIfExists(filePath);
-                if (deleted) {
-                    log.info("级联删除文件: {}", filePath.getFileName());
-                }
-            } catch (IOException e) {
-                log.warn("删除文件失败: {}", url, e);
-            }
+        try {
+            boolean deleted = Files.deleteIfExists(Paths.get(dir, filename));
+            if (deleted) log.info("级联删除: {}", filename);
+        } catch (IOException e) {
+            log.warn("删除失败: {}", url, e);
         }
     }
 }
