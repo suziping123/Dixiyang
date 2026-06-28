@@ -16,6 +16,7 @@ import com.dixiyang.server.Mapper.NovelCharacterMapper;
 import com.dixiyang.server.Mapper.NovelRelationMapper;
 import com.dixiyang.server.Mapper.TimelineMapper;
 import com.dixiyang.server.Service.NovelService;
+import com.dixiyang.server.Controller.FileController;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
@@ -115,7 +116,13 @@ public class NovelServiceImpl implements NovelService {
         if (novel.getTitle() != null) existing.setTitle(novel.getTitle());
         if (novel.getDescription() != null) existing.setDescription(novel.getDescription());
         if (novel.getPenName() != null) existing.setPenName(novel.getPenName());
-        if (novel.getCoverUrl() != null) existing.setCoverUrl(novel.getCoverUrl());
+        if (novel.getCoverUrl() != null) {
+            String oldCover = existing.getCoverUrl();
+            if (oldCover != null && oldCover.startsWith("/api/uploads/")) {
+                FileController.deleteFileByUrl(oldCover);
+            }
+            existing.setCoverUrl(novel.getCoverUrl());
+        }
         // 更新时间通常由数据库自动填充或手动设置
         // existing.setUpdateTime(LocalDateTime.now());
 
@@ -156,6 +163,13 @@ public class NovelServiceImpl implements NovelService {
         novelCharacterMapper.delete(characterWrapper);
         novelRelationMapper.delete(relationWrapper);
         timelineMapper.delete(timelineWrapper);
+
+        // 删除封面物理文件
+        String coverUrl = novel.getCoverUrl();
+        if (coverUrl != null && coverUrl.startsWith("/api/uploads/")) {
+            FileController.deleteFileByUrl(coverUrl);
+        }
+
         int result = novelMapper.delete(queryWrapper);
 
         return result > 0;

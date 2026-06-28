@@ -78,6 +78,12 @@ export const uploadBgImage = async (file: File) => {
   return assertApiResponse<{ bgUrl: string }>(res);
 };
 
+// 删除背景图（物理文件）
+export const deleteBgImage = async (url: string) => {
+  const res = await http.delete('/upload/background', { params: { url } });
+  return assertApiResponse<void>(res);
+};
+
 // 删除小说
 export const deleteNovel = (novelId: string | number) => {
   return http.post(`/novel/delete/${novelId}`);

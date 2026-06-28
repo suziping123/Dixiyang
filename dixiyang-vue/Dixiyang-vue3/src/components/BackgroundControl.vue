@@ -42,7 +42,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useBackgroundConfig, BG_IMAGES, getCustomBgImages, addCustomBg, removeCustomBg } from '@/composables/useBackgroundConfig'
-import { uploadBgImage } from '@/api/novelApi'
+import { uploadBgImage, deleteBgImage } from '@/api/novelApi'
 import { confirmDelete } from '@/utils/confirm'
 import { ElMessage } from 'element-plus'
 
@@ -94,6 +94,12 @@ const onBgFileUpload = async (e: Event) => {
 const handleDeleteCustom = async (id: string) => {
   const confirmed = await confirmDelete('确定要删除这个自定义背景吗？')
   if (!confirmed) return
+
+  // 找到对应的 URL 并调用后端删除
+  const item = bgList.value.find(b => b.id === id)
+  if (item?.url) {
+    try { await deleteBgImage(item.url) } catch { /* 后端删除失败不阻塞前端 */ }
+  }
 
   removeCustomBg(id)
   delete loaded.value[id]

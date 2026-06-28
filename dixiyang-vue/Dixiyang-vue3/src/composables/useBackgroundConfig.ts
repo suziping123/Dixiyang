@@ -10,7 +10,7 @@ export const THEMES: ThemeOption[] = [
 
 const bgGlob = import.meta.glob<string>('@/images/back/*.{png,jpg,jpeg,webp}', { eager: false, query: '?url', import: 'default' })
 
-export interface BgImageItem { id: string; label: string; importFn: () => Promise<string>; darkOverlay?: number; isCustom?: boolean }
+export interface BgImageItem { id: string; label: string; importFn: () => Promise<string>; darkOverlay?: number; isCustom?: boolean; url?: string }
 
 export const BG_IMAGES: BgImageItem[] = Object.entries(bgGlob).map(([path, fn]) => ({
   id: path.split('/').pop()!.replace(/\.[^.]+$/, ''),
@@ -52,6 +52,7 @@ export function getCustomBgImages(): BgImageItem[] {
     label: bg.label,
     importFn: async () => bg.url,
     isCustom: true,
+    url: bg.url,
   }))
 }
 
