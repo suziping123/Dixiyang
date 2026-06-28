@@ -35,3 +35,27 @@
   justify-content: center;
   text-align: center;
 }
+
+/* ====== 返回按钮工具类 ====== */
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.back-btn:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+.back-btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}

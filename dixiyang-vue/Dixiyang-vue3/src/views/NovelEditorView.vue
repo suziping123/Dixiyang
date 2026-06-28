@@ -5,15 +5,7 @@
     <FloatingNav />
 
     <main class="main-stage">
-      <header class="stage-header">
-        <div class="header-top">
-          <div class="logo-wrapper">
-            <h1 class="logo-text">DIXIYANG <span class="engine-span">ENGINE</span></h1>
-            <div class="glow-line"></div>
-          </div>
-        </div>
-        <p class="subtitle">小说编辑器 - 正在编辑：<span class="user-name">{{ novelTitle || '未知小说' }}</span></p>
-      </header>
+      <NovelPageHeader page-title="小说编辑器" />
 
       <div class="editor-section">
         <div class="editor-content">
@@ -22,7 +14,10 @@
             <svg viewBox="0 0 24 24" class="editor-icon"><path fill="currentColor" d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/></svg>
             <h3>小说编辑器功能开发中</h3>
             <p>该功能正在积极开发中，敬请期待...</p>
-            <button class="back-btn" @click="goBack">返回首页</button>
+            <button class="back-btn" @click="goBack">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+              返回首页
+            </button>
           </div>
         </div>
       </div>
@@ -34,11 +29,12 @@
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import FloatingNav from '@/components/FloatingNav.vue'
+import NovelPageHeader from '@/components/NovelPageHeader.vue'
+import { useNovelStore } from '@/stores/novelStore'
 
 const router = useRouter()
 const route = useRoute()
-
-const novelTitle = ref('')
+const novelStore = useNovelStore()
 
 const goBack = () => {
   router.push('/home')
@@ -46,8 +42,7 @@ const goBack = () => {
 
 onMounted(() => {
   const novelId = route.params.id
-  // 这里可以根据novelId获取小说详情
-  novelTitle.value = `小说 ${novelId}`
+  novelStore.loadNovel(novelId as string)
 })
 </script>
 
@@ -66,66 +61,6 @@ onMounted(() => {
   position: relative;
   z-index: 1;
   padding: 80px 120px;
-}
-
-.stage-header {
-  margin-bottom: 60px;
-}
-
-.header-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 30px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-}
-
-.logo-wrapper {
-  position: relative;
-  flex: 1;
-  min-width: 300px;
-}
-
-.logo-text {
-  font-size: 3.5rem;
-  font-weight: 900;
-  letter-spacing: -2px;
-  margin: 0;
-  background: linear-gradient(135deg, var(--text-primary) 0%, #e0e7ff 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.engine-span {
-  background: linear-gradient(135deg, var(--neon-purple) 0%, var(--neon-blue) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  display: inline-block;
-}
-
-.glow-line {
-  position: absolute;
-  bottom: -10px;
-  left: 0;
-  height: 3px;
-  width: 150px;
-  background: linear-gradient(to right, var(--neon-blue), var(--neon-purple), transparent);
-  filter: blur(2px);
-}
-
-.subtitle {
-  font-size: 1.2rem;
-  color: var(--text-secondary);
-  margin: 20px 0 0 0;
-}
-
-.subtitle .highlight, .user-name {
-  color: var(--neon-cyan);
-  font-weight: 600;
-  text-shadow: 0 0 10px rgba(6, 182, 212, 0.4);
 }
 
 .section-title {
@@ -176,27 +111,6 @@ onMounted(() => {
   color: var(--text-secondary);
   margin: 0 0 30px 0;
   max-width: 400px;
-}
-
-.back-btn {
-  padding: 12px 24px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(168, 85, 247, 0.1));
-  border: 1px solid rgba(59, 130, 246, 0.4);
-  color: var(--text-primary);
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  font-size: 0.85rem;
-}
-
-.back-btn:hover {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(168, 85, 247, 0.3));
-  border-color: var(--glass-border-hover);
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
-  transform: translateY(-2px);
 }
 
 /* 响应式 */
