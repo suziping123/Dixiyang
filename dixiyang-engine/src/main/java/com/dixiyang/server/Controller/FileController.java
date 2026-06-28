@@ -1,9 +1,15 @@
 package com.dixiyang.server.Controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.dixiyang.server.Common.Result;
+import com.dixiyang.server.Entity.Novels;
+import com.dixiyang.server.Entity.UserConfig;
+import com.dixiyang.server.Mapper.NovelMapper;
+import com.dixiyang.server.Mapper.UserConfigMapper;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -27,14 +33,32 @@ public class FileController {
     private static final Set<String> COVER_TYPES = Set.of("image/jpeg", "image/png", "image/webp", "image/gif");
     private static final Set<String> BG_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
 
+    @Autowired
+    private NovelMapper novelMapper;
+    @Autowired
+    private UserConfigMapper userConfigMapper;
+
     @PostMapping("/novel-cover")
     public Result<String> uploadNovelCover(@RequestParam("file") MultipartFile file) {
         return doUpload(file, COVERS_DIR, "covers", COVER_TYPES, 10 * 1024 * 1024);
     }
 
+    /**
+     * 删除封面：删物理文件 + 清数据库 cover_url
+     */
     @DeleteMapping("/novel-cover")
-    public Result<Void> deleteNovelCover(@RequestParam("url") String url) {
-        return doDelete(url, COVERS_DIR);
+    public Result<Void> deleteNovelCover(@RequestParam("url") String url,
+                                          @RequestParam("novelId") Long novelId) {
+        Result<Void> fileResult = doDelete(url, COVERS_DIR);
+        if (fileResult.getCode() != 200) return fileResult;
+
+        // 清数据库引用
+        Novels novel = novelMapper.selectById(novelId);
+        if (novel != null && url.equals(novel.getCoverUrl())) {
+            novel.setCoverUrl(null);
+            novelMapper.updateById(novel);
+        }
+        return Result.success(null);
     }
 
     @PostMapping("/background")
@@ -42,9 +66,27 @@ public class FileController {
         return doUpload(file, BACKGROUNDS_DIR, "backgrounds", BG_TYPES, 10 * 1024 * 1024);
     }
 
+    /**
+     * 删除背景：删物理文件 + 清 user_config.custom_bgs 中对应项
+     */
     @DeleteMapping("/background")
-    public Result<Void> deleteBackground(@RequestParam("url") String url) {
-        return doDelete(url, BACKGROUNDS_DIR);
+    public Result<Void> deleteBackground(@RequestParam("url") String url,
+                                          @RequestParam("userId") Long userId) {
+        Result<Void> fileResult = doDelete(url, BACKGROUNDS_DIR);
+        if (fileResult.getCode() != 200) return fileResult;
+
+        // 清数据库引用
+        UserConfig config = userConfigMapper.selectOne(
+                new LambdaQueryWrapper<UserConfig>().eq(UserConfig::getUserId, userId));
+        if (config != null && config.getCustomBgs() != null) {
+            String updated = config.getCustomBgs().replaceAll(
+                    "\\{\"id\":\"[^\"]*\",\"url\":\"" + url.replace("/", "\\/") + "\",\"label\":\"[^\"]*\"\\},?",
+                    "");
+            if (updated.isEmpty()) updated = null;
+            config.setCustomBgs(updated);
+            userConfigMapper.updateById(config);
+        }
+        return Result.success(null);
     }
 
     private Result<String> doUpload(MultipartFile file, String dir, String urlPrefix,
@@ -86,12 +128,11 @@ public class FileController {
     private Result<Void> doDelete(String url, String dir) {
         if (url == null || url.isBlank()) return Result.error("URL不能为空");
 
-        // 只允许删除 /api/uploads/ 下的文件
         String prefix = "/api/uploads/";
         if (!url.startsWith(prefix)) return Result.error("无法删除非本系统文件");
 
         try {
-            String relative = url.substring(prefix.length()); // e.g. "covers/xxx.jpg"
+            String relative = url.substring(prefix.length());
             Path filePath = Paths.get(dir, relative.substring(relative.indexOf('/') + 1));
             boolean deleted = Files.deleteIfExists(filePath);
             if (deleted) log.info("删除文件: {}", filePath.getFileName());
@@ -102,7 +143,7 @@ public class FileController {
         }
     }
 
-    /** 供其他 Service 调用：根据 URL 删除物理文件 */
+    /** 供其他 Service 调用：根据 URL 删除物理文件（不改数据库，由调用方负责） */
     public static void deleteFileByUrl(String url) {
         if (url == null || !url.startsWith("/api/uploads/")) return;
 

@@ -43,6 +43,7 @@
 import { ref, onMounted } from 'vue'
 import { useBackgroundConfig, BG_IMAGES, getCustomBgImages, addCustomBg, removeCustomBg } from '@/composables/useBackgroundConfig'
 import { uploadBgImage, deleteBgImage } from '@/api/novelApi'
+import { useUserStore } from '@/stores/UserStore'
 import { confirmDelete } from '@/utils/confirm'
 import { ElMessage } from 'element-plus'
 
@@ -50,6 +51,7 @@ interface Props { mode?: 'compact' | 'full' }
 withDefaults(defineProps<Props>(), { mode: 'compact' })
 
 const cfg = useBackgroundConfig()
+const userStore = useUserStore()
 const bgList = ref([...BG_IMAGES, ...getCustomBgImages()])
 const loaded = ref<Record<string, string>>({})
 const bgFileInput = ref<HTMLInputElement | null>(null)
@@ -95,10 +97,10 @@ const handleDeleteCustom = async (id: string) => {
   const confirmed = await confirmDelete('确定要删除这个自定义背景吗？')
   if (!confirmed) return
 
-  // 找到对应的 URL 并调用后端删除
+  // 找到对应的 URL 并调用后端删除（物理文件 + 数据库索引）
   const item = bgList.value.find(b => b.id === id)
-  if (item?.url) {
-    try { await deleteBgImage(item.url) } catch { /* 后端删除失败不阻塞前端 */ }
+  if (item?.url && userStore.userId) {
+    try { await deleteBgImage(item.url, userStore.userId) } catch { /* 后端删除失败不阻塞前端 */ }
   }
 
   removeCustomBg(id)
