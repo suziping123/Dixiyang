@@ -17,6 +17,13 @@ public class UserConfig {
     private String colorTheme;
     private String customImageUrl;
 
+    /** 当前选中的背景图 ID（预设或自定义） */
+    private String backgroundId;
+
+    /** 自定义背景图列表 JSON，格式: [{"id":"xxx","url":"xxx","label":"xxx"}] */
+    @com.alibaba.fastjson.annotation.JSONField(serialize = true)
+    private String customBgs;
+
     /**
      * 使用 JSON 字段存储字体颜色配置
      * 数据库字段类型: JSON
