@@ -18,10 +18,10 @@
           <h3>历史会话</h3>
           <div class="session-actions">
             <button class="new-btn" @click="loadSessions(selectedNovel?.id)" title="刷新列表">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
             </button>
             <button class="new-btn" @click="handleNewSession" title="新建对话">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
             </button>
           </div>
         </div>
@@ -35,7 +35,7 @@
           >
             <span class="session-title">{{ s.title }}</span>
             <button class="del-btn" @click.stop="handleDeleteSession(s.sessionId)" title="删除">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
             </button>
           </div>
         </div>
@@ -73,7 +73,7 @@
               @click="toggleCharacter(char)"
             >
               <span class="item-title">{{ char.name }}</span>
-              <span class="item-tag">{{ char.gender || '未知' }}</span>
+              <span class="item-tag" :style="{ background: genderStyle(char.gender).bg, color: genderStyle(char.gender).color }">{{ genderLabel(char.gender) }}</span>
             </div>
           </div>
         </div>
@@ -89,7 +89,7 @@
               @click="toggleNode(node)"
             >
               <span class="item-title">{{ node.title }}</span>
-              <span class="item-tag">{{ node.status || '未知' }}</span>
+              <span class="item-tag type-tag" :class="node.eventType">{{ eventTypeLabel(node.eventType) }}</span>
             </div>
           </div>
         </div>
@@ -147,8 +147,12 @@
               v-for="(msg, index) in messages"
               :key="index"
               :message="msg"
+              :is-editing="isUserEditing && editedUserMessageIndex === index"
               @regenerate="handleRegenerate(index)"
               @edit="openEditModal(index)"
+              @userEdit="handleUserEdit(index, $event)"
+              @userEditSave="handleUserEditSave"
+              @userEditCancel="cancelUserEdit"
               class="message-item-wrapper"
             />
 
@@ -213,12 +217,14 @@
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue'
+import { ElMessage } from 'element-plus'
 import { useChatStream } from '@/composables/useChatStream'
 import { useUserStore } from '@/stores/UserStore'
 import FloatingNav from '@/components/FloatingNav.vue'
 import ChatMessage from '@/components/chat/ChatMessage.vue'
 import EditMessageModal from '@/components/chat/EditMessageModal.vue'
 import http from '@/utils/http'
+import { eventTypeLabel, eventTypeConfig, genderLabel, genderStyle } from '@/utils/storyMappings'
 
 const userStore = useUserStore()
 const userId = userStore.userId || (() => {
@@ -234,6 +240,11 @@ const {
   editMessage
 } = useChatStream(userId)
 
+const editingMessageIndex = ref<number>(-1)
+const editingUserMessageContent = ref<string>('')
+const editedUserMessageIndex = ref<number>(-1)
+const isUserEditing = ref<boolean>(false)
+
 const novels = ref<any[]>([])
 const characters = ref<any[]>([])
 const storyNodes = ref<any[]>([])
@@ -244,7 +255,22 @@ const inputMessage = ref('')
 const messagesRef = ref<HTMLElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const editModalRef = ref<InstanceType<typeof EditMessageModal> | null>(null)
-const editingIndex = ref<number>(-1)
+
+const saveEditedUserMessages = async (userId?: number) => {
+  if (!currentSessionId.value || !userId) return
+  try {
+    await http.post('/chatHistory/batchSave', {
+      sessionId: currentSessionId.value,
+      novelId: selectedNovel.value?.id ?? null,
+      messages: messages.value.map(m => ({
+        role: m.role,
+        content: m.content,
+        thinking: m.thinking ?? null,
+        createTime: m.timestamp.toISOString()
+      }))
+    })
+  } catch { /* silent */ }
+}
 
 const options = ref({
   useRag: true,
@@ -338,7 +364,8 @@ const scrollToBottom = () => {
 }
 
 const handleNewSession = () => {
-  newSession()
+  const created = newSession()
+  if (!created) ElMessage.info('已有新对话，已切换到该对话')
 }
 
 const handleSelectSession = async (sessionId: string) => {
@@ -346,18 +373,44 @@ const handleSelectSession = async (sessionId: string) => {
   nextTick(scrollToBottom)
 }
 
+const handleUserEdit = (index: number, content: string) => {
+  const msg = messages.value[index]
+  if (!msg || msg.role !== 'user') return
+  editedUserMessageIndex.value = index
+  editingUserMessageContent.value = content
+  isUserEditing.value = true
+}
+
+const handleUserEditSave = async (content: string) => {
+  const idx = editedUserMessageIndex.value
+  if (idx < 0 || !content.trim()) return
+  messages.value[idx].content = content
+  messages.value[idx].edited = true
+  const nextIndex = idx + 1
+  messages.value = messages.value.slice(0, nextIndex)
+  isUserEditing.value = false
+  editedUserMessageIndex.value = -1
+  inputMessage.value = content
+  await sendStreamMessage()
+}
+
+const cancelUserEdit = () => {
+  isUserEditing.value = false
+  editedUserMessageIndex.value = -1
+}
+
 const openEditModal = (index: number) => {
   const msg = messages.value[index]
   if (!msg || msg.role !== 'assistant') return
-  editingIndex.value = index
+  editingMessageIndex.value = index
   editModalRef.value?.open(msg.content)
 }
 
 const handleEditSave = async (newContent: string) => {
-  const idx = editingIndex.value
+  const idx = editingMessageIndex.value
   if (idx < 0) return
   const ok = await editMessage(idx, newContent)
-  if (ok) editingIndex.value = -1
+  if (ok) editingMessageIndex.value = -1
 }
 
 const handleRegenerate = async (index: number) => {
@@ -413,12 +466,10 @@ onMounted(async () => {
 }
 
 .page-header {
-  position: relative;
   z-index: 10;
   padding: 30px 40px;
-  background: rgba(10, 10, 12, 0.8);
-  backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--glass-border);
+  background: rgba(10, 10, 12, 0.8);
 }
 
 .header-content {
@@ -459,12 +510,22 @@ onMounted(async () => {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
   border-radius: 16px;
   padding: 16px;
   overflow: hidden;
+  position: relative;
+  contain: paint;
+}
+.session-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: inherit;
 }
 
 .session-header {
@@ -491,7 +552,8 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  backface-visibility: hidden;
 }
 
 .new-btn:hover {
@@ -500,14 +562,24 @@ onMounted(async () => {
   border-color: var(--neon-cyan);
 }
 
-.new-btn svg {
-  width: 18px;
-  height: 18px;
+.new-btn .btn-icon {
+  transition: transform 0.3s ease;
+}
+
+.new-btn:hover .btn-icon {
+  transform: rotate(180deg);
 }
 
 .session-actions {
   display: flex;
-  gap: 4px;
+  gap: 6px;
+  transform: translateZ(0);
+}
+
+.btn-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
 }
 
 .session-list {
@@ -525,19 +597,20 @@ onMounted(async () => {
   padding: 10px 10px;
   border-radius: 10px;
   cursor: pointer;
-  transition: all 0.2s;
-  background: rgba(255,255,255,0.02);
-  border: 1px solid transparent;
+  transition: background 0.2s, border-color 0.2s;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backface-visibility: hidden;
 }
 
 .session-item:hover {
   background: rgba(59,130,246,0.1);
-  border-color: rgba(59,130,246,0.2);
+  border-color: rgba(59,130,246,0.3);
 }
 
 .session-item.active {
   background: rgba(59,130,246,0.15);
-  border-color: rgba(59,130,246,0.3);
+  outline-color: rgba(59,130,246,0.3);
 }
 
 .session-title {
@@ -559,7 +632,8 @@ onMounted(async () => {
   cursor: pointer;
   flex-shrink: 0;
   opacity: 0;
-  transition: all 0.2s;
+  visibility: hidden;
+  transition: opacity 0.2s, visibility 0s linear 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -568,14 +642,18 @@ onMounted(async () => {
 
 .session-item:hover .del-btn {
   opacity: 1;
+  visibility: visible;
+  transition: opacity 0.2s, visibility 0s linear 0s;
 }
+
+
 
 .del-btn:hover {
   color: #ef4444;
   background: rgba(239,68,68,0.15);
 }
 
-.del-btn svg {
+.del-btn .btn-icon {
   width: 14px;
   height: 14px;
 }
@@ -598,11 +676,21 @@ onMounted(async () => {
 }
 
 .panel-section {
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
   border-radius: 16px;
   padding: 16px;
+  position: relative;
+  contain: paint;
+}
+.panel-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: inherit;
 }
 
 .panel-section h3 {
@@ -656,6 +744,10 @@ onMounted(async () => {
   padding: 2px 8px;
   border-radius: 10px;
 }
+.type-tag.birth { background: rgba(59,130,246,0.15); color: #60a5fa; }
+.type-tag.war { background: rgba(239,68,68,0.15); color: #f87171; }
+.type-tag.politics { background: rgba(168,85,247,0.15); color: #c084fc; }
+.type-tag.major { background: rgba(16,185,129,0.15); color: #34d399; }
 
 .options-group {
   display: flex;
@@ -682,12 +774,32 @@ onMounted(async () => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
   border-radius: 16px;
   overflow: hidden;
   min-width: 0;
+  position: relative;
+  contain: paint;
+}
+.chat-area::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: inherit;
+}
+.chat-area::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: inherit;
 }
 
 .chat-header {

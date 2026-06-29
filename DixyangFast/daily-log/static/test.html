@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Title</title>
+    <link rel="stylesheet" href="../static/element-ui/lib/theme-chalk/index.css">
+    <script src="../static/js/vue.js"></script>
+    <script src="../static/axios/dist/axios.js"></script>
+    <script src="../static/element-ui/lib/index.js"></script>
+
+    <style>
+        .el-card{margin: 8px 0;max-width: 600px;}
+        .chat-box { width: 620px; height: 600px; overflow-y: auto; border: 1px solid #eee; padding: 10px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- 聊天滚动容器，绑定ref -->
+        <div ref="chatScroll" class="chat-box">
+            <div v-for="(item,index) in messages" :key="index">
+                <el-card>
+                    <div v-if="item.role === 'user'">我：</div>
+                    <div v-else-if="item.role === 'system'">系统：</div>
+                    <div v-else>AI：</div>
+                    <div>{{item.content}}</div>
+                </el-card>
+            </div>
+        </div>
+        <el-input v-model="input" placeholder="请输入内容" style="margin: 10px 0"></el-input>
+        <el-button type="primary" @click="send" :loading="loading">发送</el-button>
+    </div>
+    <script>
+        let myapp = new Vue({
+            el: '#app',
+            data(){
+                return{
+                    input:"",
+                    loading:false,
+                    messages:[
+                        {role:'system',content:'我是千问3.7-plus,有什么可以帮助你的'},
+                    ]
+                }
+            },
+            methods:{
+                // 获取当前时间
+                _now(){
+                    return new Date().toLocaleString();
+                },
+                scrollBottom(){
+                    this.$nextTick(() => {
+                        const el = this.$refs.chatScroll;
+                        if (el) el.scrollTop = el.scrollHeight;
+                    });
+                },
+                send(){
+                    if (this.loading) return;
+                    const text = this.input.trim();
+                    if (!text){
+                        this.$message.warning('请输入内容');
+                        return;
+                    }
+                    if (text.length > 2000){
+                        this.$message.warning('输入内容不能超过2000');
+                        return;
+                    }
+
+                    this.messages.push({role:'user',content:text, time:this._now()});
+                    this.messages.push({role:'assistant',content:"...", time:this._now()});
+                    this.scrollBottom();
+                    this.loading = true;
+                    this.input = "";
+
+                    axios({
+                        url:'http://127.0.0.1:8000',
+                        method:'get',
+                        params:{question:text}
+                    }).then(res =>{
+                        const last = this.messages[this.messages.length-1];
+                        last.content = res.data.data;
+                        last.time = this._now();
+                        this.scrollBottom();
+                    }).catch(err =>{
+                        console.error(err);
+                        const last = this.messages[this.messages.length-1];
+                        last.content = '❌ 请求失败，请检查后端服务是否启动';
+                        last.time = this._now();
+                        this.scrollBottom();
+                    }).finally(() =>{
+                        this.loading = false
+                    })
+                }
+            }
+        })
+    </script>
+</body>
+</html>

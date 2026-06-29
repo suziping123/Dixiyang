@@ -64,25 +64,52 @@ export function useChatStream(userId?: number) {
   }
 
   const loadSessionMessages = async (sessionId: string) => {
+    if (abortController) {
+      abortController.abort()
+      abortController = null
+    }
+    currentContent.value = ''
+    currentThinking.value = ''
+    isStreaming.value = false
     currentSessionId.value = sessionId
     try {
       const res = await http.get(`/chatHistory/session/${sessionId}`)
-      messages.value = (res.data ?? []).map((m: { role: string; content: string; thinking?: string; createTime: string; edited?: boolean; version?: number }) => ({
+      messages.value = (res.data ?? []).map((m: { role: string; content: string; thinking?: string; createTime?: string; edited?: boolean; version?: number }) => ({
         role: m.role,
         content: m.content,
         thinking: m.thinking ?? undefined,
-        timestamp: new Date(m.createTime),
+        timestamp: m.createTime ? new Date(m.createTime) : new Date(),
         edited: m.edited ?? undefined,
         version: m.version ?? undefined
       }))
     } catch { messages.value = [] }
   }
 
-  const newSession = () => {
-    currentSessionId.value = genId()
+  const newSession = (): boolean => {
+    if (abortController) {
+      abortController.abort()
+      abortController = null
+    }
+    const existing = sessions.value.find(s => s.title === '新对话')
+    if (existing) {
+      currentSessionId.value = existing.sessionId
+      messages.value = []
+      currentContent.value = ''
+      currentThinking.value = ''
+      isStreaming.value = false
+      return false
+    }
+    const id = genId()
+    currentSessionId.value = id
     messages.value = []
     currentContent.value = ''
     currentThinking.value = ''
+    isStreaming.value = false
+    sessions.value = [
+      { sessionId: id, title: '新对话', createTime: new Date().toISOString() },
+      ...sessions.value
+    ]
+    return true
   }
 
   const sendMessage = async (
@@ -203,10 +230,15 @@ export function useChatStream(userId?: number) {
   const cancelStream = () => abortController?.abort()
 
   const clearMessages = () => {
+    if (abortController) {
+      abortController.abort()
+      abortController = null
+    }
     messages.value = []
     currentContent.value = ''
     currentThinking.value = ''
     currentSessionId.value = ''
+    isStreaming.value = false
   }
 
   const regenerateMessage = async (
