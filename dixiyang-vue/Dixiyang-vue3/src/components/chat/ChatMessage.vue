@@ -1,5 +1,5 @@
 <template>
-  <div class="message-item" :class="message.role">
+  <div class="message-item" :class="[message.role, { 'user-editing-mode': isEditing }]">
     <div class="message-avatar">
       <span v-if="message.role === 'user'">👤</span>
       <span v-else>🤖</span>
@@ -16,17 +16,37 @@
             <div class="thinking-content" v-html="renderMarkdown(message.thinking || streamingThinking || '')"></div>
           </details>
         </div>
-        <div class="message-content" v-html="renderMarkdown(message.content || streamingContent || '')"></div>
-        <div v-if="message.edited" class="edited-badge">✏️ 已编辑</div>
+        <div class="message-content" v-if="!isEditing" v-html="renderMarkdown(message.content || streamingContent || '')"></div>
+        <textarea
+          v-else
+          class="user-edit-textarea"
+          :value="editDraft"
+          @input="editDraft = ($event.target as HTMLTextAreaElement).value"
+          placeholder="输入要修改的内容..."
+        ></textarea>
+        <div v-if="message.edited" class="edited-badge">已编辑</div>
       </div>
       <div class="message-meta">
         <span class="message-time">{{ formatTime(message.timestamp) }}</span>
         <span v-if="isStreaming" class="streaming-dot"></span>
         <div v-if="message.role === 'assistant' && !isStreaming" class="message-actions">
-          <button class="action-btn" @click="$emit('regenerate')" title="重新生成">🔄</button>
-          <button class="action-btn" @click="$emit('edit')" title="编辑回答">✏️</button>
+          <button class="action-btn" @click="$emit('regenerate')" title="重新生成">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+          </button>
+          <button class="action-btn pencil-btn" @click="$emit('edit')" title="编辑回答">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+          </button>
+        </div>
+        <div v-if="message.role === 'user' && !isEditing" class="message-actions">
+          <button class="action-btn user-edit-btn" @click="$emit('userEdit', message.content)" title="编辑消息">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+          </button>
         </div>
         <span v-if="message.version && message.version > 1" class="version-badge">v{{ message.version }}</span>
+      </div>
+      <div v-if="isEditing" class="user-edit-actions">
+        <button class="user-edit-btn-confirm" @click="$emit('userEditSave', editDraft)">确认</button>
+        <button class="user-edit-btn-cancel" @click="$emit('userEditCancel')">取消</button>
       </div>
     </div>
   </div>
@@ -73,17 +93,31 @@ interface Props {
   streamingContent?: string
   streamingThinking?: string
   isStreaming?: boolean
+  isEditing?: boolean
+  onEdit?: (newContent: string) => void
 }
 
-defineProps<Props>()
-defineEmits<{
+import { ref, watch } from 'vue'
+
+const props = defineProps<Props>()
+const emit = defineEmits<{
   regenerate: []
   edit: []
+  userEdit: [content: string]
+  userEditSave: [content: string]
+  userEditCancel: []
 }>()
+
+const editDraft = ref('')
+
+watch(() => props.isEditing, (val) => {
+  if (val) editDraft.value = props.message.content
+})
 
 const formatTime = (date: Date) => {
   return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
+
 </script>
 
 <style scoped>
@@ -93,6 +127,77 @@ const formatTime = (date: Date) => {
   max-width: 85%;
 }
 .message-item.user { align-self: flex-end; flex-direction: row-reverse; }
+
+.user-editing-mode .message-bubble {
+  border: 2px solid #28c4d4;
+  background: rgba(40, 196, 212, 0.05);
+}
+
+.user-edit-textarea {
+  width: 100%;
+  min-height: 60px;
+  padding: 12px;
+  border: 1px solid rgba(40, 196, 212, 0.4);
+  border-radius: 8px;
+  background: rgba(0,0,0,0.2);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  line-height: 1.7;
+  resize: vertical;
+  font-family: inherit;
+  margin-top: 8px;
+}
+
+.user-edit-textarea:focus {
+  outline: none;
+  border-color: #28c4d4;
+  box-shadow: 0 0 0 2px rgba(40,196,212,0.15);
+}
+
+.user-edit-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  justify-content: flex-end;
+}
+
+.user-edit-btn-confirm {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  background: #28c4d4;
+  color: white;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.user-edit-btn-confirm:hover {
+  background: #0ea5e9;
+  transform: scale(1.05);
+}
+
+.user-edit-btn-cancel {
+  padding: 6px 12px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.user-edit-btn-cancel:hover {
+  background: rgba(255,255,255,0.05);
+}
+
+.user-edit-hint {
+  font-size: 0.75rem;
+  color: #28c4d4;
+  margin-top: 4px;
+  display: block;
+}
 
 .message-avatar {
   width: 36px; height: 36px; border-radius: 50%;
@@ -210,15 +315,47 @@ details[open] > .thinking-toggle::before { transform: rotate(90deg); }
   50% { opacity: 0.3; }
 }
 
-.message-actions { display: flex; gap: 2px; margin-left: auto; }
+.message-actions { display: flex; gap: 6px; margin-left: auto; align-items: center; }
 .action-btn {
-  padding: 2px 6px; border: none; border-radius: 4px;
+  padding: 6px 10px; border: none; border-radius: 6px;
   background: transparent; color: var(--text-muted);
-  cursor: pointer; font-size: 0.85rem; transition: all 0.2s;
-  opacity: 0;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s; width: 36px; height: 36px; position: relative;
 }
-.message-item:hover .action-btn { opacity: 0.6; }
-.action-btn:hover { opacity: 1 !important; background: rgba(255,255,255,0.05); }
+.action-btn svg { width: 18px; height: 18px; display: block; position: relative; z-index: 1; }
+.message-item:hover .action-btn { opacity: 0.7; }
+.action-btn:hover { opacity: 1 !important; background: rgba(255,255,255,0.08); transform: scale(1.05); }
+.action-btn:hover svg { animation: spin-write 1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
+@keyframes spin-write {
+  0% { transform: rotate(0deg) scale(1); }
+  30% { transform: rotate(190deg) scale(1.1); }
+  55% { transform: rotate(170deg) scale(0.95); }
+  75% { transform: rotate(185deg) scale(1.02); }
+  100% { transform: rotate(180deg) scale(1); }
+}
+
+.pencil-btn::after {
+  content: ''; position: absolute; pointer-events: none;
+  left: 12px; bottom: 10px; height: 1.5px; width: 0;
+  background: linear-gradient(90deg, var(--neon-cyan, #28c4d4), transparent);
+  border-radius: 1px; opacity: 0;
+}
+.pencil-btn:hover::after { animation: ink-trail 1s ease-out reverse; }
+.pencil-btn:hover svg { animation: pencil-nudge 0.5s ease-out verse; color: var(--neon-cyan, #ffffff); }
+
+@keyframes pencil-nudge {
+  0% { transform: rotate(0deg); }
+  25% { transform: rotate(180deg); }
+  50% { transform: rotate(180deg); }
+  75% { transform: rotate(160deg); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes ink-trail {
+  0% { width: 0; opacity: 0; }
+  45% { width: 10px; opacity: 0.75; }
+  100% { width: 25px; opacity: 1; }
+}
 
 .version-badge {
   font-size: 0.7rem; color: var(--text-muted);

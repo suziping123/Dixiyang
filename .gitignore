@@ -80,3 +80,35 @@ uploads/
 
 # 文档生成（可选，根据需要调整）
 # *.md
+
+# =========================
+# ✨ 新增：Python/FastAPI 后端相关 ✨
+# =========================
+# Python 字节码编译缓存
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Python 虚拟环境
+.Python
+env/
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Python 打包与依赖缓存
+*.egg-info/
+*.egg
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Python 工具缓存
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# 测试覆盖率报告
+.coverage
+htmlcov/

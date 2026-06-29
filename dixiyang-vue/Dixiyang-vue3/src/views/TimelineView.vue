@@ -202,6 +202,7 @@ import {
   createStoryNode, updateStoryNode, deleteStoryNode
 } from '@/api/timelineApi'
 import type { Timeline, TimelineNode } from '@/api/types'
+import { EVENT_TYPES, eventTypeLabel } from '@/utils/storyMappings'
 
 const router = useRouter()
 const route = useRoute()
@@ -243,12 +244,7 @@ const modes = [
   { value: 'character' as const, label: '角色模式' }
 ]
 
-const eventTypes = [
-  { value: 'birth', label: '出生', color: '#3b82f6', icon: '●' },
-  { value: 'war', label: '战争', color: '#ef4444', icon: '■' },
-  { value: 'politics', label: '政治', color: '#a855f7', icon: '▲' },
-  { value: 'major', label: '转折', color: '#10b981', icon: '★' }
-]
+const eventTypes = EVENT_TYPES
 
 const parseJsonField = (v: any): string[] => {
   if (Array.isArray(v)) return v
@@ -282,7 +278,6 @@ const toggleCharacter = (c: string) => { const i = selectedCharacters.value.inde
 const toggleExpand = (id: number) => { expandedId.value = expandedId.value === id ? null : id }
 const truncateText = (t: string, max: number) => t && t.length > max ? t.substring(0, max) + '...' : t || ''
 const importanceLabel = (v?: number) => ({ 1: '次要', 2: '一般', 3: '重要', 4: '关键', 5: '核心' })[v || 3] || '重要'
-const eventTypeLabel = (t?: string) => ({ birth: '出生', war: '战争', politics: '政治', major: '转折' } as Record<string, string>)[t || ''] || '未知'
 
 const refreshNodes = async () => {
   if (!selectedTimelineId.value) { nodes.value = []; return }

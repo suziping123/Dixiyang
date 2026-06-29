@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="dialogVisible" title="编辑回答" width="700px" @close="handleClose" :close-on-click-modal="false">
+  <el-dialog v-model="dialogVisible" title="编辑回答" width="850px" @close="handleClose" :close-on-click-modal="false">
     <div class="edit-layout">
       <div class="original-section">
         <label class="section-label">原始回答</label>
@@ -90,16 +90,16 @@ defineExpose({ open })
   margin-bottom: 8px;
 }
 .original-section {
-  padding: 12px;
+  padding: 16px;
   background: rgba(255,255,255,0.03);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 10px;
-  max-height: 250px;
+  max-height: 350px;
   overflow-y: auto;
 }
 .original-content {
-  font-size: 0.9rem;
-  line-height: 1.6;
+  font-size: 0.95rem;
+  line-height: 1.7;
   color: var(--text-secondary, #ccc);
 }
 .original-content :deep(p) { margin: 0 0 6px; }
@@ -117,14 +117,14 @@ defineExpose({ open })
 }
 .edit-textarea {
   width: 100%;
-  min-height: 200px;
-  padding: 12px;
+  min-height: 300px;
+  padding: 16px;
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 10px;
   background: rgba(0,0,0,0.2);
   color: var(--text-primary);
-  font-size: 0.9rem;
-  line-height: 1.6;
+  font-size: 1rem;
+  line-height: 1.7;
   resize: vertical;
   font-family: inherit;
 }
