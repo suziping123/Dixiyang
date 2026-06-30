@@ -1,0 +1,80 @@
+# RTX 4060 Laptop 配置（GPU加速模式）
+# 适用：8GB VRAM，16-32GB 系统内存
+
+device: "cuda"
+precision: "fp16"
+cuda_device: 0
+
+# Embedding 模型配置
+embedding:
+  model_name: "BAAI/bge-m3"
+  # 备选：更快
+  # model_name: "BAAI/bge-base-zh-v1.5"
+  batch_size: 64
+  normalize_embeddings: true
+  max_length: 8192
+  # GPU 优化
+  encode_kwargs:
+    device: "cuda"
+    show_progress_bar: true
+    convert_to_numpy: true
+    # bge-m3 支持 fp16 加速
+    half_precision: true
+
+# 文本切分配置
+text_splitter:
+  chunk_size: 600
+  chunk_overlap: 120
+  separators: ["\n\n", "\n", "。", "！", "？", "；", "，", " ", ""]
+  keep_separator: true
+  # bge-m3 支持长上下文，chunk 可以大一些
+
+# 向量数据库配置
+vectordb:
+  persist_directory: "./storage/vectordb_4060"
+  collection_name: "dixiyang_knowledge"
+  distance_metric: "cosine"
+  chroma_settings:
+    anonymized_telemetry: false
+    allow_reset: true
+
+# 检索配置
+retrieval:
+  top_k: 8
+  score_threshold: 0.55
+  # 重排序（GPU模式下启用）
+  use_reranker: true
+  reranker_model: "BAAI/bge-reranker-v2-m3"
+  reranker_batch_size: 32
+  rerank_top_k: 20
+  rerank_device: "cuda"
+
+# 处理流程配置
+processing:
+  # 并行处理（GPU不需要太多worker）
+  num_workers: 2
+  # 批量写入向量库（GPU内存允许更大）
+  batch_size: 128
+  # 进度保存间隔
+  checkpoint_interval: 500
+  # 是否增量更新
+  incremental: true
+  # 预加载模型到GPU
+  preload_models: true
+
+# 模型缓存目录
+cache_dir: "./models/cache"
+
+# 日志
+logging:
+  level: "INFO"
+  file: "./logs/rag_4060.log"
+
+# 显存管理
+memory_management:
+  # 留给系统的显存（MB）
+  reserved_vram_mb: 1024
+  # 批次大小自动调整
+  auto_batch_size: true
+  # 清理缓存间隔
+  empty_cache_interval: 50
