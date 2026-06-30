@@ -95,13 +95,13 @@ RAG_DEVICE, RAG_EMBEDDING_MODEL, RAG_BATCH_SIZE...
 
 | 参数 | r5_5600u (CPU) | rtx_4060 (GPU) |
 |------|----------------|----------------|
-| Embedding | bge-small-zh-v1.5 | bge-m3 |
+| Embedding | bge-m3 | bge-m3 |
 | 精度 | FP32 | FP16 |
-| chunk_size | 400 | 600 |
-| batch_size | 16 | 64 |
+| chunk_size | 600 | 600 |
+| batch_size | 32 | 64 |
 | reranker | 关闭 | bge-reranker-v2-m3 |
-| workers | 5 | 2 |
-| vectordb | ./storage/vectordb_r5 | ./storage/vectordb_4060 |
+| workers | 10 | 2 |
+| vectordb | ./storage/vectordb_4060 | ./storage/vectordb_4060 |
 
 ### 环境变量覆盖表
 
@@ -162,18 +162,19 @@ stats = processor.run(incremental=False)  # --full 参数等效
 ## 📊 输出结构
 
 ```
-storage/rag/
-├── chroma_db/
-│   ├── vectordb_r5/        # CPU 版向量库
-│   └── vectordb_4060/      # GPU 版向量库（维度不同，隔离存储）
-├── chunks/
-│   ├── book.jsonl          # 书籍分块备份
-│   ├── law.jsonl           # 法律条文备份
-│   ├── cars.jsonl          # 二手车数据备份
-│   └── qa.jsonl            # QA数据备份
-├── metadata.json           # 本次处理元数据汇总
-├── processing_stats.json   # 处理统计（耗时、错误等）
-└── file_states.json        # 增量更新状态
+storage/
+├── vectordb_4060/            # 向量库（Windows构建，Linux共用）
+│   └── dixiyang_knowledge/   # Chroma 集合
+├── rag/
+│   ├── chunks/
+│   │   ├── book.jsonl        # 书籍分块备份
+│   │   ├── law.jsonl         # 法律条文备份
+│   │   ├── cars.jsonl        # 二手车数据备份
+│   │   └── qa.jsonl          # QA数据备份
+│   ├── metadata.json         # 本次处理元数据汇总
+│   ├── processing_stats.json # 处理统计（耗时、错误等）
+│   └── file_states.json      # 增量更新状态
+└── chat/                     # 聊天记录
 ```
 
 ## 🧪 测试

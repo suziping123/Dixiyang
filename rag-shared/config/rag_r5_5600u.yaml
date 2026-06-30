@@ -6,10 +6,8 @@ precision: "fp32"
 
 # Embedding 模型配置
 embedding:
-  model_name: "BAAI/bge-small-zh-v1.5"
-  # 备选：更轻量
-  # model_name: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-  batch_size: 64
+  model_name: "BAAI/bge-m3"
+  batch_size: 32
   normalize_embeddings: true
   max_length: 512
   # CPU 优化
@@ -17,19 +15,20 @@ embedding:
     device: "cpu"
     show_progress_bar: true
     convert_to_numpy: true
-    # 启用多进程编码
-    batch_size: 64
+    half_precision: false
 
 # 文本切分配置
 text_splitter:
-  chunk_size: 512
-  chunk_overlap: 100
+  chunk_size: 600
+  chunk_overlap: 120
   separators: ["\n\n", "\n", "。", "！", "？", "；", "，", " ", ""]
   keep_separator: true
 
 # 向量数据库配置
+# 与 RTX 4060 共用 vectordb_4060 目录（同模型 bge-m3）
+# Windows 构建后把 vectordb_4060 拷到 Linux 同位置即可直接用
 vectordb:
-  persist_directory: "./storage/vectordb_r5"
+  persist_directory: "./storage/vectordb_4060"
   collection_name: "dixiyang_knowledge"
   distance_metric: "cosine"
   chroma_settings:
