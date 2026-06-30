@@ -112,3 +112,21 @@ pip-delete-this-directory.txt
 # 测试覆盖率报告
 .coverage
 htmlcov/
+
+# 大文件/数据集/模型缓存（不提交）
+*.epub
+*.pdf
+*.mobi
+*.azw3
+*.docx
+*.doc
+models/cache/
+storage/
+*.jsonl
+*.sqlite3
+*.lock
+uv.lock
+
+# 数据文件
+datasets/
+my_books/

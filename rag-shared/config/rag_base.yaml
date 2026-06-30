@@ -1,0 +1,122 @@
+# 通用基础配置（两台机器共用部分）
+# 由具体硬件配置继承/覆盖
+
+# 数据源路径
+data_sources:
+  books_dir: "./my_books"
+  datasets_dir: "./datasets/datasets"
+  # 支持的文件扩展名
+  supported_extensions:
+    - ".md"
+    - ".txt"
+    - ".csv"
+    - ".json"
+
+# 书籍分类映射（从文件名推断）
+book_categories:
+  "三国演义": "历史小说"
+  "红楼梦": "古典小说"
+  "三体": "科幻小说"
+  "诡秘之主": "玄幻小说"
+  "蛊真人": "玄幻小说"
+  "神秘复苏": "恐怖悬疑"
+  "诡舍": "恐怖悬疑"
+  "占星术杀人魔法": "推理悬疑"
+  "不可以": "推理悬疑"
+  "鲁迅全集": "现代文学"
+  "余华作品全集": "现代文学"
+  "明朝那些事儿": "历史读物"
+  "中国史话": "历史读物"
+  "阅微草堂笔记": "古典笔记"
+  "摩诃婆罗多": "史诗文学"
+  "呼啸山庄": "外国名著"
+  "鲁滨逊漂流记": "外国名著"
+  "昆虫记": "科普自然"
+  "生命进化的跃升": "科普自然"
+  "鸟有膝盖吗": "科普自然"
+  "我包罗万象": "科普自然"
+  "思考，快与慢": "心理学"
+  "影响力": "心理学"
+  "救猫咪": "编剧写作"
+  "故事的解剖": "编剧写作"
+  "都市传说百科全书": "民俗百科"
+  "食饮记": "美食文化"
+  "玄鉴仙族": "玄幻小说"
+
+# 数据集类型配置
+dataset_types:
+  law:
+    file_pattern: "*法律*"
+    source_type: "csv"
+    text_column: "text"
+    metadata_fields: ["law_name", "article_num"]
+  company:
+    file_pattern: "*华清远见*"
+    source_type: "txt"
+    metadata_fields: ["company", "section"]
+  cars:
+    file_pattern: "*guazi*"
+    source_type: "csv"
+    template: "{leixing} {nianfen} {licheng} {didian} {shoujia} {yuanjia}"
+    metadata_fields: ["leixing", "nianfen", "licheng", "didian", "shoujia", "yuanjia"]
+  qa:
+    file_pattern: "*Chinese*"
+    source_type: "json"
+    # JSON 结构：[{"instruction": "", "input": "", "output": ""}]
+    metadata_fields: ["instruction", "category"]
+
+# 文本预处理
+preprocessing:
+  # 清洗规则
+  remove_extra_whitespace: true
+  normalize_unicode: true
+  # 中文标点归一化
+  normalize_punctuation: true
+  # 保留最小长度
+  min_chunk_length: 50
+  # 最大长度（超过会被切分）
+  max_chunk_length: 2000
+
+# 元数据模板
+metadata_templates:
+  book:
+    required: ["source", "book_title", "author", "category", "chapter", "section", "chunk_id"]
+    optional: ["publish_year", "tags"]
+  law:
+    required: ["source", "law_name", "article_num", "chunk_id"]
+  company:
+    required: ["source", "company", "section", "chunk_id"]
+  cars:
+    required: ["source", "brand", "model", "year", "city", "price", "chunk_id"]
+  qa:
+    required: ["source", "instruction", "input", "output", "chunk_id"]
+
+# 输出配置
+output:
+  # 分块备份目录
+  chunks_dir: "./storage/rag/chunks"
+  # 元数据汇总
+  metadata_file: "./storage/rag/metadata.json"
+  # 处理统计
+  stats_file: "./storage/rag/processing_stats.json"
+  # 格式
+  chunks_format: "jsonl"  # jsonl 或 parquet
+
+# 增量更新配置
+incremental:
+  # 记录文件状态
+  state_file: "./storage/rag/file_states.json"
+  # 根据 mtime 和 hash 判断变更
+  use_hash: true
+  hash_algorithm: "md5"
+
+# 错误处理
+error_handling:
+  # 遇错继续还是停止
+  continue_on_error: true
+  # 最大重试次数
+  max_retries: 3
+  # 错误日志
+  error_log: "./storage/rag/errors.log"
+  # 失败文件记录
+  failed_files_log: "./storage/rag/failed_files.json"
