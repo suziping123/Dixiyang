@@ -419,15 +419,31 @@ class EmbeddingModel:
         logger.info(f"模型加载完成，维度: {self.model.get_embedding_dimension()}")
 
     def encode(self, texts: List[str]) -> List[List[float]]:
-        """批量编码"""
-        embeddings = self.model.encode(
-            texts,
-            batch_size=self.config.embedding_batch_size,
-            show_progress_bar=True,
-            convert_to_numpy=True,
-            normalize_embeddings=True
-        )
-        return embeddings.tolist()
+        """批量编码，自动分批避免超过模型上限"""
+        MAX_ENCODE = 5000
+        if len(texts) <= MAX_ENCODE:
+            embeddings = self.model.encode(
+                texts,
+                batch_size=self.config.embedding_batch_size,
+                show_progress_bar=True,
+                convert_to_numpy=True,
+                normalize_embeddings=True
+            )
+            return embeddings.tolist()
+
+        all_embeddings = []
+        for start in range(0, len(texts), MAX_ENCODE):
+            batch = texts[start:start + MAX_ENCODE]
+            logger.info(f"  编码分批: {start+1}-{start+len(batch)}/{len(texts)}")
+            emb = self.model.encode(
+                batch,
+                batch_size=self.config.embedding_batch_size,
+                show_progress_bar=True,
+                convert_to_numpy=True,
+                normalize_embeddings=True
+            )
+            all_embeddings.extend(emb.tolist())
+        return all_embeddings
 
 
 class VectorDB:
@@ -547,12 +563,30 @@ class RAGProcessor:
             logger.info(f"文件无有效内容: {file_path}")
             return 0
 
-        # 批量编码
-        texts = [c.content for c in chunks]
-        embeddings = self.embedding_model.encode(texts)
+        BATCH = 5000
+        all_ids = []
+        all_docs = []
+        all_embs = []
+        all_metas = []
 
-        # 写入向量库
-        self.vectordb.add(chunks, embeddings)
+        for start in range(0, len(chunks), BATCH):
+            batch = chunks[start:start + BATCH]
+            texts = [c.content for c in batch]
+            embs = self.embedding_model.encode(texts)
+            all_ids.extend([c.chunk_id for c in batch])
+            all_docs.extend(texts)
+            all_embs.extend(embs)
+            all_metas.extend([c.metadata for c in batch])
+
+        # 分批写入向量库
+        DB_BATCH = 5000
+        for start in range(0, len(all_ids), DB_BATCH):
+            self.vectordb.collection.add(
+                ids=all_ids[start:start + DB_BATCH],
+                documents=all_docs[start:start + DB_BATCH],
+                embeddings=all_embs[start:start + DB_BATCH],
+                metadatas=all_metas[start:start + DB_BATCH],
+            )
 
         # 备份分块（JSONL）
         self._backup_chunks(chunks, file_path)
