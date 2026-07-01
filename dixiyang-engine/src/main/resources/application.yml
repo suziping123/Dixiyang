@@ -81,6 +81,11 @@ app:
   chat:
     storage-path: ${CHAT_STORAGE_PATH:storage/chat}
     max-file-size: ${CHAT_MAX_FILE_SIZE:102400}
+  # 6. ChromaDB 向量数据库配置（用于 RAG 检索）
+  chromadb:
+    host: ${CHROMADB_HOST:[::1]}
+    port: ${CHROMADB_PORT:8000}
+    collection-name: dixiyang_knowledge
 
 # MyBatis-Plus 配置
 mybatis-plus:

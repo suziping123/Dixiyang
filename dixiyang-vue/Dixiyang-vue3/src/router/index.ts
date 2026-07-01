@@ -13,6 +13,7 @@ import SettingsView from '../views/SettingsView.vue'
 import NovelEditorView from '../views/NovelEditorView.vue'
 import CharacterManagerView from '../views/CharacterManagerView.vue'
 import RagAssistantView from '../views/RagAssistantView.vue'
+import RagKnowledgeView from '../views/RagKnowledgeView.vue'
 import { useUserStore } from '../stores/UserStore'
 
 const router = createRouter({
@@ -64,6 +65,12 @@ const router = createRouter({
       path: '/rag-assistant',
       name: 'rag-assistant',
       component: RagAssistantView,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/rag-knowledge',
+      name: 'rag-knowledge',
+      component: RagKnowledgeView,
       meta: { requiresAuth: true }
     },
     {
