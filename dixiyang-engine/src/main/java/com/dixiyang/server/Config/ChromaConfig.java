@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @ConfigurationProperties(prefix = "app.chromadb")
 public class ChromaConfig {
-    private String host = "[::1]";
+    private String host = "localhost";
     private int port = 8000;
     private String collectionName = "dixiyang_knowledge";
 

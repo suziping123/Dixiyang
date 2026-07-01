@@ -12,6 +12,7 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.ollama.OllamaEmbeddingModel;
 import org.springframework.ai.openai.OpenAiChatModel;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -19,7 +20,7 @@ import org.springframework.context.annotation.Primary;
 /**
  * AI 模型配置类
  * 解决多 AI 提供方（Ollama + DeepSeek）的冲突问题
- * 
+ *
  * 架构设计：
  * - 聊天（Chat）：使用 DeepSeek（OpenAiChatModel）- 云端大模型能力强
  * - 向量化（Embedding）：使用 Ollama（OllamaEmbeddingModel）- 本地免费，nomic-embed-text 效果好
@@ -29,10 +30,11 @@ public class AiModelConfig {
 
     /**
      * 优先使用 Ollama 作为向量化模型
-     * 向量检索、RAG 依赖 EmbeddingModel，明确指定使用 Ollama 的本地嵌入模型
+     * 仅当 Ollama 启用时才创建此 Bean
      */
     @Bean
     @Primary
+    @ConditionalOnBean(OllamaEmbeddingModel.class)
     public EmbeddingModel primaryEmbeddingModel(OllamaEmbeddingModel ollamaEmbeddingModel) {
         return ollamaEmbeddingModel;
     }

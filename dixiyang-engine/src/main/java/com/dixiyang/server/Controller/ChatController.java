@@ -12,7 +12,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.document.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,7 +22,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import com.dixiyang.server.Service.EmbeddingService;
+import com.dixiyang.server.Service.RagService;
 import com.dixiyang.server.Service.INovelCharacterService;
 import com.dixiyang.server.Service.IChatSessionService;
 import com.dixiyang.server.Service.IStoryNodeService;
@@ -52,7 +51,7 @@ import java.util.concurrent.atomic.AtomicReference;
     public class ChatController {
         
         private final ChatClient chatClient;
-        private final EmbeddingService embeddingService;
+        private final RagService ragService;
         private final INovelCharacterService characterService;
         private final IStoryNodeService storyNodeService;
         private final IChatSessionService chatSessionService;
@@ -64,20 +63,20 @@ import java.util.concurrent.atomic.AtomicReference;
             catch (JsonProcessingException e) { return "{}"; }
         }
 
-        // 注入所需依赖（EmbeddingService 为可选）
+        // 注入所需依赖（RagService 为可选，ChromaDB 未连接时禁用 RAG）
         public ChatController(ChatClient.Builder builder, 
-                            @Autowired(required = false) EmbeddingService embeddingService,
+                            @Autowired(required = false) RagService ragService,
                             INovelCharacterService characterService,
                             IStoryNodeService storyNodeService,
                             IChatSessionService chatSessionService) {
             this.chatClient = builder.build();
-            this.embeddingService = embeddingService;
+            this.ragService = ragService;
             this.characterService = characterService;
             this.storyNodeService = storyNodeService;
             this.chatSessionService = chatSessionService;
-            this.ragEnabled = (embeddingService != null);
+            this.ragEnabled = (ragService != null);
             if (!ragEnabled) {
-                log.warn("⚠️ RAG 功能已禁用（向量存储未配置），仅使用数据库上下文");
+                log.warn("⚠️ RAG 功能已禁用（ChromaDB 未配置），仅使用数据库上下文");
             }
         }
 
@@ -230,10 +229,25 @@ import java.util.concurrent.atomic.AtomicReference;
 
             if (ragEnabled && request.getUseRag() != null && request.getUseRag()) {
                 try {
-                    List<Document> relatedDocs = embeddingService.similaritySearch(finalMessage);
-                    if (!relatedDocs.isEmpty()) {
-                        String ragContext = relatedDocs.stream()
-                                .map(Document::getText)
+                    Map<String, Object> ragResult = ragService.search(finalMessage, 5);
+                    Object resultsObj = ragResult.get("results");
+                    if (resultsObj instanceof List<?> results && !results.isEmpty()) {
+                        String ragContext = results.stream()
+                                .map(r -> {
+                                    if (r instanceof Map<?, ?> m) {
+                                        String content = String.valueOf(m.get("content"));
+                                        Object meta = m.get("metadata");
+                                        String source = "";
+                                        if (meta instanceof Map<?, ?> mm) {
+                                            Object bookTitle = mm.get("book_title");
+                                            Object sourceObj = mm.get("source");
+                                            source = bookTitle != null ? String.valueOf(bookTitle)
+                                                    : (sourceObj != null ? String.valueOf(sourceObj) : "");
+                                        }
+                                        return (source.isEmpty() ? "" : "[" + source + "] ") + content;
+                                    }
+                                    return String.valueOf(r);
+                                })
                                 .collect(Collectors.joining("\n---\n"));
                         fullPrompt = String.format(
                                 "【参考资料】\n%s\n\n%s\n\n用户需求：%s\n\n请基于以上信息回答用户的问题。如果参考资料与问题相关，请重点参考；如不相关，可忽略。",
@@ -319,9 +333,15 @@ import java.util.concurrent.atomic.AtomicReference;
 
                     if (ragEnabled && request.getUseRag() != null && request.getUseRag()) {
                         try {
-                            List<Document> relatedDocs = embeddingService.similaritySearch(finalMessage != null ? finalMessage : "");
-                            if (!relatedDocs.isEmpty()) {
-                                String rag = relatedDocs.stream().map(Document::getText).collect(Collectors.joining("\n---\n"));
+                            Map<String, Object> ragResult = ragService.search(finalMessage != null ? finalMessage : "", 5);
+                            Object resultsObj = ragResult.get("results");
+                            if (resultsObj instanceof List<?> results && !results.isEmpty()) {
+                                String rag = results.stream()
+                                        .map(r -> {
+                                            if (r instanceof Map<?, ?> m) return String.valueOf(m.get("content"));
+                                            return String.valueOf(r);
+                                        })
+                                        .collect(Collectors.joining("\n---\n"));
                                 fullPrompt = String.format("【参考资料】\n%s\n\n%s\n\n用户需求：%s", rag, dbContext, finalMessage);
                             }
                         } catch (Exception e) { log.error("RAG 失败: {}", e.getMessage()); }
@@ -447,13 +467,26 @@ import java.util.concurrent.atomic.AtomicReference;
             // 3. RAG 检索增强（可选）
             if (ragEnabled && request.getUseRag() != null && request.getUseRag()) {
                 try {
-                    List<Document> relatedDocs = embeddingService.similaritySearch(finalMessage);
-                    
-                    if (!relatedDocs.isEmpty()) {
-                        String ragContext = relatedDocs.stream()
-                                .map(Document::getText)
+                    Map<String, Object> ragResult = ragService.search(finalMessage, 5);
+                    Object resultsObj = ragResult.get("results");
+                    if (resultsObj instanceof List<?> results && !results.isEmpty()) {
+                        String ragContext = results.stream()
+                                .map(r -> {
+                                    if (r instanceof Map<?, ?> m) {
+                                        String content = String.valueOf(m.get("content"));
+                                        Object meta = m.get("metadata");
+                                        String source = "";
+                                        if (meta instanceof Map<?, ?> mm) {
+                                            Object bookTitle = mm.get("book_title");
+                                            Object sourceObj = mm.get("source");
+                                            source = bookTitle != null ? String.valueOf(bookTitle)
+                                                    : (sourceObj != null ? String.valueOf(sourceObj) : "");
+                                        }
+                                        return (source.isEmpty() ? "" : "[" + source + "] ") + content;
+                                    }
+                                    return String.valueOf(r);
+                                })
                                 .collect(Collectors.joining("\n---\n"));
-                        
                         fullPrompt = String.format(
                                 "【参考资料】\n%s\n\n%s\n\n用户需求：%s\n\n请基于以上信息回答用户的问题。如果参考资料与问题相关，请重点参考；如不相关，可忽略。",
                                 ragContext, dbContext, finalMessage
@@ -461,7 +494,6 @@ import java.util.concurrent.atomic.AtomicReference;
                     }
                 } catch (Exception e) {
                     log.error("RAG 检索失败，仅使用数据库上下文: {}", e.getMessage(), e);
-                    // 继续使用仅数据库上下文的模式
                 }
             }
             
