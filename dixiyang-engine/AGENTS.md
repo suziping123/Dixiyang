@@ -80,6 +80,27 @@ src/main/java/com/dixiyang/server/
 │   ├── TimelineMapper.java           # 时间线映射接口
 │   └── UserConfigMapper.java         # 用户配置映射接口
 ├── Service/         # 服务层
+│   ├── chat/        # Agent Pipeline 架构
+│   │   ├── pipeline/  # 核心接口和数据结构
+│   │   │   ├── ConversationPipeline.java  # 管线接口
+│   │   │   ├── ConversationRequest.java   # 请求 DTO
+│   │   │   ├── PipelineResult.java        # 结果 DTO
+│   │   │   ├── ExecutionProfile.java      # 执行档案(FAST/BALANCED/DEEP)
+│   │   │   ├── IntentAnalyzer.java        # 意图识别接口
+│   │   │   ├── Planner.java               # 规划器接口
+│   │   │   ├── PlannerInput.java          # 规划器输入
+│   │   │   ├── ExecutionPlan.java         # 执行计划
+│   │   │   ├── PromptBuilder.java         # Prompt 构建接口
+│   │   │   ├── PromptContext.java         # Prompt 上下文
+│   │   │   ├── Tool.java                  # 统一工具接口
+│   │   │   ├── EditMemory.java            # 编辑记忆
+│   │   │   └── ConversationState.java     # 会话状态
+│   │   └── impl/    # 实现类
+│   │       ├── ConversationPipelineImpl.java  # 管线实现
+│   │       ├── DefaultPromptBuilder.java      # Prompt 构建器
+│   │       ├── KnowledgeSearchTool.java       # 统一知识检索工具
+│   │       ├── LLMBasedIntentAnalyzer.java    # LLM 意图识别
+│   │       └── LLMBasedPlanner.java           # LLM 规划器
 │   ├── impl/        # 服务实现
 │   │   ├── AppUserServiceImpl.java   # 用户服务实现
 │   │   ├── AuthServiceImpl.java      # 认证服务实现

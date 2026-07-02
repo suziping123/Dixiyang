@@ -26,6 +26,8 @@ import com.dixiyang.server.Service.RagService;
 import com.dixiyang.server.Service.INovelCharacterService;
 import com.dixiyang.server.Service.IChatSessionService;
 import com.dixiyang.server.Service.IStoryNodeService;
+import com.dixiyang.server.Service.chat.pipeline.*;
+import com.dixiyang.server.Service.chat.pipeline.IntentAnalyzer.IntentResult;
 import com.dixiyang.server.Entity.NovelCharacter;
 import com.dixiyang.server.Entity.StoryNode;
 import com.dixiyang.server.Entity.dto.ChatRequest;
@@ -55,6 +57,9 @@ import java.util.concurrent.atomic.AtomicReference;
         private final INovelCharacterService characterService;
         private final IStoryNodeService storyNodeService;
         private final IChatSessionService chatSessionService;
+        private final IntentAnalyzer intentAnalyzer;
+        private final PromptBuilder promptBuilder;
+        private final List<Tool> tools;
         private final boolean ragEnabled;
         private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -68,12 +73,18 @@ import java.util.concurrent.atomic.AtomicReference;
                             @Autowired(required = false) RagService ragService,
                             INovelCharacterService characterService,
                             IStoryNodeService storyNodeService,
-                            IChatSessionService chatSessionService) {
+                            IChatSessionService chatSessionService,
+                            IntentAnalyzer intentAnalyzer,
+                            PromptBuilder promptBuilder,
+                            List<Tool> tools) {
             this.chatClient = builder.build();
             this.ragService = ragService;
             this.characterService = characterService;
             this.storyNodeService = storyNodeService;
             this.chatSessionService = chatSessionService;
+            this.intentAnalyzer = intentAnalyzer;
+            this.promptBuilder = promptBuilder;
+            this.tools = tools;
             this.ragEnabled = (ragService != null);
             if (!ragEnabled) {
                 log.warn("⚠️ RAG 功能已禁用（ChromaDB 未配置），仅使用数据库上下文");
@@ -126,7 +137,14 @@ import java.util.concurrent.atomic.AtomicReference;
 
             executor.execute(() -> {
                 try {
-                    String fullPrompt = buildFullPrompt(request);
+                    // 解析 profile
+                    ExecutionProfile profile = ExecutionProfile.BALANCED;
+                    try {
+                        profile = ExecutionProfile.valueOf(request.getProfile() != null ? request.getProfile() : "BALANCED");
+                    } catch (IllegalArgumentException ignored) {}
+
+                    // 构建 Pipeline 上下文
+                    String fullPrompt = buildPromptWithPipeline(request, profile);
 
                     // 真流式：Flux<String> 逐 token 推送
                     Flux<String> flux = chatClient.prompt(fullPrompt).stream().content();
@@ -279,6 +297,126 @@ import java.util.concurrent.atomic.AtomicReference;
         }
 
         /**
+         * 使用 Pipeline 组件构建 Prompt（意图识别 + 工具调用 + 结构化 Prompt）
+         */
+        private String buildPromptWithPipeline(ChatRequest request, ExecutionProfile profile) {
+            Long userId = getUserIdFromAuth();
+            String userIdStr = userId != null ? String.valueOf(userId) : null;
+
+            // 1. 读取历史
+            List<PromptContext.Message> history = new ArrayList<>();
+            if (request.getSessionId() != null && !request.getSessionId().isBlank() && userId != null) {
+                List<Map<String, Object>> msgs = chatSessionService.getSessionMessagesWithEdits(request.getSessionId(), userId);
+                if (msgs != null) {
+                    history = msgs.stream()
+                        .map(m -> new PromptContext.Message(
+                            (String) m.get("role"),
+                            (String) m.get("content"),
+                            m.get("thinking") != null ? String.valueOf(m.get("thinking")) : null
+                        ))
+                        .collect(Collectors.toList());
+                }
+            }
+
+            // 2. 意图识别（BALANCED/DEEP）
+            IntentResult intentResult = null;
+            if (profile != ExecutionProfile.FAST) {
+                try {
+                    intentResult = intentAnalyzer.analyze(new IntentAnalyzer.IntentInput(request.getMessage(), history));
+                    log.info("Intent: {} | Goal: {}", intentResult.intent(), intentResult.goal());
+                } catch (Exception e) {
+                    log.warn("意图识别失败: {}", e.getMessage());
+                }
+            }
+
+            // 3. 构建固定上下文
+            Map<String, String> fixedContext = buildFixedContextFromRequest(request);
+
+            // 4. 读取编辑记忆
+            EditMemory editMemory = EditMemory.empty();
+            if (userId != null && request.getSessionId() != null) {
+                String editsPrompt = chatSessionService.buildEditContextPrompt(userId, request.getSessionId());
+                if (!editsPrompt.isBlank()) {
+                    editMemory = new EditMemory(List.of(new EditMemory.EditRecord(-1, "历史修正", editsPrompt, "")));
+                }
+            }
+
+            // 5. 工具调用（BALANCED/DEEP）
+            List<Tool.ToolResult> toolResults = new ArrayList<>();
+            if (profile.allowTools) {
+                int maxRounds = profile.maxToolRounds;
+                for (int round = 0; round < maxRounds; round++) {
+                    // BALANCED: 没有计划时，做一次通用检索
+                    if (profile == ExecutionProfile.BALANCED && round == 0 && toolResults.isEmpty()) {
+                        Tool tool = tools.stream().filter(t -> t.name().equals("knowledge_search")).findFirst().orElse(null);
+                        if (tool != null) {
+                            Tool.ToolInput input = new Tool.ToolInput(request.getMessage(), null, 5);
+                            Tool.ToolResult result = tool.execute(input);
+                            toolResults.add(result);
+                        }
+                    }
+                    break; // 简化：单轮工具调用
+                }
+            }
+
+            // 6. 构建最终 Prompt
+            IntentAnalyzer.Intent intent = intentResult != null ? intentResult.intent() : IntentAnalyzer.Intent.CREATIVE_WRITING;
+            String systemPrompt = switch (profile) {
+                case FAST -> "你是小说创作助手。严格遵循【固定设定】与【对话历史】创作，不自造设定，不违背前文。直接给出创作结果，简练、沉浸感强。";
+                case BALANCED -> "你是小说创作助手。严格遵循【固定设定】与【对话历史】创作。你可以使用 knowledge_search 工具查阅设定细节。先思考，再给出创作结果。";
+                case DEEP -> "你是资深小说创作专家。严格遵循【固定设定】与【对话历史】创作。你拥有 knowledge_search 工具，可多轮检索角色/大纲/世界观/章节。请输出 <thinking> 思考过程，再给最终创作。思考要包含：意图分析、检索策略、推理链路。";
+            };
+
+            PromptContext ctx = new PromptContext(
+                systemPrompt,
+                fixedContext,
+                history,
+                editMemory,
+                toolResults,
+                request.getMessage(),
+                profile
+            );
+
+            return promptBuilder.build(ctx);
+        }
+
+        /**
+         * 从 ChatRequest 构建固定上下文（角色/故事节点）
+         */
+        private Map<String, String> buildFixedContextFromRequest(ChatRequest request) {
+            Map<String, String> fixedContext = new LinkedHashMap<>();
+            if (request.getIncludeCharacters() != null && request.getIncludeCharacters()
+                    && request.getCharacterIds() != null && !request.getCharacterIds().isEmpty()) {
+                List<NovelCharacter> characters = characterService.listByIds(request.getCharacterIds());
+                if (!characters.isEmpty()) {
+                    StringBuilder sb = new StringBuilder();
+                    for (NovelCharacter c : characters) {
+                        sb.append("【").append(c.getName()).append("】\n");
+                        if (c.getAppearance() != null) sb.append("外貌：").append(c.getAppearance()).append("\n");
+                        if (c.getPersonality() != null) sb.append("性格：").append(c.getPersonality()).append("\n");
+                        if (c.getBackground() != null) sb.append("背景：").append(c.getBackground()).append("\n");
+                        sb.append("\n");
+                    }
+                    fixedContext.put("角色卡", sb.toString());
+                }
+            }
+            if (request.getIncludeStory() != null && request.getIncludeStory()
+                    && request.getStoryNodeIds() != null && !request.getStoryNodeIds().isEmpty()) {
+                List<StoryNode> nodes = storyNodeService.listByIds(request.getStoryNodeIds());
+                if (!nodes.isEmpty()) {
+                    StringBuilder sb = new StringBuilder();
+                    for (StoryNode n : nodes) {
+                        sb.append("【").append(n.getTitle()).append("】\n");
+                        if (n.getContent() != null) sb.append(n.getContent()).append("\n");
+                        sb.append("\n");
+                    }
+                    fixedContext.put("故事节点", sb.toString());
+                }
+            }
+            return fixedContext;
+        }
+
+        /**
          * 重新生成指定消息（SSE 真流式）
          * 截断链 → 构建上下文 → Flux 逐 token 推 SSE → 完成时追加新回答
          */
@@ -309,43 +447,12 @@ import java.util.concurrent.atomic.AtomicReference;
                     // 1. 截断链
                     chatSessionService.truncateSessionChain(finalUserId, sessionId, messageIndex);
 
-                    // 2. 构建上下文
-                    List<Map<String, Object>> history = chatSessionService.getSessionMessages(sessionId, finalUserId);
-                    StringBuilder ctx = new StringBuilder();
-                    if (history != null) {
-                        for (Map<String, Object> msg : history) {
-                            String role = "user".equals(msg.get("role")) ? "用户" : "AI";
-                            String content = (String) msg.get("content");
-                            if (content != null) ctx.append(role).append("：").append(content).append("\n\n");
-                        }
-                    }
-
-                    String editsPrompt = chatSessionService.buildEditContextPrompt(finalUserId, sessionId);
-                    if (!editsPrompt.isBlank()) ctx.append(editsPrompt).append("\n\n");
-
-                    String dbContext = buildContextFromDatabase(request);
-                    String finalMessage = request.getMessage();
-                    String fullPrompt = ctx + "用户需求：" + (finalMessage != null ? finalMessage : "");
-
-                    if (dbContext != null && !dbContext.isEmpty()) {
-                        fullPrompt = dbContext + "\n\n" + fullPrompt;
-                    }
-
-                    if (ragEnabled && request.getUseRag() != null && request.getUseRag()) {
-                        try {
-                            Map<String, Object> ragResult = ragService.search(finalMessage != null ? finalMessage : "", 5);
-                            Object resultsObj = ragResult.get("results");
-                            if (resultsObj instanceof List<?> results && !results.isEmpty()) {
-                                String rag = results.stream()
-                                        .map(r -> {
-                                            if (r instanceof Map<?, ?> m) return String.valueOf(m.get("content"));
-                                            return String.valueOf(r);
-                                        })
-                                        .collect(Collectors.joining("\n---\n"));
-                                fullPrompt = String.format("【参考资料】\n%s\n\n%s\n\n用户需求：%s", rag, dbContext, finalMessage);
-                            }
-                        } catch (Exception e) { log.error("RAG 失败: {}", e.getMessage()); }
-                    }
+                    // 2. 解析 profile 并构建 Pipeline 上下文
+                    ExecutionProfile profile = ExecutionProfile.BALANCED;
+                    try {
+                        profile = ExecutionProfile.valueOf(request.getProfile() != null ? request.getProfile() : "BALANCED");
+                    } catch (IllegalArgumentException ignored) {}
+                    String fullPrompt = buildPromptWithPipeline(request, profile);
 
                     // 3. 真流式调用 AI
                     Flux<String> flux = chatClient.prompt(fullPrompt).stream().content();
@@ -447,6 +554,27 @@ import java.util.concurrent.atomic.AtomicReference;
             if (auth == null || auth.getPrincipal() == null) return null;
             try { return Long.parseLong(auth.getPrincipal().toString()); }
             catch (NumberFormatException e) { return null; }
+        }
+
+        /**
+         * 将前端 ChatRequest 转换为 Pipeline ConversationRequest
+         */
+        private ConversationRequest toConversationRequest(ChatRequest request) {
+            Long userId = getUserIdFromAuth();
+            ExecutionProfile profile = ExecutionProfile.BALANCED;
+            try {
+                profile = ExecutionProfile.valueOf(request.getProfile() != null ? request.getProfile() : "BALANCED");
+            } catch (IllegalArgumentException ignored) {}
+            return new ConversationRequest(
+                userId != null ? String.valueOf(userId) : null,
+                request.getSessionId(),
+                request.getMessage(),
+                profile,
+                request.getCharacterIds(),
+                request.getStoryNodeIds(),
+                request.getIncludeCharacters() != null ? request.getIncludeCharacters() : true,
+                request.getIncludeStory() != null ? request.getIncludeStory() : true
+            );
         }
 
         /**
