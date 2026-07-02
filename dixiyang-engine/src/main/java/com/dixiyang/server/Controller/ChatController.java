@@ -1,788 +1,440 @@
-    /*
-    * @Author: suziping123 yunzhiming123@gmail.com
-    * @Date: 2026-03-17 22:24:29
-    * @LastEditors: suziping123 yunzhiming123@gmail.com
-    * @LastEditTime: 2026-03-23 20:59:51
-    * @FilePath: \Dixiyang\dixiyang-engine\src\main\java\com\dixiyang\server\Controller\ChatController.java
-    * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
-    */
 package com.dixiyang.server.Controller;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import com.dixiyang.server.Service.RagService;
-import com.dixiyang.server.Service.INovelCharacterService;
-import com.dixiyang.server.Service.IChatSessionService;
-import com.dixiyang.server.Service.IStoryNodeService;
-import com.dixiyang.server.Service.chat.pipeline.*;
-import com.dixiyang.server.Service.chat.pipeline.IntentAnalyzer.IntentResult;
 import com.dixiyang.server.Entity.NovelCharacter;
 import com.dixiyang.server.Entity.StoryNode;
 import com.dixiyang.server.Entity.dto.ChatRequest;
-
-import org.springframework.ai.openai.OpenAiChatOptions;
-import reactor.core.publisher.Flux;
+import com.dixiyang.server.Service.IChatSessionService;
+import com.dixiyang.server.Service.INovelCharacterService;
+import com.dixiyang.server.Service.IStoryNodeService;
+import com.dixiyang.server.Service.RagService;
+import com.dixiyang.server.Service.chat.agent.IntentAnalysisService;
+import com.dixiyang.server.Service.chat.agent.IntentAnalysisService.IntentResult;
+import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.StreamingChatModel;
+import dev.langchain4j.model.chat.response.ChatResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.Collectors;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
-    /**
-     * AI 聊天控制器
-     * 基于 RAG (检索增强生成) 实现与大语言模型的对话
-     * 流程：用户提问 -> 向量检索相关上下文 -> 结合上下文提问 AI
-     */
-    @Tag(name = "聊天模块")
-    @RestController
-    @Slf4j
-    public class ChatController {
-        
-        private final ChatClient chatClient;
-        private final RagService ragService;
-        private final INovelCharacterService characterService;
-        private final IStoryNodeService storyNodeService;
-        private final IChatSessionService chatSessionService;
-        private final IntentAnalyzer intentAnalyzer;
-        private final PromptBuilder promptBuilder;
-        private final List<Tool> tools;
-        private final boolean ragEnabled;
-        private final ObjectMapper objectMapper = new ObjectMapper();
+/**
+ * AI 聊天控制器（LangChain4j 版）
+ * 流程：意图识别 → 结构化 Prompt → LLM 流式输出
+ */
+@Tag(name = "聊天模块")
+@RestController
+@Slf4j
+public class ChatController {
 
-        private String toJson(Map<String, Object> map) {
-            try { return objectMapper.writeValueAsString(map); }
-            catch (JsonProcessingException e) { return "{}"; }
+    private final ChatModel chatModel;
+    private final StreamingChatModel streamingChatModel;
+    private final IntentAnalysisService intentAnalysisService;
+    private final RagService ragService;
+    private final INovelCharacterService characterService;
+    private final IStoryNodeService storyNodeService;
+    private final IChatSessionService chatSessionService;
+    private final boolean ragEnabled;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private static final String THINKING_START = "<thinking>";
+    private static final String THINKING_END = "</thinking>";
+
+    public ChatController(ChatModel chatModel,
+                          StreamingChatModel streamingChatModel,
+                          IntentAnalysisService intentAnalysisService,
+                          @Autowired(required = false) RagService ragService,
+                          INovelCharacterService characterService,
+                          IStoryNodeService storyNodeService,
+                          IChatSessionService chatSessionService) {
+        this.chatModel = chatModel;
+        this.streamingChatModel = streamingChatModel;
+        this.intentAnalysisService = intentAnalysisService;
+        this.ragService = ragService;
+        this.characterService = characterService;
+        this.storyNodeService = storyNodeService;
+        this.chatSessionService = chatSessionService;
+        this.ragEnabled = (ragService != null);
+        if (!ragEnabled) {
+            log.warn("RAG 功能已禁用（ChromaDB 未配置），仅使用数据库上下文");
         }
+    }
 
-        // 注入所需依赖（RagService 为可选，ChromaDB 未连接时禁用 RAG）
-        public ChatController(ChatClient.Builder builder, 
-                            @Autowired(required = false) RagService ragService,
-                            INovelCharacterService characterService,
-                            IStoryNodeService storyNodeService,
-                            IChatSessionService chatSessionService,
-                            IntentAnalyzer intentAnalyzer,
-                            PromptBuilder promptBuilder,
-                            List<Tool> tools) {
-            this.chatClient = builder.build();
-            this.ragService = ragService;
-            this.characterService = characterService;
-            this.storyNodeService = storyNodeService;
-            this.chatSessionService = chatSessionService;
-            this.intentAnalyzer = intentAnalyzer;
-            this.promptBuilder = promptBuilder;
-            this.tools = tools;
-            this.ragEnabled = (ragService != null);
-            if (!ragEnabled) {
-                log.warn("⚠️ RAG 功能已禁用（ChromaDB 未配置），仅使用数据库上下文");
-            }
-        }
+    // ==================== 接口入口 ====================
 
-        /**
-         * RAG 聊天接口（GET 方式，适用于短文本）
-         * @param message 用户提问
-         * @param useRag 是否启用 RAG 检索（默认 true）
-         * @return AI 回答
-         */
-        @GetMapping("/chat")
-        public String chatGet(@RequestParam String message,
-                            @RequestParam(defaultValue = "true") boolean useRag) {
-            return processChat(message, useRag);
-        }
+    @GetMapping("/chat")
+    public String chatGet(@RequestParam String message,
+                          @RequestParam(defaultValue = "true") boolean useRag) {
+        ChatRequest req = new ChatRequest();
+        req.setMessage(message);
+        req.setUseRag(useRag);
+        return chatSync(req);
+    }
 
-        /**
-         * RAG 聊天接口（POST 方式，推荐使用 - 支持传 ID 从数据库构建上下文）
-         * @param request 聊天请求，可包含：message、useRag、characterIds、storyNodeIds 等
-         * @return AI 回答
-         */
-        @PostMapping("/chat")
-        public String chatPost(@RequestBody ChatRequest request) {
-            return processChat(request);
-        }
+    @PostMapping("/chat")
+    public String chatPost(@RequestBody ChatRequest request) {
+        return chatSync(request);
+    }
 
-        private static final String THINKING_START = "<thinking>";
-        private static final String THINKING_END = "</thinking>";
+    @PostMapping("/chat/stream")
+    public SseEmitter chatStream(@RequestBody ChatRequest request) {
+        SseEmitter emitter = new SseEmitter(1800000L);
+        ExecutorService executor = Executors.newSingleThreadExecutor();
 
-        private void sendEvent(SseEmitter emitter, String type, String delta) {
+        executor.execute(() -> {
             try {
-                Map<String, Object> evt = new HashMap<>();
-                evt.put("type", type);
-                if (delta != null) evt.put("delta", delta);
-                emitter.send(SseEmitter.event().name("message").data(toJson(evt)));
-            } catch (Exception ignored) {}
-        }
+                Long userId = getUserIdFromAuth();
+                String sessionId = request.getSessionId();
 
-        /**
-         * RAG 流式聊天接口 (SSE) — 真流式
-         * 使用 ChatClient.stream() 获得 Flux<String>，逐 token 推 SSE
-         * 实时检测 <thinking> 标签，拆分 thinking/content 两路事件
-         */
-        @PostMapping(value = "/chat/stream")
-        public SseEmitter chatStream(@RequestBody ChatRequest request) {
-            SseEmitter emitter = new SseEmitter(1800000L);
-            ExecutorService executor = Executors.newSingleThreadExecutor();
-
-            executor.execute(() -> {
+                // 1. 意图识别
+                String historyStr = buildHistoryString(sessionId, userId);
+                IntentResult intent = null;
                 try {
-                    // 解析 profile
-                    ExecutionProfile profile = ExecutionProfile.BALANCED;
-                    try {
-                        profile = ExecutionProfile.valueOf(request.getProfile() != null ? request.getProfile() : "BALANCED");
-                    } catch (IllegalArgumentException ignored) {}
-
-                    Long userId = getUserIdFromAuth();
-
-                    // 构建 Pipeline 上下文
-                    String fullPrompt = buildPromptWithPipeline(request, profile);
-
-                    // 真流式：Flux<String> 逐 token 推送
-                    Flux<String> flux = chatClient.prompt(fullPrompt)
-                        .options(OpenAiChatOptions.builder().maxTokens(profile.maxTokens).build())
-                        .stream().content();
-                    CountDownLatch latch = new CountDownLatch(1);
-
-                    StringBuilder buf = new StringBuilder();
-                    AtomicReference<String> state = new AtomicReference<>("INIT");
-                    StringBuilder fullResponse = new StringBuilder();
-                    StringBuilder thinkingResponse = new StringBuilder();
-
-                    flux.subscribe(
-                        token -> {
-                            fullResponse.append(token);
-                            buf.append(token);
-                            String cur = state.get();
-
-                            // --- INIT: 检测 <thinking> 开始 ---
-                            if ("INIT".equals(cur)) {
-                                String s = buf.toString();
-                                int startTagIdx = s.indexOf(THINKING_START);
-                                if (startTagIdx >= 0) {
-                                    String beforeTag = s.substring(0, startTagIdx);
-                                    if (!beforeTag.isEmpty()) {
-                                        sendEvent(emitter, "content", beforeTag);
-                                        thinkingResponse.append(beforeTag);
-                                    }
-                                    buf.setLength(0);
-                                    buf.append(s.substring(startTagIdx + THINKING_START.length()));
-                                    state.set("THINKING");
-                                } else if (s.length() > 64) {
-                                    // 积累够了还没出现 thinking 标签，当作纯内容
-                                    sendEvent(emitter, "content", s);
-                                    thinkingResponse.append(s);
-                                    buf.setLength(0);
-                                    state.set("CONTENT");
-                                }
-                            }
-
-                            // --- THINKING: 检测 </thinking> 结束，推送 thinking 事件 ---
-                            if ("THINKING".equals(state.get())) {
-                                String s = buf.toString();
-                                int endTagIdx = s.indexOf(THINKING_END);
-                                if (endTagIdx >= 0) {
-                                    String think = s.substring(0, endTagIdx);
-                                    if (!think.isEmpty()) {
-                                        sendEvent(emitter, "thinking", think);
-                                        thinkingResponse.append(think);
-                                    }
-                                    buf.setLength(0);
-                                    buf.append(s.substring(endTagIdx + THINKING_END.length()));
-                                    state.set("CONTENT");
-                                } else if (s.length() > THINKING_END.length()) {
-                                    // 安全推送：保留末尾可能匹配标签的字符
-                                    String safe = s.substring(0, s.length() - THINKING_END.length());
-                                    if (!safe.isEmpty()) {
-                                        sendEvent(emitter, "thinking", safe);
-                                        thinkingResponse.append(safe);
-                                        buf.setLength(0);
-                                        buf.append(s.substring(s.length() - THINKING_END.length()));
-                                    }
-                                }
-                            }
-
-                            // --- CONTENT: 直接推送 content 事件 ---
-                            if ("CONTENT".equals(state.get()) && buf.length() > 0) {
-                                sendEvent(emitter, "content", buf.toString());
-                                buf.setLength(0);
-                            }
-                        },
-                        error -> {
-                            log.error("AI 流式调用失败: {}", error.getMessage());
-                            sendEvent(emitter, "error", "AI 调用失败: " + error.getMessage());
-                            sendEvent(emitter, "done", null);
-                            try { emitter.complete(); } catch (Exception ignored) {}
-                            latch.countDown();
-                        },
-                        () -> {
-                            String remaining = buf.toString();
-                            if (!remaining.isEmpty()) {
-                                String cur = state.get();
-                                sendEvent(emitter, "THINKING".equals(cur) ? "thinking" : "content", remaining);
-                            }
-                            sendEvent(emitter, "done", null);
-                            try { emitter.complete(); } catch (Exception ignored) {}
-
-                            // 后端保存消息到链文件
-                            if (userId != null && request.getSessionId() != null && !request.getSessionId().isBlank()) {
-                                try {
-                                    String cleanContent = fullResponse.toString();
-                                    String cleanThinking = thinkingResponse.toString();
-                                    List<Map<String, Object>> msgs = new ArrayList<>();
-                                    Map<String, Object> userMsg = new LinkedHashMap<>();
-                                    userMsg.put("role", "user");
-                                    userMsg.put("content", request.getMessage());
-                                    userMsg.put("createTime", LocalDateTime.now().toString());
-                                    msgs.add(userMsg);
-                                    Map<String, Object> aiMsg = new LinkedHashMap<>();
-                                    aiMsg.put("role", "assistant");
-                                    aiMsg.put("content", cleanContent);
-                                    if (!cleanThinking.isBlank()) aiMsg.put("thinking", cleanThinking);
-                                    aiMsg.put("createTime", LocalDateTime.now().toString());
-                                    msgs.add(aiMsg);
-                                    chatSessionService.appendMessages(userId, request.getNovelId(), request.getSessionId(), msgs);
-                                    log.info("后端保存消息: sessionId={}, content长度={}, thinking长度={}", request.getSessionId(), cleanContent.length(), cleanThinking.length());
-                                } catch (Exception e) {
-                                    log.warn("后端保存消息失败: {}", e.getMessage());
-                                }
-                            }
-
-                            latch.countDown();
-                        }
-                    );
-
-                    latch.await();
-
-                } catch (Exception e) {
-                    log.error("流式聊天异常: {}", e.getMessage(), e);
-                    sendEvent(emitter, "error", "流式聊天异常: " + e.getMessage());
-                    try { emitter.complete(); } catch (Exception ignored) {}
-                } finally {
-                    executor.shutdown();
-                }
-            });
-
-            return emitter;
-        }
-
-        private String buildFullPrompt(ChatRequest request) {
-            String dbContext = buildContextFromDatabase(request);
-            String finalMessage = request.getMessage();
-            String fullPrompt = finalMessage;
-
-            if (dbContext != null && !dbContext.isEmpty()) {
-                fullPrompt = dbContext + "\n\n用户需求：" + finalMessage;
-            }
-
-            if (ragEnabled && request.getUseRag() != null && request.getUseRag()) {
-                try {
-                    Map<String, Object> ragResult = ragService.search(finalMessage, 5);
-                    Object resultsObj = ragResult.get("results");
-                    if (resultsObj instanceof List<?> results && !results.isEmpty()) {
-                        String ragContext = results.stream()
-                                .map(r -> {
-                                    if (r instanceof Map<?, ?> m) {
-                                        String content = String.valueOf(m.get("content"));
-                                        Object meta = m.get("metadata");
-                                        String source = "";
-                                        if (meta instanceof Map<?, ?> mm) {
-                                            Object bookTitle = mm.get("book_title");
-                                            Object sourceObj = mm.get("source");
-                                            source = bookTitle != null ? String.valueOf(bookTitle)
-                                                    : (sourceObj != null ? String.valueOf(sourceObj) : "");
-                                        }
-                                        return (source.isEmpty() ? "" : "[" + source + "] ") + content;
-                                    }
-                                    return String.valueOf(r);
-                                })
-                                .collect(Collectors.joining("\n---\n"));
-                        fullPrompt = String.format(
-                                "【参考资料】\n%s\n\n%s\n\n用户需求：%s\n\n请基于以上信息回答用户的问题。如果参考资料与问题相关，请重点参考；如不相关，可忽略。",
-                                ragContext, dbContext, finalMessage
-                        );
-                    }
-                } catch (Exception e) {
-                    log.error("RAG 检索失败: {}", e.getMessage(), e);
-                }
-            }
-
-            String sessionId = request.getSessionId();
-            if (sessionId != null && !sessionId.isBlank()) {
-                try {
-                    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-                    if (auth != null && auth.getPrincipal() != null) {
-                        Long uid = Long.parseLong(auth.getPrincipal().toString());
-                        String editsPrompt = chatSessionService.buildEditContextPrompt(uid, sessionId);
-                        if (!editsPrompt.isBlank()) {
-                            fullPrompt = fullPrompt + "\n\n" + editsPrompt;
-                        }
-                    }
-                } catch (Exception e) {
-                    log.warn("注入编辑上下文失败: {}", e.getMessage());
-                }
-            }
-
-            return fullPrompt;
-        }
-
-        /**
-         * 使用 Pipeline 组件构建 Prompt（意图识别 + 工具调用 + 结构化 Prompt）
-         */
-        private String buildPromptWithPipeline(ChatRequest request, ExecutionProfile profile) {
-            Long userId = getUserIdFromAuth();
-            String userIdStr = userId != null ? String.valueOf(userId) : null;
-
-            // 1. 读取历史
-            List<PromptContext.Message> history = new ArrayList<>();
-            if (request.getSessionId() != null && !request.getSessionId().isBlank() && userId != null) {
-                List<Map<String, Object>> msgs = chatSessionService.getSessionMessagesWithEdits(request.getSessionId(), userId);
-                if (msgs != null) {
-                    history = msgs.stream()
-                        .map(m -> new PromptContext.Message(
-                            (String) m.get("role"),
-                            (String) m.get("content"),
-                            m.get("thinking") != null ? String.valueOf(m.get("thinking")) : null
-                        ))
-                        .collect(Collectors.toList());
-                }
-            }
-            log.info("Pipeline: userId={}, sessionId={}, historySize={}, profile={}", userId, request.getSessionId(), history.size(), profile);
-            log.info("Pipeline历史条数: sessionId={}, historySize={}, profile={}", request.getSessionId(), history.size(), profile);
-
-            // 2. 意图识别（BALANCED/DEEP）
-            IntentResult intentResult = null;
-            if (profile != ExecutionProfile.FAST) {
-                try {
-                    intentResult = intentAnalyzer.analyze(new IntentAnalyzer.IntentInput(request.getMessage(), history));
-                    log.info("Intent: {} | Goal: {}", intentResult.intent(), intentResult.goal());
+                    intent = intentAnalysisService.analyze(historyStr, request.getMessage());
+                    log.info("Intent: {} | Goal: {}", intent.intent(), intent.goal());
                 } catch (Exception e) {
                     log.warn("意图识别失败: {}", e.getMessage());
                 }
-            }
 
-            // 3. 构建固定上下文
-            Map<String, String> fixedContext = buildFixedContextFromRequest(request);
+                // 2. 构建 Prompt
+                String systemPrompt = buildSystemPrompt(request);
+                String userPrompt = buildUserPrompt(request, intent);
 
-            // 4. 读取编辑记忆
-            EditMemory editMemory = EditMemory.empty();
-            if (userId != null && request.getSessionId() != null) {
-                String editsPrompt = chatSessionService.buildEditContextPrompt(userId, request.getSessionId());
-                if (!editsPrompt.isBlank()) {
-                    editMemory = new EditMemory(List.of(new EditMemory.EditRecord(-1, "历史修正", editsPrompt, "")));
-                }
-            }
+                // 3. 流式调用 LLM
+                dev.langchain4j.model.chat.request.ChatRequest chatReq = dev.langchain4j.model.chat.request.ChatRequest.builder()
+                    .messages(
+                        SystemMessage.from(systemPrompt),
+                        UserMessage.from(userPrompt)
+                    )
+                    .build();
 
-            // 5. 工具调用（BALANCED/DEEP）
-            List<Tool.ToolResult> toolResults = new ArrayList<>();
-            if (profile.allowTools) {
-                int maxRounds = profile.maxToolRounds;
-                for (int round = 0; round < maxRounds; round++) {
-                    // BALANCED: 没有计划时，做一次通用检索
-                    if (profile == ExecutionProfile.BALANCED && round == 0 && toolResults.isEmpty()) {
-                        Tool tool = tools.stream().filter(t -> t.name().equals("knowledge_search")).findFirst().orElse(null);
-                        if (tool != null) {
-                            Tool.ToolInput input = new Tool.ToolInput(request.getMessage(), null, 5);
-                            Tool.ToolResult result = tool.execute(input);
-                            toolResults.add(result);
-                        }
-                    }
-                    break; // 简化：单轮工具调用
-                }
-            }
+                StringBuilder buf = new StringBuilder();
+                AtomicReference<String> state = new AtomicReference<>("INIT");
+                StringBuilder fullResponse = new StringBuilder();
+                StringBuilder thinkingResponse = new StringBuilder();
+                CountDownLatch latch = new CountDownLatch(1);
 
-            // 6. 构建最终 Prompt
-            IntentAnalyzer.Intent intent = intentResult != null ? intentResult.intent() : IntentAnalyzer.Intent.CREATIVE_WRITING;
-            String systemPrompt = switch (profile) {
-                case FAST -> """
-                    你是小说创作助手。你具备以下能力：
-                    - 创作：按设定写剧情/对话/描写
-                    - 讨论：回答关于角色、世界观、大纲的设定问题
-                    - 分析：分析角色性格、剧情逻辑、世界观一致性
-                    
-                    严格遵循【固定设定】与【对话历史】。不自造设定，不违背前文。
-                    直接给出回答，简练、沉浸感强。
-                    """;
-                case BALANCED -> """
-                    你是小说创作助手。你具备以下能力：
-                    - 创作：按设定写剧情/对话/描写/续写
-                    - 讨论：回答关于角色、世界观、大纲的设定问题
-                    - 分析：分析角色性格、剧情逻辑、世界观一致性
-                    - 检索：使用 knowledge_search 查阅设定细节
-                    
-                    严格遵循【固定设定】与【对话历史】。
-                    根据用户意图切换模式：用户问设定就讨论设定，用户要创作就写内容。不要答非所问。
-                    """;
-                case DEEP -> """
-                    你是资深小说创作专家。你具备以下能力：
-                    - 创作：按设定写剧情/对话/描写/续写
-                    - 讨论：回答关于角色、世界观、大纲的设定问题
-                    - 分析：分析角色性格、剧情逻辑、世界观一致性
-                    - 检索：使用 knowledge_search 多轮检索角色/大纲/世界观/章节
-                    - 规划：复杂创作任务拆解为多步骤
-                    
-                    严格遵循【固定设定】与【对话历史】。
-                    根据用户意图切换模式：用户问设定就讨论设定，用户要创作就写内容。不要答非所问。
-                    请输出 <thinking> 思考过程，再给最终回答。思考要包含：意图分析、检索策略、推理链路。
-                    """;
-            };
+                streamingChatModel.chat(chatReq, new dev.langchain4j.model.chat.response.StreamingChatResponseHandler() {
+                    @Override
+                    public void onPartialResponse(String partialResponse) {
+                        fullResponse.append(partialResponse);
+                        buf.append(partialResponse);
+                        String cur = state.get();
 
-            PromptContext ctx = new PromptContext(
-                systemPrompt,
-                fixedContext,
-                history,
-                editMemory,
-                toolResults,
-                request.getMessage(),
-                profile
-            );
-
-            String prompt = promptBuilder.build(ctx);
-            log.info("Prompt构建完成: 总长度={}, 含历史={}条, 固定上下文={}项, 编辑记忆={}条, 工具结果={}条",
-                prompt.length(), history.size(),
-                fixedContext != null ? fixedContext.size() : 0,
-                editMemory != null ? editMemory.records().size() : 0,
-                toolResults != null ? toolResults.size() : 0);
-            return prompt;
-        }
-
-        /**
-         * 从 ChatRequest 构建固定上下文（角色/故事节点）
-         */
-        private Map<String, String> buildFixedContextFromRequest(ChatRequest request) {
-            Map<String, String> fixedContext = new LinkedHashMap<>();
-            if (request.getIncludeCharacters() != null && request.getIncludeCharacters()
-                    && request.getCharacterIds() != null && !request.getCharacterIds().isEmpty()) {
-                List<NovelCharacter> characters = characterService.listByIds(request.getCharacterIds());
-                if (!characters.isEmpty()) {
-                    StringBuilder sb = new StringBuilder();
-                    for (NovelCharacter c : characters) {
-                        sb.append("【").append(c.getName()).append("】\n");
-                        if (c.getAppearance() != null) sb.append("外貌：").append(c.getAppearance()).append("\n");
-                        if (c.getPersonality() != null) sb.append("性格：").append(c.getPersonality()).append("\n");
-                        if (c.getBackground() != null) sb.append("背景：").append(c.getBackground()).append("\n");
-                        sb.append("\n");
-                    }
-                    fixedContext.put("角色卡", sb.toString());
-                }
-            }
-            if (request.getIncludeStory() != null && request.getIncludeStory()
-                    && request.getStoryNodeIds() != null && !request.getStoryNodeIds().isEmpty()) {
-                List<StoryNode> nodes = storyNodeService.listByIds(request.getStoryNodeIds());
-                if (!nodes.isEmpty()) {
-                    StringBuilder sb = new StringBuilder();
-                    for (StoryNode n : nodes) {
-                        sb.append("【").append(n.getTitle()).append("】\n");
-                        if (n.getContent() != null) sb.append(n.getContent()).append("\n");
-                        sb.append("\n");
-                    }
-                    fixedContext.put("故事节点", sb.toString());
-                }
-            }
-            return fixedContext;
-        }
-
-        /**
-         * 重新生成指定消息（SSE 真流式）
-         * 截断链 → 构建上下文 → Flux 逐 token 推 SSE → 完成时追加新回答
-         */
-        @PostMapping(value = "/chat/regenerate")
-        public SseEmitter regenerate(@RequestBody ChatRequest request) {
-            SseEmitter emitter = new SseEmitter(1800000L);
-
-            Long userId = getUserIdFromAuth();
-            if (userId == null) {
-                sendEvent(emitter, "error", "未登录");
-                try { emitter.complete(); } catch (Exception ignored) {}
-                return emitter;
-            }
-
-            String sessionId = request.getSessionId();
-            int messageIndex = request.getRegenerateIndex() != null ? request.getRegenerateIndex() : -1;
-            if (sessionId == null || sessionId.isBlank() || messageIndex < 0) {
-                sendEvent(emitter, "error", "参数不完整：需要 sessionId 和 regenerateIndex");
-                try { emitter.complete(); } catch (Exception ignored) {}
-                return emitter;
-            }
-
-            Long finalUserId = userId;
-            ExecutorService executor = Executors.newSingleThreadExecutor();
-
-            executor.execute(() -> {
-                try {
-                    // 1. 截断链
-                    chatSessionService.truncateSessionChain(finalUserId, sessionId, messageIndex);
-
-                    // 2. 解析 profile 并构建 Pipeline 上下文
-                    ExecutionProfile profile = ExecutionProfile.BALANCED;
-                    try {
-                        profile = ExecutionProfile.valueOf(request.getProfile() != null ? request.getProfile() : "BALANCED");
-                    } catch (IllegalArgumentException ignored) {}
-                    String fullPrompt = buildPromptWithPipeline(request, profile);
-
-                    // 3. 真流式调用 AI
-                    Flux<String> flux = chatClient.prompt(fullPrompt)
-                        .options(OpenAiChatOptions.builder().maxTokens(profile.maxTokens).build())
-                        .stream().content();
-                    CountDownLatch latch = new CountDownLatch(1);
-
-                    StringBuilder buf = new StringBuilder();
-                    AtomicReference<String> state = new AtomicReference<>("INIT");
-                    StringBuilder fullResponse = new StringBuilder();
-
-                    flux.subscribe(
-                        token -> {
-                            fullResponse.append(token);
-                            buf.append(token);
-                            String cur = state.get();
-
-                            if ("INIT".equals(cur)) {
-                                String s = buf.toString();
-                                int idx = s.indexOf(THINKING_START);
-                                if (idx >= 0) {
-                                    String before = s.substring(0, idx);
-                                    if (!before.isEmpty()) sendEvent(emitter, "content", before);
-                                    buf.setLength(0);
-                                    buf.append(s.substring(idx + THINKING_START.length()));
-                                    state.set("THINKING");
-                                } else if (s.length() > 64) {
-                                    sendEvent(emitter, "content", s);
-                                    buf.setLength(0);
-                                    state.set("CONTENT");
-                                }
-                            }
-
-                            if ("THINKING".equals(state.get())) {
-                                String s = buf.toString();
-                                int idx = s.indexOf(THINKING_END);
-                                if (idx >= 0) {
-                                    String think = s.substring(0, idx);
-                                    if (!think.isEmpty()) sendEvent(emitter, "thinking", think);
-                                    buf.setLength(0);
-                                    buf.append(s.substring(idx + THINKING_END.length()));
-                                    state.set("CONTENT");
-                                } else if (s.length() > THINKING_END.length()) {
-                                    String safe = s.substring(0, s.length() - THINKING_END.length());
-                                    if (!safe.isEmpty()) {
-                                        sendEvent(emitter, "thinking", safe);
-                                        buf.setLength(0);
-                                        buf.append(s.substring(s.length() - THINKING_END.length()));
-                                    }
-                                }
-                            }
-
-                            if ("CONTENT".equals(state.get()) && buf.length() > 0) {
-                                sendEvent(emitter, "content", buf.toString());
+                        if ("INIT".equals(cur)) {
+                            String s = buf.toString();
+                            int idx = s.indexOf(THINKING_START);
+                            if (idx >= 0) {
+                                String before = s.substring(0, idx);
+                                if (!before.isEmpty()) sendEvent(emitter, "content", before);
                                 buf.setLength(0);
+                                buf.append(s.substring(idx + THINKING_START.length()));
+                                state.set("THINKING");
+                            } else if (s.length() > 64) {
+                                sendEvent(emitter, "content", s);
+                                buf.setLength(0);
+                                state.set("CONTENT");
                             }
-                        },
-                        error -> {
-                            sendEvent(emitter, "error", "AI 调用失败: " + error.getMessage());
-                            sendEvent(emitter, "done", null);
-                            try { emitter.complete(); } catch (Exception ignored) {}
-                            latch.countDown();
-                        },
-                        () -> {
-                            String remaining = buf.toString();
-                            if (!remaining.isEmpty()) {
-                                sendEvent(emitter, "THINKING".equals(state.get()) ? "thinking" : "content", remaining);
-                            }
-                            sendEvent(emitter, "done", null);
-                            try { emitter.complete(); } catch (Exception ignored) {}
-
-                            // 4. 保存新回答到链
-                            String clean = fullResponse.toString()
-                                .replace(THINKING_START, "").replace(THINKING_END, "");
-                            List<Map<String, Object>> msgs = new ArrayList<>();
-                            Map<String, Object> m = new LinkedHashMap<>();
-                            m.put("role", "assistant"); m.put("content", clean);
-                            m.put("createTime", LocalDateTime.now().toString());
-                            msgs.add(m);
-                            chatSessionService.appendMessages(finalUserId, request.getNovelId(), sessionId, msgs);
-
-                            latch.countDown();
                         }
-                    );
 
-                    latch.await();
-                } catch (Exception e) {
-                    log.error("重新生成异常: {}", e.getMessage(), e);
-                    sendEvent(emitter, "error", "重新生成失败: " + e.getMessage());
-                    try { emitter.complete(); } catch (Exception ignored) {}
-                } finally {
-                    executor.shutdown();
-                }
-            });
+                        if ("THINKING".equals(state.get())) {
+                            String s = buf.toString();
+                            int idx = s.indexOf(THINKING_END);
+                            if (idx >= 0) {
+                                String think = s.substring(0, idx);
+                                if (!think.isEmpty()) sendEvent(emitter, "thinking", think);
+                                buf.setLength(0);
+                                buf.append(s.substring(idx + THINKING_END.length()));
+                                state.set("CONTENT");
+                            } else if (s.length() > THINKING_END.length()) {
+                                String safe = s.substring(0, s.length() - THINKING_END.length());
+                                if (!safe.isEmpty()) {
+                                    sendEvent(emitter, "thinking", safe);
+                                    buf.setLength(0);
+                                    buf.append(s.substring(s.length() - THINKING_END.length()));
+                                }
+                            }
+                        }
 
+                        if ("CONTENT".equals(state.get()) && buf.length() > 0) {
+                            sendEvent(emitter, "content", buf.toString());
+                            buf.setLength(0);
+                        }
+                    }
+
+                    @Override
+                    public void onCompleteResponse(ChatResponse response) {
+                        String remaining = buf.toString();
+                        if (!remaining.isEmpty()) {
+                            String cur = state.get();
+                            sendEvent(emitter, "THINKING".equals(cur) ? "thinking" : "content", remaining);
+                        }
+                        sendEvent(emitter, "done", null);
+                        try { emitter.complete(); } catch (Exception ignored) {}
+                        saveMessages(userId, sessionId, request, fullResponse.toString(), thinkingResponse.toString());
+                        latch.countDown();
+                    }
+
+                    @Override
+                    public void onError(Throwable error) {
+                        log.error("AI 流式调用失败: {}", error.getMessage());
+                        sendEvent(emitter, "error", "AI 调用失败: " + error.getMessage());
+                        sendEvent(emitter, "done", null);
+                        try { emitter.complete(); } catch (Exception ignored) {}
+                        latch.countDown();
+                    }
+                });
+
+                latch.await();
+            } catch (Exception e) {
+                log.error("流式聊天异常: {}", e.getMessage(), e);
+                sendEvent(emitter, "error", "流式聊天异常: " + e.getMessage());
+                try { emitter.complete(); } catch (Exception ignored) {}
+            } finally {
+                executor.shutdown();
+            }
+        });
+
+        return emitter;
+    }
+
+    @PostMapping("/chat/regenerate")
+    public SseEmitter regenerate(@RequestBody ChatRequest request) {
+        SseEmitter emitter = new SseEmitter(1800000L);
+        Long userId = getUserIdFromAuth();
+
+        if (userId == null) {
+            sendEvent(emitter, "error", "未登录");
+            try { emitter.complete(); } catch (Exception ignored) {}
             return emitter;
         }
 
-        private Long getUserIdFromAuth() {
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            if (auth == null || auth.getPrincipal() == null) return null;
-            try { return Long.parseLong(auth.getPrincipal().toString()); }
-            catch (NumberFormatException e) { return null; }
+        String sessionId = request.getSessionId();
+        int messageIndex = request.getRegenerateIndex() != null ? request.getRegenerateIndex() : -1;
+        if (sessionId == null || sessionId.isBlank() || messageIndex < 0) {
+            sendEvent(emitter, "error", "参数不完整：需要 sessionId 和 regenerateIndex");
+            try { emitter.complete(); } catch (Exception ignored) {}
+            return emitter;
         }
 
-        /**
-         * 将前端 ChatRequest 转换为 Pipeline ConversationRequest
-         */
-        private ConversationRequest toConversationRequest(ChatRequest request) {
-            Long userId = getUserIdFromAuth();
-            ExecutionProfile profile = ExecutionProfile.BALANCED;
-            try {
-                profile = ExecutionProfile.valueOf(request.getProfile() != null ? request.getProfile() : "BALANCED");
-            } catch (IllegalArgumentException ignored) {}
-            return new ConversationRequest(
-                userId != null ? String.valueOf(userId) : null,
-                request.getSessionId(),
-                request.getMessage(),
-                profile,
-                request.getCharacterIds(),
-                request.getStoryNodeIds(),
-                request.getIncludeCharacters() != null ? request.getIncludeCharacters() : true,
-                request.getIncludeStory() != null ? request.getIncludeStory() : true
-            );
-        }
+        Long finalUserId = userId;
+        ExecutorService executor = Executors.newSingleThreadExecutor();
 
-        /**
-         * 处理聊天请求的核心逻辑（新版本 DTO）
-         */
-        private String processChat(ChatRequest request) {
-            // 1. 构建数据库上下文（根据 ID 查询获取完整数据）
-            String dbContext = buildContextFromDatabase(request);
-            
-            // 2. 构建最终的 Prompt
-            String finalMessage = request.getMessage();
-            String fullPrompt = finalMessage;
-            
-            if (dbContext != null && !dbContext.isEmpty()) {
-                fullPrompt = dbContext + "\n\n用户需求：" + finalMessage;
-            }
-            
-            // 3. RAG 检索增强（可选）
-            if (ragEnabled && request.getUseRag() != null && request.getUseRag()) {
-                try {
-                    Map<String, Object> ragResult = ragService.search(finalMessage, 5);
-                    Object resultsObj = ragResult.get("results");
-                    if (resultsObj instanceof List<?> results && !results.isEmpty()) {
-                        String ragContext = results.stream()
-                                .map(r -> {
-                                    if (r instanceof Map<?, ?> m) {
-                                        String content = String.valueOf(m.get("content"));
-                                        Object meta = m.get("metadata");
-                                        String source = "";
-                                        if (meta instanceof Map<?, ?> mm) {
-                                            Object bookTitle = mm.get("book_title");
-                                            Object sourceObj = mm.get("source");
-                                            source = bookTitle != null ? String.valueOf(bookTitle)
-                                                    : (sourceObj != null ? String.valueOf(sourceObj) : "");
-                                        }
-                                        return (source.isEmpty() ? "" : "[" + source + "] ") + content;
-                                    }
-                                    return String.valueOf(r);
-                                })
-                                .collect(Collectors.joining("\n---\n"));
-                        fullPrompt = String.format(
-                                "【参考资料】\n%s\n\n%s\n\n用户需求：%s\n\n请基于以上信息回答用户的问题。如果参考资料与问题相关，请重点参考；如不相关，可忽略。",
-                                ragContext, dbContext, finalMessage
-                        );
-                    }
-                } catch (Exception e) {
-                    log.error("RAG 检索失败，仅使用数据库上下文: {}", e.getMessage(), e);
-                }
-            }
-            
-            // 4. 调用 AI 服务
+        executor.execute(() -> {
             try {
-                return chatClient.prompt(fullPrompt)
-                    .options(OpenAiChatOptions.builder().maxTokens(ExecutionProfile.BALANCED.maxTokens).build())
-                    .call().content();
+                chatSessionService.truncateSessionChain(finalUserId, sessionId, messageIndex);
+                chatStream(request);
             } catch (Exception e) {
-                System.out.println("AI 服务调用失败，返回模拟响应: " + e.getMessage());
-                e.printStackTrace();
-                return generateMockResponse(fullPrompt);
+                log.error("重新生成异常: {}", e.getMessage(), e);
+                sendEvent(emitter, "error", "重新生成失败: " + e.getMessage());
+                try { emitter.complete(); } catch (Exception ignored) {}
+            } finally {
+                executor.shutdown();
             }
-        }
+        });
 
-        /**
-         * 从数据库构建上下文信息（推荐架构：前端传 ID，后端查数据）
-         */
-        private String buildContextFromDatabase(ChatRequest request) {
-            StringBuilder context = new StringBuilder();
-            
-            // 包含角色信息
-            if (request.getIncludeCharacters() != null && request.getIncludeCharacters() 
-                    && request.getCharacterIds() != null && !request.getCharacterIds().isEmpty()) {
-                List<NovelCharacter> characters = characterService.listByIds(request.getCharacterIds());
-                
-                if (!characters.isEmpty()) {
-                    context.append("【角色信息】\n");
-                    for (NovelCharacter charac : characters) {
-                        context.append("- ").append(charac.getName());
-                        context.append("（").append(charac.getGender() != null ? charac.getGender() : "性别未知");
-                        context.append("，").append(charac.getAge() != null ? charac.getAge() + "岁" : "年龄未知").append("）:\n");
-                        if (charac.getAppearance() != null) context.append("  * 外貌：").append(charac.getAppearance()).append("\n");
-                        if (charac.getPersonality() != null) context.append("  * 性格：").append(charac.getPersonality()).append("\n");
-                        if (charac.getBackground() != null) context.append("  * 背景：").append(charac.getBackground()).append("\n");
-                    }
-                    context.append("\n");
-                }
-            }
-            
-            // 包含故事节点
-            if (request.getIncludeStory() != null && request.getIncludeStory() 
-                    && request.getStoryNodeIds() != null && !request.getStoryNodeIds().isEmpty()) {
-                List<StoryNode> nodes = storyNodeService.listByIds(request.getStoryNodeIds());
-                
-                if (!nodes.isEmpty()) {
-                    context.append("【故事节点】\n");
-                    for (StoryNode node : nodes) {
-                        context.append("- ").append(node.getTitle()).append(":\n");
-                        if (node.getContent() != null) context.append("  内容：").append(node.getContent()).append("\n");
-                    }
-                    context.append("\n");
-                }
-            }
-            
-            return context.toString();
-        }
+        return emitter;
+    }
 
-        /**
-         * 兼容旧版接口：纯文本消息
-         */
-        private String processChat(String message, boolean useRag) {
-            ChatRequest request = new ChatRequest();
-            request.setMessage(message);
-            request.setUseRag(useRag);
-            return processChat(request);
-        }
+    // ==================== 同步聊天 ====================
 
-        /**
-         * 生成模拟响应（用于 AI 服务不可用时的演示）
-         */
-        private String generateMockResponse(String message) {
-            // 简单的角色分析模拟
-            if (message.contains("分析") && (message.contains("性格") || message.contains("角色"))) {
-                return "【模拟响应 - AI 服务暂时不可用】\n\n" +
-                    "注：此为模拟响应，实际 AI 服务恢复后将提供更专业的分析。";
-            }
-            
-            return "【模拟响应 - AI 服务暂时不可用】\n\n" +
-                "系统已收到您的请求：\n「" + (message.length() > 100 ? message.substring(0, 100) + "..." : message) + "」\n\n" +
-                "由于 AI 服务临时限制，无法提供实时回答。\n" +
-                "请稍后重试，或检查系统配置。";
+    private String chatSync(ChatRequest request) {
+        try {
+            Long userId = getUserIdFromAuth();
+            String sessionId = request.getSessionId();
+
+            String systemPrompt = buildSystemPrompt(request);
+            String userPrompt = buildUserPrompt(request, null);
+
+            dev.langchain4j.model.chat.request.ChatRequest chatReq = dev.langchain4j.model.chat.request.ChatRequest.builder()
+                .messages(
+                    SystemMessage.from(systemPrompt),
+                    UserMessage.from(userPrompt)
+                )
+                .build();
+
+            ChatResponse response = chatModel.chat(chatReq);
+            String content = response.aiMessage().text();
+
+            saveMessages(userId, sessionId, request, content, "");
+            return content;
+        } catch (Exception e) {
+            log.error("同步聊天失败: {}", e.getMessage(), e);
+            return "生成失败：" + e.getMessage();
         }
     }
+
+    // ==================== Prompt 构建 ====================
+
+    private String buildSystemPrompt(ChatRequest request) {
+        String profile = request.getProfile() != null ? request.getProfile() : "BALANCED";
+        return switch (profile) {
+            case "FAST" -> """
+                你是小说创作助手。你具备以下能力：
+                - 创作：按设定写剧情/对话/描写
+                - 讨论：回答关于角色、世界观、大纲的设定问题
+                - 分析：分析角色性格、剧情逻辑、世界观一致性
+
+                严格遵循【固定设定】与【对话历史】。不自造设定，不违背前文。
+                直接给出回答，简练、沉浸感强。
+                """;
+            case "DEEP" -> """
+                你是资深小说创作专家。你具备以下能力：
+                - 创作：按设定写剧情/对话/描写/续写
+                - 讨论：回答关于角色、世界观、大纲的设定问题
+                - 分析：分析角色性格、剧情逻辑、世界观一致性
+                - 检索：使用 knowledge_search 工具查阅设定细节
+
+                严格遵循【固定设定】与【对话历史】。
+                根据用户意图切换模式：用户问设定就讨论设定，用户要创作就写内容。不要答非所问。
+                请输出 <thinking> 思考过程，再给最终回答。
+                """;
+            default -> """
+                你是小说创作助手。你具备以下能力：
+                - 创作：按设定写剧情/对话/描写/续写
+                - 讨论：回答关于角色、世界观、大纲的设定问题
+                - 分析：分析角色性格、剧情逻辑、世界观一致性
+                - 检索：使用 knowledge_search 工具查阅设定细节
+
+                严格遵循【固定设定】与【对话历史】。
+                根据用户意图切换模式：用户问设定就讨论设定，用户要创作就写内容。不要答非所问。
+                """;
+        };
+    }
+
+    private String buildUserPrompt(ChatRequest request, IntentResult intent) {
+        StringBuilder sb = new StringBuilder();
+
+        String fixedContext = buildFixedContext(request);
+        if (!fixedContext.isEmpty()) {
+            sb.append("【固定设定·不可违背】\n").append(fixedContext).append("\n\n");
+        }
+
+        Long userId = getUserIdFromAuth();
+        String history = buildHistoryString(request.getSessionId(), userId);
+        if (!history.isEmpty()) {
+            sb.append("【对话历史】\n").append(history).append("\n\n");
+        }
+
+        if (userId != null && request.getSessionId() != null) {
+            String edits = chatSessionService.buildEditContextPrompt(userId, request.getSessionId());
+            if (!edits.isBlank()) {
+                sb.append("【编辑修正记忆·仅供避免重复错误】\n").append(edits).append("\n\n");
+            }
+        }
+
+        if (intent != null) {
+            sb.append("【用户意图】").append(intent.goal()).append("\n\n");
+        }
+
+        sb.append("【用户本轮输入】\n").append(request.getMessage());
+        return sb.toString();
+    }
+
+    private String buildFixedContext(ChatRequest request) {
+        StringBuilder sb = new StringBuilder();
+
+        if (Boolean.TRUE.equals(request.getIncludeCharacters())
+                && request.getCharacterIds() != null && !request.getCharacterIds().isEmpty()) {
+            List<NovelCharacter> characters = characterService.listByIds(request.getCharacterIds());
+            if (!characters.isEmpty()) {
+                sb.append("== 角色卡 ==\n");
+                for (NovelCharacter c : characters) {
+                    sb.append("【").append(c.getName()).append("】\n");
+                    if (c.getAppearance() != null) sb.append("外貌：").append(c.getAppearance()).append("\n");
+                    if (c.getPersonality() != null) sb.append("性格：").append(c.getPersonality()).append("\n");
+                    if (c.getBackground() != null) sb.append("背景：").append(c.getBackground()).append("\n");
+                    sb.append("\n");
+                }
+            }
+        }
+
+        if (Boolean.TRUE.equals(request.getIncludeStory())
+                && request.getStoryNodeIds() != null && !request.getStoryNodeIds().isEmpty()) {
+            List<StoryNode> nodes = storyNodeService.listByIds(request.getStoryNodeIds());
+            if (!nodes.isEmpty()) {
+                sb.append("== 故事节点 ==\n");
+                for (StoryNode n : nodes) {
+                    sb.append("【").append(n.getTitle()).append("】\n");
+                    if (n.getContent() != null) sb.append(n.getContent()).append("\n");
+                    sb.append("\n");
+                }
+            }
+        }
+
+        return sb.toString();
+    }
+
+    private String buildHistoryString(String sessionId, Long userId) {
+        if (sessionId == null || sessionId.isBlank() || userId == null) return "";
+        try {
+            List<Map<String, Object>> msgs = chatSessionService.getSessionMessagesWithEdits(sessionId, userId);
+            if (msgs == null || msgs.isEmpty()) return "";
+            return msgs.stream()
+                .map(m -> {
+                    String role = "user".equals(m.get("role")) ? "用户" : "AI";
+                    String content = (String) m.get("content");
+                    return role + "：" + (content != null ? content : "");
+                })
+                .collect(Collectors.joining("\n"));
+        } catch (Exception e) {
+            log.warn("读取历史失败: {}", e.getMessage());
+            return "";
+        }
+    }
+
+    // ==================== 消息保存 ====================
+
+    private void saveMessages(Long userId, String sessionId, ChatRequest request, String content, String thinking) {
+        if (userId == null || sessionId == null || sessionId.isBlank()) return;
+        try {
+            List<Map<String, Object>> msgs = new ArrayList<>();
+            Map<String, Object> userMsg = new LinkedHashMap<>();
+            userMsg.put("role", "user");
+            userMsg.put("content", request.getMessage());
+            userMsg.put("createTime", LocalDateTime.now().toString());
+            msgs.add(userMsg);
+
+            Map<String, Object> aiMsg = new LinkedHashMap<>();
+            aiMsg.put("role", "assistant");
+            aiMsg.put("content", content);
+            if (thinking != null && !thinking.isBlank()) aiMsg.put("thinking", thinking);
+            aiMsg.put("createTime", LocalDateTime.now().toString());
+            msgs.add(aiMsg);
+
+            chatSessionService.appendMessages(userId, request.getNovelId(), sessionId, msgs);
+            log.info("保存消息: sessionId={}, content长度={}", sessionId, content.length());
+        } catch (Exception e) {
+            log.warn("保存消息失败: {}", e.getMessage());
+        }
+    }
+
+    // ==================== 工具方法 ====================
+
+    private void sendEvent(SseEmitter emitter, String type, String delta) {
+        try {
+            Map<String, Object> evt = new HashMap<>();
+            evt.put("type", type);
+            if (delta != null) evt.put("delta", delta);
+            emitter.send(SseEmitter.event().name("message").data(objectMapper.writeValueAsString(evt)));
+        } catch (Exception ignored) {}
+    }
+
+    private Long getUserIdFromAuth() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getPrincipal() == null) return null;
+        try { return Long.parseLong(auth.getPrincipal().toString()); }
+        catch (NumberFormatException e) { return null; }
+    }
+}
