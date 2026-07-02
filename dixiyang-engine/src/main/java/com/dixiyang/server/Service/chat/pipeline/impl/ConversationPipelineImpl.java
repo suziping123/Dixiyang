@@ -10,6 +10,7 @@ import com.dixiyang.server.Service.chat.pipeline.*;
 import com.dixiyang.server.Service.chat.pipeline.IntentAnalyzer.IntentResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -133,7 +134,9 @@ public class ConversationPipelineImpl implements ConversationPipeline {
         try {
             if (request.profile().showThinking) {
                 // 使用流式获取 thinking + content
-                var flux = chatClient.prompt(finalPrompt).stream().content();
+                var flux = chatClient.prompt(finalPrompt)
+                    .options(OpenAiChatOptions.builder().maxTokens(request.profile().maxTokens).build())
+                    .stream().content();
                 StringBuilder full = new StringBuilder();
                 StringBuilder think = new StringBuilder();
                 boolean inThinking = false;
@@ -169,7 +172,9 @@ public class ConversationPipelineImpl implements ConversationPipeline {
                 if (!inThinking && full.length() > 0) content = full.toString();
                 thinking = think.toString();
             } else {
-                content = chatClient.prompt(finalPrompt).call().content();
+                content = chatClient.prompt(finalPrompt)
+                    .options(OpenAiChatOptions.builder().maxTokens(request.profile().maxTokens).build())
+                    .call().content();
             }
         } catch (Exception e) {
             log.error("LLM call failed", e);

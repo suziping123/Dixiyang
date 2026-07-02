@@ -32,6 +32,7 @@ import com.dixiyang.server.Entity.NovelCharacter;
 import com.dixiyang.server.Entity.StoryNode;
 import com.dixiyang.server.Entity.dto.ChatRequest;
 
+import org.springframework.ai.openai.OpenAiChatOptions;
 import reactor.core.publisher.Flux;
 
 import java.time.LocalDateTime;
@@ -147,7 +148,9 @@ import java.util.concurrent.atomic.AtomicReference;
                     String fullPrompt = buildPromptWithPipeline(request, profile);
 
                     // 真流式：Flux<String> 逐 token 推送
-                    Flux<String> flux = chatClient.prompt(fullPrompt).stream().content();
+                    Flux<String> flux = chatClient.prompt(fullPrompt)
+                        .options(OpenAiChatOptions.builder().maxTokens(profile.maxTokens).build())
+                        .stream().content();
                     CountDownLatch latch = new CountDownLatch(1);
 
                     StringBuilder buf = new StringBuilder();
@@ -455,7 +458,9 @@ import java.util.concurrent.atomic.AtomicReference;
                     String fullPrompt = buildPromptWithPipeline(request, profile);
 
                     // 3. 真流式调用 AI
-                    Flux<String> flux = chatClient.prompt(fullPrompt).stream().content();
+                    Flux<String> flux = chatClient.prompt(fullPrompt)
+                        .options(OpenAiChatOptions.builder().maxTokens(profile.maxTokens).build())
+                        .stream().content();
                     CountDownLatch latch = new CountDownLatch(1);
 
                     StringBuilder buf = new StringBuilder();
@@ -627,7 +632,9 @@ import java.util.concurrent.atomic.AtomicReference;
             
             // 4. 调用 AI 服务
             try {
-                return chatClient.prompt(fullPrompt).call().content();
+                return chatClient.prompt(fullPrompt)
+                    .options(OpenAiChatOptions.builder().maxTokens(ExecutionProfile.BALANCED.maxTokens).build())
+                    .call().content();
             } catch (Exception e) {
                 System.out.println("AI 服务调用失败，返回模拟响应: " + e.getMessage());
                 e.printStackTrace();

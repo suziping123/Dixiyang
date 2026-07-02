@@ -4,6 +4,7 @@ import com.dixiyang.server.Service.chat.pipeline.IntentAnalyzer;
 import com.dixiyang.server.Service.chat.pipeline.PromptContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.stereotype.Component;
 import java.util.stream.Collectors;
 
@@ -44,7 +45,9 @@ public class LLMBasedIntentAnalyzer implements IntentAnalyzer {
             """.formatted(historyStr, input.userInput());
 
         try {
-            String resp = chatClient.prompt(prompt).call().content();
+            String resp = chatClient.prompt(prompt)
+                .options(OpenAiChatOptions.builder().maxTokens(256).build())
+                .call().content();
             log.debug("Intent analysis: {}", resp);
             return parse(resp);
         } catch (Exception e) {

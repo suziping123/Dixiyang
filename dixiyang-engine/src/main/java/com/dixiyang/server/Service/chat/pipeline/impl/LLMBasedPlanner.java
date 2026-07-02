@@ -4,6 +4,7 @@ import com.dixiyang.server.Service.chat.pipeline.*;
 import com.dixiyang.server.Service.chat.pipeline.PlannerInput;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -58,7 +59,9 @@ public class LLMBasedPlanner implements Planner {
             """.formatted(input.userInput(), historyStr, toolsDesc, editMem);
 
         try {
-            String json = chatClient.prompt(prompt).call().content();
+            String json = chatClient.prompt(prompt)
+                .options(OpenAiChatOptions.builder().maxTokens(512).build())
+                .call().content();
             List<ExecutionPlan.PlanStep> steps = parseSteps(json);
             return new ExecutionPlan(steps);
         } catch (Exception e) {
