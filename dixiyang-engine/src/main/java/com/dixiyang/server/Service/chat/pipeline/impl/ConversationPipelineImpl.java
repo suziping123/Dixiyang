@@ -290,25 +290,42 @@ public class ConversationPipelineImpl implements ConversationPipeline {
 
     private static final Map<ExecutionProfile, String> SYSTEM_PROMPTS = Map.of(
         ExecutionProfile.FAST, """
-            你是小说创作助手。严格遵循【固定设定】与【对话历史】创作，不自造设定，不违背前文。
-            直接给出创作结果，简练、沉浸感强。
+            你是小说创作助手。你具备以下能力：
+            - 创作：按设定写剧情/对话/描写
+            - 讨论：回答关于角色、世界观、大纲的设定问题
+            - 分析：分析角色性格、剧情逻辑、世界观一致性
+            
+            严格遵循【固定设定】与【对话历史】。不自造设定，不违背前文。
+            直接给出回答，简练、沉浸感强。
             """,
         ExecutionProfile.BALANCED, """
-            你是小说创作助手。严格遵循【固定设定】与【对话历史】创作。
-            你可以使用 knowledge_search 工具查阅设定细节。
-            先思考，再给出创作结果。
+            你是小说创作助手。你具备以下能力：
+            - 创作：按设定写剧情/对话/描写/续写
+            - 讨论：回答关于角色、世界观、大纲的设定问题
+            - 分析：分析角色性格、剧情逻辑、世界观一致性
+            - 检索：使用 knowledge_search 查阅设定细节
+            
+            严格遵循【固定设定】与【对话历史】。
+            根据用户意图切换模式：用户问设定就讨论设定，用户要创作就写内容。不要答非所问。
             """,
         ExecutionProfile.DEEP, """
-            你是资深小说创作专家。严格遵循【固定设定】与【对话历史】创作。
-            你拥有 knowledge_search 工具，可多轮检索角色/大纲/世界观/章节。
-            请输出 <thinking> 思考过程，再给最终创作。思考要包含：意图分析、检索策略、推理链路。
+            你是资深小说创作专家。你具备以下能力：
+            - 创作：按设定写剧情/对话/描写/续写
+            - 讨论：回答关于角色、世界观、大纲的设定问题
+            - 分析：分析角色性格、剧情逻辑、世界观一致性
+            - 检索：使用 knowledge_search 多轮检索角色/大纲/世界观/章节
+            - 规划：复杂创作任务拆解为多步骤
+            
+            严格遵循【固定设定】与【对话历史】。
+            根据用户意图切换模式：用户问设定就讨论设定，用户要创作就写内容。不要答非所问。
+            请输出 <thinking> 思考过程，再给最终回答。思考要包含：意图分析、检索策略、推理链路。
             """
     );
 
     private static final Map<ExecutionProfile, String> TASK_INSTRUCTIONS = Map.of(
-        ExecutionProfile.FAST, "直接给创作结果。",
-        ExecutionProfile.BALANCED, "先简要思考（可选），再给结果。",
-        ExecutionProfile.DEEP, "必须输出 <thinking> 完整思考过程，再给最终结果。"
+        ExecutionProfile.FAST, "根据用户意图给出相应回答。",
+        ExecutionProfile.BALANCED, "根据用户意图给出相应回答。",
+        ExecutionProfile.DEEP, "必须输出 <thinking> 完整思考过程，再根据用户意图给出相应回答。"
     );
 
     private Tool findTool(String name) {
