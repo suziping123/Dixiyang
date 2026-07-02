@@ -19,6 +19,7 @@ public interface ChatService {
 
         严格遵循【固定设定】与【对话历史】。
         根据用户意图切换模式：用户问设定就讨论设定，用户要创作就写内容。不要答非所问。
+        【核心规则】对于设定、数据、细节不确定时，明确说"我不确定"或反问用户，不要编造。
         """)
     @UserMessage("{{userMessage}}")
     String chat(@MemoryId String sessionId, @UserMessage String userMessage);
