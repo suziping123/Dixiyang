@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI聊天助手</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #e0e7ff 0%, #f0f4ff 50%, #f3e8ff 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .chat-container {
+            max-width: 800px;
+            margin: 0 auto;
+            backdrop-filter: blur(20px);
+            background: rgba(255, 255, 255, 0.85);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .chat-header {
+            text-align: center;
+            padding: 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .chat-header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .message-list {
+            height: 500px;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        .message-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        .message-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        .message-list::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 3px;
+        }
+        .message {
+            margin-bottom: 20px;
+            animation: fadeInUp 0.3s ease forwards;
+            opacity: 0;
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .message.user { text-align: right; }
+        .message.assistant { text-align: left; }
+        .message.system { text-align: center; }
+        .message-label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        .message-content {
+            display: inline-block;
+            max-width: 80%;
+            padding: 14px 18px;
+            border-radius: 16px;
+            line-height: 1.6;
+            word-wrap: break-word;
+            font-size: 15px;
+        }
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        .message.assistant .message-content {
+            background: white;
+            color: #333;
+            border: 1px solid #e8e8e8;
+            border-bottom-left-radius: 4px;
+        }
+        .message.system .message-content {
+            background: #e6f7ff;
+            color: #1890ff;
+            font-size: 13px;
+            padding: 8px 16px;
+            border-radius: 20px;
+        }
+        .typing-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .typing-indicator span {
+            width: 6px;
+            height: 6px;
+            background: #667eea;
+            border-radius: 50%;
+            animation: typing 1.4s infinite ease-in-out both;
+        }
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+        .input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #f0f0f0;
+        }
+        .input-row {
+            display: flex;
+            gap: 12px;
+        }
+        .input-row input {
+            flex: 1;
+            padding: 14px 18px;
+            border: 2px solid #e8e8e8;
+            border-radius: 12px;
+            font-size: 15px;
+            transition: border-color 0.3s;
+            outline: none;
+        }
+        .input-row input:focus {
+            border-color: #667eea;
+        }
+        .input-row input:disabled {
+            background: #f5f5f5;
+            color: #999;
+        }
+        .input-row button {
+            padding: 14px 28px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .input-row button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .input-row button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .options {
+            margin-top: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .options input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #667eea;
+        }
+        .options label {
+            font-size: 14px;
+            color: #666;
+            cursor: pointer;
+        }
+        .markdown-content pre {
+            background: #f6f8fa;
+            padding: 12px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 10px 0;
+            border: 1px solid #e8e8e8;
+        }
+        .markdown-content code {
+            background: #f6f8fa;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+        }
+        .markdown-content pre code {
+            background: none;
+            padding: 0;
+        }
+        .markdown-content p {
+            margin: 0 0 10px 0;
+        }
+        .markdown-content p:last-child {
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="chat-container">
+            <div class="chat-header">
+                <h1>AI聊天助手</h1>
+            </div>
+
+            <div class="message-list">
+                <div v-for="(msg, index) in messages" :key="index" :class="['message', msg.role]">
+                    <div class="message-label">{{ getLabel(msg.role) }}</div>
+                    <div class="message-content" v-if="msg.role === 'user'">{{ msg.content }}</div>
+                    <div class="message-content markdown-body" v-else-if="msg.role === 'assistant'" v-html="renderMarkdown(msg.content)"></div>
+                    <div class="message-content" v-else>{{ msg.content }}</div>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <div class="input-row">
+                    <input v-model="inputText" @keyup.enter="send" :disabled="loading" placeholder="输入问题，按回车发送..." />
+                    <button @click="send" :disabled="loading">{{ loading ? '思考中...' : '发送' }}</button>
+                </div>
+                <div class="options">
+                    <input type="checkbox" v-model="streamMode" id="streamMode" />
+                    <label for="streamMode">启用流式输出</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/vue.js"></script>
+    <script src="/static/axios/dist/axios.min.js"></script>
+    <script src="/static/marked/marked.min.js"></script>
+    <script src="/static/dompurify/dist/purify.min.js"></script>
+
+    <script>
+        const app = Vue.createApp({
+            data() {
+                return {
+                    inputText: '',
+                    loading: false,
+                    streamMode: true,
+                    messages: [
+                        { role: 'system', content: '你好！我是AI助手，有什么可以帮助你的吗？' }
+                    ]
+                }
+            },
+            methods: {
+                getLabel(role) {
+                    if (role === 'user') return '我';
+                    if (role === 'system') return '系统';
+                    return 'AI';
+                },
+                renderMarkdown(text) {
+                    if (!text) return '';
+                    const html = marked.parse(text);
+                    return DOMPurify.sanitize(html);
+                },
+                scrollToBottom() {
+                    this.$nextTick(() => {
+                        const el = document.querySelector('.message-list');
+                        if (el) el.scrollTop = el.scrollHeight;
+                    });
+                },
+                send() {
+                    if (this.loading) return;
+                    const text = this.inputText.trim();
+                    if (!text) {
+                        this.$message && this.$message.warning('请输入内容');
+                        return;
+                    }
+
+                    this.messages.push({ role: 'user', content: text });
+                    this.messages.push({ role: 'assistant', content: '<div class="typing-indicator"><span></span><span></span><span></span></div>' });
+                    this.inputText = '';
+                    this.loading = true;
+                    this.scrollToBottom();
+
+                    if (this.streamMode) {
+                        this.streamChat(text);
+                    } else {
+                        this.normalChat(text);
+                    }
+                },
+                normalChat(text) {
+                    const self = this;
+                    axios.get('/api/chat', { params: { question: text } })
+                        .then(res => {
+                            const lastIdx = self.messages.length - 1;
+                            self.messages[lastIdx].content = res.data.data || res.data.error || '无响应';
+                        })
+                        .catch(err => {
+                            const lastIdx = self.messages.length - 1;
+                            self.messages[lastIdx].content = '请求失败: ' + err.message;
+                        })
+                        .finally(() => {
+                            self.loading = false;
+                            self.scrollToBottom();
+                        });
+                },
+                streamChat(text) {
+                    const self = this;
+                    const lastIdx = this.messages.length - 1;
+                    let content = '';
+
+                    fetch('/api/chat/stream?question=' + encodeURIComponent(text))
+                        .then(res => {
+                            const reader = res.body.getReader();
+                            const decoder = new TextDecoder();
+                            let buffer = '';
+
+                            function read() {
+                                reader.read().then(result => {
+                                    if (result.done) {
+                                        if (buffer.startsWith('data: ')) {
+                                            content += buffer.slice(6);
+                                            self.messages[lastIdx].content = self.renderMarkdown(content);
+                                        }
+                                        self.loading = false;
+                                        self.scrollToBottom();
+                                        return;
+                                    }
+                                    buffer += decoder.decode(result.value, { stream: true });
+                                    const lines = buffer.split('\n');
+                                    buffer = lines.pop();
+                                    for (const line of lines) {
+                                        if (line.startsWith('data: ')) {
+                                            content += line.slice(6);
+                                            self.messages[lastIdx].content = self.renderMarkdown(content);
+                                            self.scrollToBottom();
+                                        }
+                                    }
+                                    read();
+                                });
+                            }
+                            read();
+                        })
+                        .catch(err => {
+                            self.messages[lastIdx].content = '请求失败: ' + err.message;
+                            self.loading = false;
+                            self.scrollToBottom();
+                        });
+                }
+            }
+        });
+
+        app.mount('#app');
+    </script>
+</body>
+</html>

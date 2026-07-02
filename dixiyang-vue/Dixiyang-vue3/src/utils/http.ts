@@ -21,21 +21,26 @@ http.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 http.interceptors.response.use(
   (response: AxiosResponse) => {
     const res = response.data
-    // 直接返回字符串的情况（如聊天接口）
+    // 1. 字符串直接返回（兼容聊天接口）
     if (typeof res === 'string') {
       return res
     }
-    // 业务成功（code=200）：正常返回
-    if (res.code === 200) {
-      return res
-    }
-    // 业务失败（比如code=400，标题重复）：抛出自定义错误，让catch捕获
-    return Promise.reject(new Error(res.msg || '操作失败'))
+    // 2. 对象直接返回，无论 code 是 200 还是 500，都由调用者自己判断
+    return res
   },
   (error) => {
-    // 网络错误/服务器错误（比如500）：提取错误信息
-    const errMsg = error.response?.data?.msg || error.message || '网络异常，请重试'
-    return Promise.reject(new Error(errMsg))
+    // HTTP 状态码非 2xx（如 404、500、超时等）：这才是真正的网络/服务器异常
+    // 但即使如此，如果后端依然返回了规范的 JSON（如 { code, msg }），我们也透传下去
+    if (error.response && error.response.data) {
+      // 后端返回了规范的业务数据，透传给调用者（走 resolve）
+      return Promise.resolve(error.response.data)
+    }
+    // 真正的网络问题（断网、超时等），构造一个标准的业务错误对象返回
+    return Promise.resolve({
+      code: -1,
+      msg: error.message || '网络异常，请重试',
+      data: null
+    } as ApiResponse<null>)
   }
 )
 

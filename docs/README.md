@@ -163,7 +163,38 @@
 
 ---
 
-### 10. [HELP.md](./HELP.md)
+### 10. [RAG 向量化与检索流程](./RAG向量化与检索流程.md) ✨ 新增
+**位置**: `docs/RAG向量化与检索流程.md`
+
+**内容**:
+- MD 文档如何被向量化存入 ChromaDB（离线构建完整流程）
+- MarkdownLoader 切分逻辑（按标题 + chunk_size）
+- EmbeddingModel 编码流程（bge-m3 → 1024维向量）
+- VectorDB 存储结构（ChromaDB collection.add）
+- Java 后端如何调用 ChromaDB 做 RAG 检索（RagService → Python Embedding → ChromaDB query）
+- ChatController 如何将 RAG 结果注入 AI Prompt
+- Python Embedding 服务 API 说明
+- ChromaDB HTTP API 说明
+- 端口速查和调用关系图
+- 完整代码位置索引
+
+**适用人群**: 所有开发者、需要理解 RAG 流程的人
+
+---
+
+### 11. [向量库可视化指南](./向量库可视化指南.md)
+**位置**: `docs/向量库可视化指南.md`
+
+**内容**:
+- CLI 工具 visualize_rag.py 使用方法
+- Python 代码直接查询向量库
+- 前端可视化方案（待实现）
+
+**适用人群**: 需要查看向量库内容的人
+
+---
+
+### 12. [HELP.md](./HELP.md)
 **位置**: `docs/HELP.md`
 
 **内容**:
@@ -241,8 +272,10 @@
   - [前端接口需求 - 角色管理](./dixiyang-vue/docs/前端接口需求文档.md#角色管理接口)
 
 - **RAG 系统**: 
-  - [后端开发技术文档 - RAG 系统](./docs/后端开发技术文档.md#rag-系统配置与使用)
-  - [后端接口文档 - RAG 聊天](./dixiyang-engine/docs/后端接口文档.md#rag-聊天接口)
+  - [RAG 向量化与检索流程](./RAG向量化与检索流程.md) ← 完整流程说明
+  - [后端开发技术文档 - RAG 系统](./后端开发技术文档.md#rag-系统配置与使用)
+  - [后端接口文档 - RAG 聊天](../dixiyang-engine/docs/后端接口文档.md#rag-聊天接口)
+  - [向量库可视化指南](./向量库可视化指南.md)
 
 ### 按技术主题
 

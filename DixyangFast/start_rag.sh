@@ -5,7 +5,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-VENV_PYTHON="$SCRIPT_DIR/.venv/bin/python"
+VENV_BIN="$SCRIPT_DIR/.venv/bin"
 VECTORDB_PATH="$SCRIPT_DIR/storage/vectordb_4060"
 LOG_DIR="$SCRIPT_DIR/logs"
 
@@ -29,7 +29,7 @@ echo "=========================================="
 
 # 1. 启动 ChromaDB Server
 echo "📦 启动 ChromaDB Server (port 8000) ..."
-$VENV_PYTHON -m chromadb run \
+"$VENV_BIN/chroma" run \
     --path "$VECTORDB_PATH" \
     --host localhost \
     --port 8000 \
@@ -55,7 +55,7 @@ done
 # 2. 启动 Python Embedding Service
 echo "🧠 启动 Python Embedding Service (port 8085) ..."
 cd "$SCRIPT_DIR"
-$VENV_PYTHON python_api/main.py \
+"$VENV_BIN/python" python_api/main.py \
     > "$LOG_DIR/embedding_service.log" 2>&1 &
 EMBED_PID=$!
 echo "   Embedding Service PID: $EMBED_PID"

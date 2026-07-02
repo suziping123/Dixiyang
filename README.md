@@ -2,102 +2,61 @@
 
 > 采用前后端分离 + 多语言后端架构，为小说创作者提供全方位的工具支持。
 
-## 🏗️ Monorepo 架构
+## 项目总览
+
+| 项目 | 技术栈 | 用途 | 端口 |
+|------|--------|------|------|
+| **dixiyang-engine** | Java 17 + Spring Boot 3.4 | 后端服务：用户认证、小说管理、AI 聊天、RAG 检索 | `8084/api` |
+| **dixiyang-vue** | Vue 3 + Vite + Element Plus | 前端界面：创作管理平台 + RAG 聊天界面 | `5173` |
+| **DixyangFast** | Python 3.11 + FastAPI + ChromaDB | Python 后端：Embedding 服务 + RAG Web 可视化 | `8085` |
+| **rag-shared** | Python 包 | 共享库：多硬件配置、数据处理流水线、向量构建 | — |
+| **ChromaDB** | 独立服务 | 向量数据库，存储文档向量 | `8000` |
+| **MySQL** | Docker 容器 `mysql-hmdp` | 关系数据库，存储用户、小说、聊天记录 | `3306` |
+
+## 三端关系
 
 ```
-Dixiyang/                              # 根目录
-├── dixiyang-engine/                   # ☕ Java Spring Boot 后端（找工作主力）
-│   ├── src/main/java/                 # 业务代码
-│   ├── docs/                          # 后端接口文档
-│   ├── python_api/                    # Python 子进程集成入口
-│   │   └── dixiyang/                  # 供 Java 调用的 Python API
-│   ├── pom.xml                        # Maven 配置
-│   └── AGENTS.md                      # 后端开发指南
-│
-├── dixiyang-vue/                      # 🎨 Vue 3 前端
-│   ├── Dixiyang-vue3/                 # Vite + Vue 3 + Pinia + Element Plus
-│   ├── docs/                          # 前端接口需求文档
-│   ├── package.json
-│   └── AGENTS.md                      # 前端开发指南
-│
-├── DixyangFast/                       # 🐍 Python 后端 - RAG 课程作业
-│   ├── my_books/                      # 25 本书籍 Markdown 数据源
-│   ├── datasets/                      # 原始数据集
-│   ├── storage/                       # 本地存储（向量库、聊天记录）
-│   ├── pyproject.toml                 # 依赖配置（依赖 ../rag-shared）
-│   └── README.md                      # Python 端专用文档
-│
-├── rag-shared/                        # 🔑 共享 RAG 核心库（Python 包）
-│   ├── python/rag_shared/             # 核心代码
-│   │   ├── config.py                  # 多硬件配置管理
-│   │   ├── processor.py               # 数据处理流水线
-│   │   └── __init__.py
-│   ├── config/                        # YAML 配置文件
-│   │   ├── rag_base.yaml              # 通用基础配置
-│   │   ├── rag_r5_5600u.yaml          # CPU 配置 (R5 5600U)
-│   │   └── rag_rtx_4060.yaml          # GPU 配置 (RTX 4060 Laptop)
-│   ├── pyproject.toml                 # 共享库打包配置
-│   └── README.md                      # 共享库文档
-│
-├── docs/                              # 📚 项目总体文档
-│   ├── README.md                      # 文档索引
-│   ├── 项目总体情况总结.md
-│   ├── 前后端接口对照分析.md
-│   └── 后端开发技术文档.md
-│
-├── storage/                           # 💾 共享存储（Git 忽略）
-│   ├── rag/                           # RAG 向量库与元数据
-│   │   ├── chroma_db/                 # Chroma 持久化（按硬件隔离）
-│   │   ├── chunks/                    # 分块文本备份
-│   │   ├── metadata.json              # 元数据汇总
-│   │   └── file_states.json           # 增量更新状态
-│   └── chat/                          # 聊天记录存储
-│
-├── uploads/                           # 文件上传存储
-├── .env.example                       # 环境变量模板
-├── .gitignore
-└── README.md                          # 本文件
+用户浏览器
+    ↓
+Vue 前端 (5173) ──代理 /api──→ Java 后端 (8084)
+                                    ├── MySQL (3306)：用户/小说/聊天记录
+                                    ├── ChromaDB (8000)：向量检索
+                                    └── Python Embedding (8085)：query 向量化
+                                    
+Python Web UI (8085/rag) ← 浏览器直接访问：向量库统计/搜索/浏览
 ```
 
-## 🚀 快速开始
-
-### 环境要求
+## 环境要求
 
 | 组件 | 版本 | 说明 |
 |------|------|------|
-| JDK | 17+ | 推荐 Temurin/OpenJDK |
-| Maven | 3.6+ | dixiyang-engine 使用 |
-| Node.js | 18+ | dixiyang-vue 使用 |
-| Python | 3.11+ | DixyangFast/rag-shared 使用 |
+| JDK | 17 | sdkman 管理，`~/.sdkman/candidates/java/17.0.10-tem` |
+| Maven | 3.6+ | Java 构建 |
+| Node.js | 18+ | 前端构建 |
+| Python | 3.11+ | Python 后端 |
 | uv | 最新 | Python 包管理器 |
-| Docker | 推荐 | MySQL/Redis/Qdrant |
+| Docker | 推荐 | MySQL 容器 |
 
-### 1. 配置环境变量
+## 快速启动（Linux 开发机）
 
-```bash
-# 根目录下
-cp .env.example .env
-# 编辑 .env 填入: DB_USERNAME, DB_PASSWORD, DEEPSEEK_API_KEY 等
-```
-
-### 2. 启动基础设施（Docker）
+### 第 1 步：启动 MySQL（Docker）
 
 ```bash
-# MySQL
-docker run -d --name mysql-dixiyang \
+# 已有容器直接启动
+docker start mysql-hmdp
+
+# 新建容器（首次）
+docker run -d --name mysql-hmdp \
   -p 3306:3306 \
   -e MYSQL_ROOT_PASSWORD=123321 \
   -e MYSQL_DATABASE=dixiyang \
   mysql:8.0
 
-# Redis (可选)
-docker run -d --name redis-dixiyang -p 6379:6379 redis:7-alpine
-
-# Qdrant 向量数据库 (可选，Java 后端用)
-docker run -d --name qdrant -p 6333:6333 qdrant/qdrant
+# 导入表结构
+docker exec -i mysql-hmdp mysql -u root -p123321 dixiyang < dixiyang-engine/src/main/resources/db/dixiyang.sql
 ```
 
-### 3. 启动 Java 后端 (dixiyang-engine)
+### 第 2 步：启动 Java 后端 (dixiyang-engine)
 
 ```bash
 cd dixiyang-engine
@@ -108,9 +67,11 @@ export JAVA_HOME=~/.sdkman/candidates/java/17.0.10-tem
 ./mvnw spring-boot:run
 ```
 
-> 后端启动后: http://localhost:8084/api
+启动后: `http://localhost:8084/api`
 
-### 4. 启动前端 (dixiyang-vue)
+> 注意：application.yml 中 API Key 读取顺序：`DEEPSEEK_API_KEY` → `DS_API_KEY`，需确保环境变量已设置。
+
+### 第 3 步：启动 Vue 前端 (dixiyang-vue)
 
 ```bash
 cd dixiyang-vue/Dixiyang-vue3
@@ -118,124 +79,189 @@ npm install
 npm run dev
 ```
 
-> 前端启动后: http://localhost:5173 (Vite 代理 `/api` → `localhost:8084`)
+启动后: `http://localhost:5173`（自动代理 `/api` → `localhost:8084`）
 
-### 5. 构建 RAG 知识库 (DixyangFast + rag-shared)
+### 第 4 步：启动 Python 服务（RAG 可视化 + Embedding）
 
 ```bash
 cd DixyangFast
 
-# 安装依赖（含共享库）
-uv sync
+# 启动向量库和 Embedding 服务（一键）
+./start_rag.sh
 
-# 自动检测硬件处理数据
-uv run python -m rag_shared.processor --hardware auto
+# 或手动启动
+# 终端1: ChromaDB
+chroma run --path storage/vectordb_4060 --port 8000
 
-# 或指定配置
-uv run python -m rag_shared.processor --hardware rtx_4060   # GPU
-uv run python -m rag_shared.processor --hardware r5_5600u   # CPU
+# 终端2: Embedding 服务
+HF_HUB_OFFLINE=1 .venv/bin/python python_api/main.py
 ```
 
-> 处理后的向量库存储在 `../storage/rag/chroma_db/`
+启动后:
+- Embedding API: `http://localhost:8085/api/rag/embed`
+- **RAG Web 可视化**: `http://localhost:8085/rag`（浏览器打开）
+- ChromaDB: `http://localhost:8000`
 
-## 🖥️ 多机器硬件适配 (RAG 核心特性)
+### 启动顺序总结
 
-本项目在 **两台开发机** 上运行，配置差异大，`rag-shared` 提供自动适配：
-
-| 机器 | CPU/GPU | RAG 配置 | Embedding 模型 | 向量库路径 |
-|------|---------|----------|----------------|------------|
-| **当前机** | RTX 4060 Laptop (8GB VRAM) | `rag_rtx_4060.yaml` | `bge-m3` (FP16) | `storage/rag/chroma_db/vectordb_4060` |
-| **另一台** | R5 5600U (集显/纯CPU) | `rag_r5_5600u.yaml` | `bge-small-zh-v1.5` (FP32) | `storage/rag/chroma_db/vectordb_r5` |
-
-### 自动检测逻辑
-
-```python
-# rag_shared/config.py::detect_hardware()
-if torch.cuda.is_available():
-    if "4060" in gpu_name: return "rtx_4060"
-    elif vram >= 6GB: return "rtx_4060"
-    else: return "cpu_fallback"
-elif "5600u" in cpu_info: return "r5_5600u"
-else: return "cpu_fallback"
+```
+MySQL (3306) → Java 后端 (8084) → Vue 前端 (5173)
+                                → Python 服务 (8085) + ChromaDB (8000)
 ```
 
-### 切换配置方式
+## 各项目详细说明
+
+### 1. dixiyang-engine（Java 后端）
+
+**做什么**: 小说创作管理的核心服务
+
+- 用户注册/登录（Spring Security + JWT）
+- 小说 CRUD + 封面上传
+- 角色、时间线、故事节点管理
+- AI 聊天助手（DeepSeek API）
+- RAG 智能检索（调 ChromaDB + Python Embedding）
+
+**关键文件**:
+- `ChatController.java` - AI 聊天 + RAG 检索入口
+- `RagService.java` - ChromaDB HTTP 客户端
+- `application.yml` - 端口 8084，context-path `/api`
+
+### 2. dixiyang-vue（Vue 前端）
+
+**做什么**: 用户界面
+
+- 创作管理：小说/角色/时间线/故事节点
+- AI 聊天界面：支持 RAG 检索开关、流式输出
+- 聊天历史管理
+
+**关键文件**:
+- `vite.config.js` - 代理 `/api` → `localhost:8084`
+- `src/views/Chat*.vue` - 聊天界面
+
+### 3. DixyangFast（Python 后端）
+
+**做什么**: RAG 课程作业 + 向量库管理
+
+- **Embedding 服务** (`POST /api/rag/embed`): 将文本转为 bge-m3 向量
+- **RAG Web 可视化** (`GET /rag`): 浏览向量库统计、搜索测试、文档浏览
+- **向量库构建**: 在 Windows RTX 4060 上运行，将书籍/数据集向量化
+- **ChromaDB 代理**: 转发请求到 ChromaDB HTTP API
+
+**启动方式**:
+```bash
+cd DixyangFast
+./start_rag.sh  # 一键启动 ChromaDB + Embedding 服务
+```
+
+**关键文件**:
+- `python_api/main.py` - FastAPI 服务（端口 8085）
+- `start_rag.sh` - 一键启动脚本
+
+### 4. rag-shared（共享库）
+
+**做什么**: 跨项目共享的 RAG 核心逻辑
+
+- 多硬件配置管理（RTX 4060 / R5 5600U / 通用）
+- 数据加载器（Markdown、CSV、JSON、TXT）
+- Embedding 模型封装（bge-m3）
+- 向量库操作封装（ChromaDB）
+- 语义文本切分
+
+**配置文件**:
+- `config/rag_base.yaml` - 基础配置（数据源、书籍分类）
+- `config/rag_rtx_4060.yaml` - Windows GPU 配置（bge-m3 FP16）
+- `config/rag_r5_5600u.yaml` - Linux CPU 配置（bge-m3 FP32）
+
+## 双机协作：Windows 构建 + Linux 查询
+
+**核心思路**: Windows（RTX 4060 GPU）构建向量库 → 传输到 Linux（R5 5600U CPU）查询
+
+**关键前提**: 两台机器用同一个 Embedding 模型（`bge-m3`，1024 维）
+
+### Windows 上构建向量库
+
+```powershell
+cd Dixiyang\DixyangFast
+.\.venv\Scripts\activate
+
+# 设置 HuggingFace 镜像
+$env:HF_ENDPOINT = "https://hf-mirror.com"
+
+# 首次全量构建（约 10-15 分钟）
+python -m rag_shared.processor --hardware rtx_4060 --full
+
+# 后续增量更新
+python -m rag_shared.processor --hardware rtx_4060
+```
+
+### 传输向量库到 Linux
+
+```powershell
+# Windows 压缩
+tar -czf vectordb_4060.tar.gz -C DixyangFast\storage vectordb_4060
+
+# scp 传到 Linux
+scp vectordb_4060.tar.gz 用户名@192.168.1.x:~/项目/Dixiyang/DixyangFast/storage/
+```
+
+### Linux 上解压
 
 ```bash
-# 1. 命令行（最高优先级）
-uv run python -m rag_shared.processor --hardware rtx_4060
-
-# 2. 环境变量（持久化，CI/CD 友好）
-export RAG_HARDWARE=rtx_4060
-export RAG_DEVICE=cuda
-export RAG_EMBEDDING_MODEL=BAAI/bge-m3
-
-# 3. 代码中指定
-config = load_config("rtx_4060", config_dir=Path("../rag-shared/config"))
+cd ~/项目/Dixiyang/DixyangFast/storage
+tar -xzf vectordb_4060.tar.gz
+rm vectordb_4060.tar.gz
 ```
 
-## 📊 核心功能模块
+## 端口速查
 
-| 模块 | 状态 | 说明 |
+| 服务 | 端口 | 说明 |
 |------|------|------|
-| 用户认证授权 | ✅ | Spring Security + JWT |
-| 小说管理 | ✅ | CRUD + 封面上传(MD5去重) |
-| 角色管理 | ✅ | CRUD |
-| 时间线管理 | ✅ | CRUD + 行内编辑 |
-| 故事节点 | ✅ | CRUD |
-| **RAG 智能创作助手** | ✅ | 向量检索 + LLM 生成 |
-| 用户配置 | ⚠️ | 待完善 |
+| MySQL | 3306 | Docker 容器 `mysql-hmdp` |
+| Java 后端 | 8084 | context-path: `/api` |
+| Vue 前端 | 5173 | Vite dev server |
+| Python Embedding | 8085 | FastAPI + RAG Web UI |
+| ChromaDB | 8000 | 向量数据库 HTTP API |
 
-## 🔧 技术栈速览
+## 环境变量
 
-### 后端 (dixiyang-engine)
-- Spring Boot 3.4.2 + MyBatis Plus 3.5
-- Spring Security + JWT + MySQL 8.0
-- **Qdrant** 向量数据库 + Redis
-- Spring AI + DeepSeek API
-- **Python 子进程集成** `rag-shared` (RAG 离线处理)
+```bash
+# DeepSeek API Key（Java 后端用）
+export DEEPSEEK_API_KEY=sk-xxx
+# 或
+export DS_API_KEY=sk-xxx
 
-### 前端 (dixiyang-vue)
-- Vue 3.5 + Vite 7 + Pinia 3
-- Vue Router 5 + Element Plus 2.13
-- Axios + Tailwind CSS 4
+# HuggingFace 镜像（模型下载用）
+export HF_ENDPOINT=https://hf-mirror.com
+```
 
-### Python 生态 (DixyangFast + rag-shared)
-- **uv** 包管理 + Python 3.11+
-- FastAPI + Uvicorn (API 服务)
-- **sentence-transformers** (bge-m3 / bge-small)
-- **Chroma** 向量数据库 (本地持久化)
-- **langchain-text-splitters** 语义切分
-- 多硬件配置: CPU (R5 5600U) / GPU (RTX 4060)
+## 常见问题
 
-## 📚 文档导航
+### Java 启动报 "RAG 功能已禁用"
+ChromaDB 未启动。运行 `./start_rag.sh` 启动 ChromaDB。
+
+### Embedding 服务报连接失败
+检查 ChromaDB 是否在 8000 端口运行：`curl http://localhost:8000/api/v2/heartbeat`
+
+### 向量库显示 0 条数据
+向量库目录 `storage/vectordb_4060/` 为空或未传输。在 Windows 上构建后传到 Linux。
+
+### 前端聊天无响应
+检查 Java 后端是否启动：`curl http://localhost:8084/api/chat/session`
+
+### 模型下载慢
+设置 HuggingFace 镜像：`export HF_ENDPOINT=https://hf-mirror.com`
+
+## 文档导航
 
 | 文档 | 位置 | 说明 |
 |------|------|------|
 | 项目总体情况总结 | `docs/项目总体情况总结.md` | 项目全貌 |
-| 前后端接口对照分析 | `docs/前后端接口对照分析.md` | 接口完成状态 |
-| 后端开发指南 | `dixiyang-engine/AGENTS.md` | Java 后端必读 |
 | 后端接口文档 | `dixiyang-engine/docs/后端接口文档.md` | API 详细说明 |
-| 前端开发指南 | `dixiyang-vue/AGENTS.md` | Vue 前端必读 |
-| 前端接口需求 | `dixiyang-vue/docs/前端接口需求文档.md` | 接口需求说明 |
-| 后端技术文档 | `docs/后端开发技术文档.md` | 架构详解 |
-| **RAG 理论基础** | `DixyangFast/03.RAG理论基础.md` | 课程作业理论 |
-| **RAG 共享库文档** | `rag-shared/README.md` | 核心库使用指南 |
-| **Python 端文档** | `DixyangFast/README.md` | 课程作业实操 |
-
-## 🤝 贡献指南
-
-1. Fork 项目
-2. 创建特性分支: `git checkout -b feat/xxx`
-3. 提交变更: `git commit -m 'feat: add xxx'`
-4. 推送分支: `git push origin feat/xxx`
-5. 创建 Pull Request
-
-## 📄 许可证
-
-MIT License - 详见 [LICENSE](LICENSE)
+| RAG 可视化指南 | `docs/向量库可视化指南.md` | Python Web UI 使用 |
+| 共享库文档 | `rag-shared/README.md` | 核心库使用指南 |
+| Python 端文档 | `DixyangFast/README.md` | 课程作业实操 |
 
 ---
 
-**最后更新**: 2026-06-30  
+**最后更新**: 2026-07-01  
 **维护者**: lijiajia

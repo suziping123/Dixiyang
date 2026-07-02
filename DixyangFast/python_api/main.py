@@ -98,19 +98,20 @@ async def health():
 
 # ========== RAG 可视化 API ==========
 
+COLLECTIONS_URL = f"{_chroma_url}/api/v2/tenants/default_tenant/databases/default_database/collections"
+
+
 async def _get_collection():
-    """获取 ChromaDB collection"""
+    """获取 ChromaDB collection (name, id)"""
     async with httpx.AsyncClient() as client:
-        resp = await client.get(
-            f"{_chroma_url}/api/v2/tenants/default_tenant/databases/default_database/collections"
-        )
+        resp = await client.get(COLLECTIONS_URL)
         cols = resp.json()
         if not cols:
-            return None, None, client
+            return None, None
         col = next((c for c in cols if c["name"] == COLLECTION_NAME), cols[0] if cols else None)
         if not col:
-            return None, None, client
-        return col["id"], col["name"], client
+            return None, None
+        return col["name"], col["id"]
 
 
 @app.get("/api/rag/stats")
@@ -128,7 +129,7 @@ async def rag_stats():
     if not chroma_ok:
         return {"error": "ChromaDB 无法连接", "connected": False}
 
-    col_id, col_name, client = await _get_collection()
+    col_name, col_id = await _get_collection()
     if not col_id:
         return {
             "connected": True,
@@ -142,34 +143,35 @@ async def rag_stats():
             "message": "ChromaDB 已连接，但集合为空。请先在 Windows 上构建向量库并传到此目录。",
         }
 
-    try:
-        count_resp = await client.post(
-            f"{_chroma_url}/api/v2/tenants/default_tenant/databases/default_database/collections/{col_id}/count"
-        )
-        total = count_resp.json()
-    except Exception:
-        total = 0
-
-    # 获取样本统计 metadata
+    total = 0
     source_counts = Counter()
     category_counts = Counter()
     book_counts = Counter()
 
-    if total > 0:
+    async with httpx.AsyncClient() as client:
         try:
-            get_resp = await client.post(
-                f"{_chroma_url}/api/v2/tenants/default_tenant/databases/default_database/collections/{col_id}/get",
-                json={"limit": min(total, 5000), "include": ["metadatas"]}
+            count_resp = await client.get(
+                f"{_chroma_url}/api/v2/tenants/default_tenant/databases/default_database/collections/{col_id}/count"
             )
-            data = get_resp.json()
-            for meta in data.get("metadatas", []):
-                if meta:
-                    source_counts[meta.get("source", "unknown")] += 1
-                    category_counts[meta.get("category", "unknown")] += 1
-                    book = meta.get("book_title") or meta.get("company") or meta.get("file") or "unknown"
-                    book_counts[book] += 1
+            total = count_resp.json()
         except Exception:
-            pass
+            total = 0
+
+        if total > 0:
+            try:
+                get_resp = await client.post(
+                    f"{_chroma_url}/api/v2/tenants/default_tenant/databases/default_database/collections/{col_id}/get",
+                    json={"limit": min(total, 5000), "include": ["metadatas"]}
+                )
+                data = get_resp.json()
+                for meta in data.get("metadatas", []):
+                    if meta:
+                        source_counts[meta.get("source", "unknown")] += 1
+                        category_counts[meta.get("category", "unknown")] += 1
+                        book = meta.get("book_title") or meta.get("company") or meta.get("file") or "unknown"
+                        book_counts[book] += 1
+            except Exception:
+                pass
 
     return {
         "connected": True,
@@ -186,7 +188,7 @@ async def rag_stats():
 @app.post("/api/rag/search")
 async def rag_search(req: SearchRequest):
     """检索测试"""
-    col_id, _, client = await _get_collection()
+    col_name, col_id = await _get_collection()
     if not col_id:
         return {"error": "集合不存在"}
 
@@ -204,7 +206,7 @@ async def rag_search(req: SearchRequest):
     if where:
         body["where"] = where
 
-    try:
+    async with httpx.AsyncClient() as client:
         resp = await client.post(
             f"{_chroma_url}/api/v2/tenants/default_tenant/databases/default_database/collections/{col_id}/query",
             json=body,
@@ -225,14 +227,12 @@ async def rag_search(req: SearchRequest):
                     "score": round(1.0 - (dists[i] if dists[i] else 0), 4),
                 })
         return {"query": req.query, "results": results, "total": len(results)}
-    except Exception as e:
-        return {"error": str(e)}
 
 
 @app.get("/api/rag/documents")
 async def rag_documents(page: int = 1, page_size: int = 20, source: str | None = None):
     """浏览文档列表"""
-    col_id, _, client = await _get_collection()
+    col_name, col_id = await _get_collection()
     if not col_id:
         return {"error": "集合不存在"}
 
@@ -245,7 +245,7 @@ async def rag_documents(page: int = 1, page_size: int = 20, source: str | None =
     if where:
         body["where"] = where
 
-    try:
+    async with httpx.AsyncClient() as client:
         resp = await client.post(
             f"{_chroma_url}/api/v2/tenants/default_tenant/databases/default_database/collections/{col_id}/get",
             json=body,
@@ -263,15 +263,12 @@ async def rag_documents(page: int = 1, page_size: int = 20, source: str | None =
                 "metadata": meta,
             })
 
-        # total count
-        count_resp = await client.post(
+        count_resp = await client.get(
             f"{_chroma_url}/api/v2/tenants/default_tenant/databases/default_database/collections/{col_id}/count"
         )
         total = count_resp.json()
 
         return {"documents": items, "total": total, "page": page, "page_size": page_size}
-    except Exception as e:
-        return {"error": str(e)}
 
 
 # ========== 前端可视化页面 ==========
@@ -533,10 +530,10 @@ async def chroma_list_collections(tenant: str, database: str):
         resp = await client.get(f"{_chroma_url}/api/v2/tenants/{tenant}/databases/{database}/collections")
         return resp.json()
 
-@app.post("/api/v2/tenants/{tenant}/databases/{database}/collections/{col_id}/count")
+@app.get("/api/v2/tenants/{tenant}/databases/{database}/collections/{col_id}/count")
 async def chroma_count(tenant: str, database: str, col_id: str):
     async with httpx.AsyncClient() as client:
-        resp = await client.post(f"{_chroma_url}/api/v2/tenants/{tenant}/databases/{database}/collections/{col_id}/count")
+        resp = await client.get(f"{_chroma_url}/api/v2/tenants/{tenant}/databases/{database}/collections/{col_id}/count")
         return resp.json()
 
 @app.post("/api/v2/tenants/{tenant}/databases/{database}/collections/{col_id}/query")

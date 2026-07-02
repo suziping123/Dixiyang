@@ -220,13 +220,13 @@ const formatTime = (date: Date) => {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--text-secondary);
-  border-bottom-left-radius: 4px;
+  border-top-left-radius: 4px;
 }
 .message-item.user .message-bubble {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(168, 85, 247, 0.2));
   border: 1px solid rgba(59, 130, 246, 0.4);
   color: var(--text-primary);
-  border-bottom-right-radius: 4px;
+  border-top-right-radius: 4px;
 }
 
 .message-content :deep(p) { margin: 0 0 8px; }

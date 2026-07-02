@@ -42,13 +42,14 @@
   align-items: center;
   gap: 6px;
   padding: 8px 18px;
-  background: var(--glass-bg);
+  background: var(--surface-glass-btn);
   border: 1px solid var(--glass-border);
   border-radius: 8px;
-  color: var(--text-secondary);
+  color: var(--test-secondary-btn);
   font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.3s ease;
+
 }
 .back-btn:hover {
   border-color: var(--accent-primary);

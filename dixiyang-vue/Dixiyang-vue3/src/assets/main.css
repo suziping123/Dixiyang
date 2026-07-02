@@ -19,12 +19,14 @@
 html.theme-dark {
   --surface-page: #0d0d0f;
   --surface-glass: rgba(255,255,255,0.05);
+  --surface-glass-btn: rgba(255,255,255,0.50);
   --surface-glass-border: rgba(255,255,255,0.10);
   --surface-glass-border-hover: rgba(255,255,255,0.22);
   --surface-card: rgba(255,255,255,0.04);
   --surface-input: rgba(255,255,255,0.05);
 
   --text-primary: #eeeeee;
+  --test-secondary-btn: rgba(0,0,0,1);
   --text-secondary: rgba(238,238,238,0.70);
   --text-muted: rgba(238,238,238,0.50);
   --text-disabled: rgba(238,238,238,0.30);

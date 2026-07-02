@@ -184,6 +184,7 @@
               v-model="inputMessage"
               placeholder="输入你的创作需求或问题..."
               @keydown.enter="handleSend"
+              @input="autoResize"
               :disabled="isStreaming"
               rows="1"
               ref="textareaRef"
@@ -353,6 +354,13 @@ const handleSend = (e: KeyboardEvent) => {
 const useSuggestion = (text: string) => {
   inputMessage.value = text
   textareaRef.value?.focus()
+}
+
+const autoResize = () => {
+  const el = textareaRef.value
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = el.scrollHeight + 'px'
 }
 
 const scrollToBottom = () => {
@@ -972,11 +980,12 @@ onMounted(async () => {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-primary);
   font-size: 0.95rem;
-  resize: none;
+  resize: vertical;
   min-height: 50px;
-  max-height: 150px;
+  max-height: 400px;
   line-height: 1.5;
   transition: all 0.3s;
+  overflow-y: auto;
 }
 
 .input-wrapper textarea:focus {
