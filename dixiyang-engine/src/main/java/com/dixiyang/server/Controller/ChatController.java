@@ -38,6 +38,7 @@ import reactor.core.publisher.Flux;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Collectors;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -144,6 +145,8 @@ import java.util.concurrent.atomic.AtomicReference;
                         profile = ExecutionProfile.valueOf(request.getProfile() != null ? request.getProfile() : "BALANCED");
                     } catch (IllegalArgumentException ignored) {}
 
+                    Long userId = getUserIdFromAuth();
+
                     // 构建 Pipeline 上下文
                     String fullPrompt = buildPromptWithPipeline(request, profile);
 
@@ -155,9 +158,12 @@ import java.util.concurrent.atomic.AtomicReference;
 
                     StringBuilder buf = new StringBuilder();
                     AtomicReference<String> state = new AtomicReference<>("INIT");
+                    StringBuilder fullResponse = new StringBuilder();
+                    StringBuilder thinkingResponse = new StringBuilder();
 
                     flux.subscribe(
                         token -> {
+                            fullResponse.append(token);
                             buf.append(token);
                             String cur = state.get();
 
@@ -167,13 +173,17 @@ import java.util.concurrent.atomic.AtomicReference;
                                 int startTagIdx = s.indexOf(THINKING_START);
                                 if (startTagIdx >= 0) {
                                     String beforeTag = s.substring(0, startTagIdx);
-                                    if (!beforeTag.isEmpty()) sendEvent(emitter, "content", beforeTag);
+                                    if (!beforeTag.isEmpty()) {
+                                        sendEvent(emitter, "content", beforeTag);
+                                        thinkingResponse.append(beforeTag);
+                                    }
                                     buf.setLength(0);
                                     buf.append(s.substring(startTagIdx + THINKING_START.length()));
                                     state.set("THINKING");
                                 } else if (s.length() > 64) {
                                     // 积累够了还没出现 thinking 标签，当作纯内容
                                     sendEvent(emitter, "content", s);
+                                    thinkingResponse.append(s);
                                     buf.setLength(0);
                                     state.set("CONTENT");
                                 }
@@ -185,7 +195,10 @@ import java.util.concurrent.atomic.AtomicReference;
                                 int endTagIdx = s.indexOf(THINKING_END);
                                 if (endTagIdx >= 0) {
                                     String think = s.substring(0, endTagIdx);
-                                    if (!think.isEmpty()) sendEvent(emitter, "thinking", think);
+                                    if (!think.isEmpty()) {
+                                        sendEvent(emitter, "thinking", think);
+                                        thinkingResponse.append(think);
+                                    }
                                     buf.setLength(0);
                                     buf.append(s.substring(endTagIdx + THINKING_END.length()));
                                     state.set("CONTENT");
@@ -194,6 +207,7 @@ import java.util.concurrent.atomic.AtomicReference;
                                     String safe = s.substring(0, s.length() - THINKING_END.length());
                                     if (!safe.isEmpty()) {
                                         sendEvent(emitter, "thinking", safe);
+                                        thinkingResponse.append(safe);
                                         buf.setLength(0);
                                         buf.append(s.substring(s.length() - THINKING_END.length()));
                                     }
@@ -221,6 +235,31 @@ import java.util.concurrent.atomic.AtomicReference;
                             }
                             sendEvent(emitter, "done", null);
                             try { emitter.complete(); } catch (Exception ignored) {}
+
+                            // 后端保存消息到链文件
+                            if (userId != null && request.getSessionId() != null && !request.getSessionId().isBlank()) {
+                                try {
+                                    String cleanContent = fullResponse.toString();
+                                    String cleanThinking = thinkingResponse.toString();
+                                    List<Map<String, Object>> msgs = new ArrayList<>();
+                                    Map<String, Object> userMsg = new LinkedHashMap<>();
+                                    userMsg.put("role", "user");
+                                    userMsg.put("content", request.getMessage());
+                                    userMsg.put("createTime", LocalDateTime.now().toString());
+                                    msgs.add(userMsg);
+                                    Map<String, Object> aiMsg = new LinkedHashMap<>();
+                                    aiMsg.put("role", "assistant");
+                                    aiMsg.put("content", cleanContent);
+                                    if (!cleanThinking.isBlank()) aiMsg.put("thinking", cleanThinking);
+                                    aiMsg.put("createTime", LocalDateTime.now().toString());
+                                    msgs.add(aiMsg);
+                                    chatSessionService.appendMessages(userId, request.getNovelId(), request.getSessionId(), msgs);
+                                    log.info("后端保存消息: sessionId={}, content长度={}, thinking长度={}", request.getSessionId(), cleanContent.length(), cleanThinking.length());
+                                } catch (Exception e) {
+                                    log.warn("后端保存消息失败: {}", e.getMessage());
+                                }
+                            }
+
                             latch.countDown();
                         }
                     );
@@ -320,6 +359,8 @@ import java.util.concurrent.atomic.AtomicReference;
                         .collect(Collectors.toList());
                 }
             }
+            log.info("Pipeline: userId={}, sessionId={}, historySize={}, profile={}", userId, request.getSessionId(), history.size(), profile);
+            log.info("Pipeline历史条数: sessionId={}, historySize={}, profile={}", request.getSessionId(), history.size(), profile);
 
             // 2. 意图识别（BALANCED/DEEP）
             IntentResult intentResult = null;
@@ -408,7 +449,13 @@ import java.util.concurrent.atomic.AtomicReference;
                 profile
             );
 
-            return promptBuilder.build(ctx);
+            String prompt = promptBuilder.build(ctx);
+            log.info("Prompt构建完成: 总长度={}, 含历史={}条, 固定上下文={}项, 编辑记忆={}条, 工具结果={}条",
+                prompt.length(), history.size(),
+                fixedContext != null ? fixedContext.size() : 0,
+                editMemory != null ? editMemory.records().size() : 0,
+                toolResults != null ? toolResults.size() : 0);
+            return prompt;
         }
 
         /**
