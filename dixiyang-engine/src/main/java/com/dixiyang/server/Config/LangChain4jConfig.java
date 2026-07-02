@@ -3,6 +3,7 @@ package com.dixiyang.server.Config;
 import com.dixiyang.server.Service.chat.agent.ChatService;
 import com.dixiyang.server.Service.chat.agent.IntentAnalysisService;
 import com.dixiyang.server.Service.chat.agent.KnowledgeSearchTool;
+import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
@@ -56,12 +57,22 @@ public class LangChain4jConfig {
     }
 
     /**
+     * ChatMemoryProvider - 按 sessionId 隔离对话记忆
+     */
+    @Bean
+    public ChatMemoryProvider chatMemoryProvider() {
+        return memoryId -> MessageWindowChatMemory.withMaxMessages(50);
+    }
+
+    /**
      * ChatService - 主对话服务（带工具调用）
      */
     @Bean
-    public ChatService chatService(ChatModel chatModel, KnowledgeSearchTool knowledgeSearchTool) {
+    public ChatService chatService(ChatModel chatModel, KnowledgeSearchTool knowledgeSearchTool,
+                                    ChatMemoryProvider chatMemoryProvider) {
         return AiServices.builder(ChatService.class)
             .chatModel(chatModel)
+            .chatMemoryProvider(chatMemoryProvider)
             .tools(knowledgeSearchTool)
             .build();
     }
