@@ -355,9 +355,12 @@ public class ChatController {
                 sb.append("== 角色卡 ==\n");
                 for (NovelCharacter c : characters) {
                     sb.append("【").append(c.getName()).append("】\n");
+                    if (c.getGender() != null) sb.append("性别：").append(c.getGender()).append("\n");
+                    if (c.getAge() != null) sb.append("年龄：").append(c.getAge()).append("\n");
                     if (c.getAppearance() != null) sb.append("外貌：").append(c.getAppearance()).append("\n");
                     if (c.getPersonality() != null) sb.append("性格：").append(c.getPersonality()).append("\n");
                     if (c.getBackground() != null) sb.append("背景：").append(c.getBackground()).append("\n");
+                    if (c.getExtra() != null && !c.getExtra().isEmpty()) sb.append("自定义：").append(c.getExtra()).append("\n");
                     sb.append("\n");
                 }
             }
@@ -370,7 +373,12 @@ public class ChatController {
                 sb.append("== 故事节点 ==\n");
                 for (StoryNode n : nodes) {
                     sb.append("【").append(n.getTitle()).append("】\n");
-                    if (n.getContent() != null) sb.append(n.getContent()).append("\n");
+                    if (n.getEventDate() != null) sb.append("时间：").append(n.getEventDate()).append("\n");
+                    if (n.getEventType() != null) sb.append("类型：").append(n.getEventType()).append("\n");
+                    if (n.getImportance() != null) sb.append("重要性：").append(n.getImportance()).append("\n");
+                    if (n.getCharacterNames() != null) sb.append("关联角色：").append(n.getCharacterNames()).append("\n");
+                    if (n.getTags() != null) sb.append("标签：").append(n.getTags()).append("\n");
+                    if (n.getContent() != null) sb.append("内容：").append(n.getContent()).append("\n");
                     sb.append("\n");
                 }
             }
