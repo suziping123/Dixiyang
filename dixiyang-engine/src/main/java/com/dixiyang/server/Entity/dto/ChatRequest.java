@@ -27,4 +27,6 @@ public class ChatRequest {
     private String sessionId;
     // 重新生成时指定消息索引（-1 表示普通对话）
     private Integer regenerateIndex = -1;
+    // 执行档案：FAST/BALANCED/DEEP（默认 BALANCED）
+    private String profile = "BALANCED";
 }

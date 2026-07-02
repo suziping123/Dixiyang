@@ -33,7 +33,7 @@
           <button class="action-btn" @click="$emit('regenerate')" title="重新生成">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
           </button>
-          <button class="action-btn pencil-btn" @click="$emit('edit')" title="编辑回答">
+          <button class="action-btn pencil-btn" @click="handleEdit" title="编辑回答">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
           </button>
         </div>
@@ -90,11 +90,12 @@ interface Props {
     edited?: boolean
     version?: number
   }
+  index?: number
   streamingContent?: string
   streamingThinking?: string
   isStreaming?: boolean
   isEditing?: boolean
-  onEdit?: (newContent: string) => void
+  onEdit?: (index: number) => void
 }
 
 import { ref, watch } from 'vue'
@@ -102,7 +103,7 @@ import { ref, watch } from 'vue'
 const props = defineProps<Props>()
 const emit = defineEmits<{
   regenerate: []
-  edit: []
+  edit: [index: number]
   userEdit: [content: string]
   userEditSave: [content: string]
   userEditCancel: []
@@ -116,6 +117,12 @@ watch(() => props.isEditing, (val) => {
 
 const formatTime = (date: Date) => {
   return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+}
+
+const handleEdit = () => {
+  if (props.index !== undefined && props.onEdit) {
+    props.onEdit(props.index)
+  }
 }
 
 </script>

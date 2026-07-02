@@ -109,6 +109,14 @@
               <input type="checkbox" v-model="options.includeStory" />
               <span>包含故事节点</span>
             </label>
+            <label class="option-item profile-selector">
+              <span>执行档案</span>
+              <select v-model="options.profile" class="profile-select" @change="() => {}">
+                <option value="FAST">⚡ 快速创作 —— 仅用固定设定+历史直接生成，不检索、不思考</option>
+                <option value="BALANCED">⚖️ 均衡模式（推荐） —— 意图识别→按需检索1次→生成</option>
+                <option value="DEEP">🔍 深度创作 —— 规划器拆解步骤→多轮检索(≤3次)→显示思考链路→生成</option>
+              </select>
+            </label>
           </div>
         </div>
       </aside>
@@ -147,9 +155,10 @@
               v-for="(msg, index) in messages"
               :key="index"
               :message="msg"
+              :index="index"
               :is-editing="isUserEditing && editedUserMessageIndex === index"
+              :on-edit="(idx: number) => openEditModal(idx)"
               @regenerate="handleRegenerate(index)"
-              @edit="openEditModal(index)"
               @userEdit="handleUserEdit(index, $event)"
               @userEditSave="handleUserEditSave"
               @userEditCancel="cancelUserEdit"
@@ -238,7 +247,7 @@ const {
   currentSessionId, sessions,
   sendMessage, cancelStream, loadSessions, loadSessionMessages,
   newSession, deleteSession, regenerateMessage,
-  editMessage
+  editMessage, replaceUserMessage, truncateMessages
 } = useChatStream(userId)
 
 const editingMessageIndex = ref<number>(-1)
@@ -276,7 +285,8 @@ const saveEditedUserMessages = async (userId?: number) => {
 const options = ref({
   useRag: true,
   includeCharacters: true,
-  includeStory: true
+  includeStory: true,
+  profile: 'BALANCED' as 'FAST' | 'BALANCED' | 'DEEP'
 })
 
 const suggestions = [
@@ -339,7 +349,8 @@ const sendStreamMessage = async () => {
     characterIds: selectedCharacters.value,
     storyNodeIds: selectedNodes.value,
     includeCharacters: options.value.includeCharacters,
-    includeStory: options.value.includeStory
+    includeStory: options.value.includeStory,
+    profile: options.value.profile
   })
   scrollToBottom()
 }
@@ -392,10 +403,8 @@ const handleUserEdit = (index: number, content: string) => {
 const handleUserEditSave = async (content: string) => {
   const idx = editedUserMessageIndex.value
   if (idx < 0 || !content.trim()) return
-  messages.value[idx].content = content
-  messages.value[idx].edited = true
-  const nextIndex = idx + 1
-  messages.value = messages.value.slice(0, nextIndex)
+  replaceUserMessage(idx, content)
+  truncateMessages(idx + 1)
   isUserEditing.value = false
   editedUserMessageIndex.value = -1
   inputMessage.value = content
@@ -429,7 +438,8 @@ const handleRegenerate = async (index: number) => {
     characterIds: selectedCharacters.value,
     storyNodeIds: selectedNodes.value,
     includeCharacters: options.value.includeCharacters,
-    includeStory: options.value.includeStory
+    includeStory: options.value.includeStory,
+    profile: options.value.profile
   })
   scrollToBottom()
 }
@@ -1059,6 +1069,43 @@ onMounted(async () => {
   font-size: 0.8rem;
   color: var(--text-muted);
   text-align: center;
+}
+
+.profile-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.profile-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.profile-select:focus {
+  outline: none;
+  border-color: var(--neon-blue);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.profile-select option {
+  background: var(--surface-card);
+  color: var(--text-on-card);
+  padding: 8px;
+}
+
+.profile-desc {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-left: 2px;
 }
 
 .session-list::-webkit-scrollbar,

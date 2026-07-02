@@ -3,8 +3,14 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-model_path = "/home/lijiajia/项目/Dixiyang/DixyangFast/models/bge-m3"
+
+DATASETS_DIR = Path(__file__).resolve().parent / "chroma_data" / "datasets"
+if not DATASETS_DIR.exists():
+    DATASETS_DIR.mkdir(parents=True, exist_ok=True)
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+model_path = BASE_DIR.parent / "models" / "bge-m3"
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 

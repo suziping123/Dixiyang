@@ -121,6 +121,7 @@ export function useChatStream(userId?: number) {
       storyNodeIds?: (string | number)[]
       includeCharacters?: boolean
       includeStory?: boolean
+      profile?: 'FAST' | 'BALANCED' | 'DEEP'
     }
   ) => {
     if (!message.trim() || isStreaming.value) return
@@ -153,6 +154,7 @@ export function useChatStream(userId?: number) {
           storyNodeIds: context.storyNodeIds ?? [],
           includeCharacters: context.includeCharacters ?? true,
           includeStory: context.includeStory ?? true,
+          profile: context.profile ?? 'BALANCED',
           sessionId: currentSessionId.value || undefined
         }),
         signal: controller.signal
@@ -250,6 +252,7 @@ export function useChatStream(userId?: number) {
       storyNodeIds?: (string | number)[]
       includeCharacters?: boolean
       includeStory?: boolean
+      profile?: 'FAST' | 'BALANCED' | 'DEEP'
     }
   ) => {
     if (isStreaming.value || !currentSessionId.value) return
@@ -281,7 +284,8 @@ export function useChatStream(userId?: number) {
           characterIds: context.characterIds ?? [],
           storyNodeIds: context.storyNodeIds ?? [],
           includeCharacters: context.includeCharacters ?? true,
-          includeStory: context.includeStory ?? true
+          includeStory: context.includeStory ?? true,
+          profile: context.profile ?? 'BALANCED'
         }),
         signal: controller.signal
       })
@@ -354,6 +358,23 @@ export function useChatStream(userId?: number) {
     }
   }
 
+  const replaceUserMessage = (index: number, newContent: string) => {
+    if (index < 0 || index >= messages.value.length) return false
+    const m = messages.value[index]
+    if (!m || m.role !== 'user') return false
+    messages.value[index] = {
+      ...m,
+      content: newContent,
+      edited: true
+    }
+    return true
+  }
+
+  const truncateMessages = (keepCount: number) => {
+    if (keepCount < 0) return
+    messages.value = messages.value.slice(0, keepCount)
+  }
+
   const generateTitle = async (novelId?: string | number) => {
     try {
       const res = await http.post(`/chatHistory/generate-title/${currentSessionId.value}`)
@@ -389,6 +410,8 @@ export function useChatStream(userId?: number) {
     newSession,
     deleteSession,
     regenerateMessage,
-    editMessage
+    editMessage,
+    replaceUserMessage,
+    truncateMessages
   }
 }
