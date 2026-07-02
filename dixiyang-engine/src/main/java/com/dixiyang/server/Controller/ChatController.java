@@ -428,7 +428,14 @@ public class ChatController {
             evt.put("type", type);
             if (delta != null) evt.put("delta", delta);
             emitter.send(SseEmitter.event().name("message").data(objectMapper.writeValueAsString(evt)));
-        } catch (Exception ignored) {}
+        } catch (IllegalStateException ignored) {
+            // emitter 已完成/超时，忽略
+        } catch (java.io.IOException e) {
+            // 客户端断开连接（正常取消/刷新），静默处理
+            log.debug("客户端断开 SSE: {}", e.getMessage());
+        } catch (Exception e) {
+            log.warn("发送 SSE 事件异常: {}", e.getMessage());
+        }
     }
 
     private Long getUserIdFromAuth() {
