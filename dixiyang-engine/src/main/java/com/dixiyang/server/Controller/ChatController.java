@@ -9,8 +9,11 @@ import com.dixiyang.server.Service.INovelCharacterService;
 import com.dixiyang.server.Service.IStoryNodeService;
 import com.dixiyang.server.Service.RagService;
 import com.dixiyang.server.Service.chat.agent.ConversationMode;
-import dev.langchain4j.data.message.SystemMessage;
-import dev.langchain4j.data.message.UserMessage;
+import com.dixiyang.server.Service.chat.agent.FileBasedChatMemoryStore;
+import com.dixiyang.server.Service.chat.agent.PromptTemplates;
+import dev.langchain4j.data.message.*;
+import dev.langchain4j.memory.ChatMemory;
+import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.chat.response.ChatResponse;
@@ -30,49 +33,17 @@ import java.util.stream.Collectors;
 
 /**
  * AI 聊天控制器（LangChain4j 版）
- * 流程：用户指定模式 → 结构化 Prompt → LLM 流式输出
+ * 使用 PromptTemplate + ChatMemory 自动化调度
  */
 @Tag(name = "聊天模块")
 @RestController
 @Slf4j
 public class ChatController {
 
-    private static final String SYSTEM_PROMPT_PREFIX = """
-        你是小说创作助手。严格遵循以下规则：
-        1. 角色信息必须与【固定设定】中的角色卡完全一致
-        2. 故事事件必须与【固定设定】中的故事节点一致
-        3. 设定中没有的信息不能凭空编造，必须明确说"设定中没有这个信息"
-        4. 如果用户要求写与设定矛盾的内容，拒绝并说明原因
-
-        根据下方【对话模式】决定你的行为：
-        """;
-
-    private static final String MODE_WRITE = """
-        【对话模式：创作】
-        按设定创作剧情、对话、描写、续写。严格基于固定设定，不自由发挥。
-        """;
-    private static final String MODE_DISCUSS = """
-        【对话模式：讨论】
-        只回答关于角色、世界观、大纲的设定问题。不要创作内容。
-        如果用户要求创作，提醒他切换到创作模式。
-        """;
-    private static final String MODE_ANALYZE = """
-        【对话模式：分析】
-        分析角色性格、剧情逻辑、世界观一致性。给出有依据的分析。
-        请输出 <thinking> 分析过程，再给结论。
-        """;
-    private static final String MODE_BRAINSTORM = """
-        【对话模式：头脑风暴】
-        帮用户发散思考、寻找创作灵感。可以提出多种可能性。
-        请输出 <thinking> 思考过程，再给建议。
-        """;
-    private static final String MODE_ASK = """
-        【对话模式：提问】
-        快速精准回答用户问题，简短不啰嗦。
-        """;
-
     private final ChatModel chatModel;
     private final StreamingChatModel streamingChatModel;
+    private final ChatMemoryProvider chatMemoryProvider;
+    private final FileBasedChatMemoryStore memoryStore;
     private final RagService ragService;
     private final INovelCharacterService characterService;
     private final IStoryNodeService storyNodeService;
@@ -85,12 +56,16 @@ public class ChatController {
 
     public ChatController(ChatModel chatModel,
                           StreamingChatModel streamingChatModel,
+                          ChatMemoryProvider chatMemoryProvider,
+                          FileBasedChatMemoryStore memoryStore,
                           @Autowired(required = false) RagService ragService,
                           INovelCharacterService characterService,
                           IStoryNodeService storyNodeService,
                           IChatSessionService chatSessionService) {
         this.chatModel = chatModel;
         this.streamingChatModel = streamingChatModel;
+        this.chatMemoryProvider = chatMemoryProvider;
+        this.memoryStore = memoryStore;
         this.ragService = ragService;
         this.characterService = characterService;
         this.storyNodeService = storyNodeService;
@@ -128,12 +103,18 @@ public class ChatController {
                 String sessionId = request.getSessionId();
                 ConversationMode mode = ConversationMode.fromString(request.getConversationMode());
 
-                // 构建 Prompt
-                String systemPrompt = buildSystemPrompt(request, mode);
-                String userPrompt = buildUserPrompt(request);
+                // 1. 构建 System Prompt（用 PromptTemplate）
+                String systemPrompt = PromptTemplates.buildSystemPrompt(mode, request.getCustomSystemPrompt());
+
+                // 2. 构建 User Prompt（用 PromptTemplate）
+                String fixedContext = buildFixedContext(request);
+                String edits = (userId != null && sessionId != null)
+                    ? chatSessionService.buildEditContextPrompt(userId, sessionId) : "";
+                String userPrompt = PromptTemplates.buildUserPrompt(fixedContext, "", edits, request.getMessage());
+
                 log.info("对话模式: {} | sessionId={}", mode.name(), sessionId);
 
-                // 流式调用 LLM
+                // 3. 流式调用 LLM
                 dev.langchain4j.model.chat.request.ChatRequest chatReq = dev.langchain4j.model.chat.request.ChatRequest.builder()
                     .messages(
                         SystemMessage.from(systemPrompt),
@@ -204,7 +185,11 @@ public class ChatController {
                         }
                         sendEvent(emitter, "done", null);
                         try { emitter.complete(); } catch (Exception ignored) {}
+
+                        // 保存消息到链文件
                         saveMessages(userId, sessionId, request, fullResponse.toString(), thinkingResponse.toString());
+                        // 清除 ChatMemory 缓存，下次请求重新加载
+                        memoryStore.invalidateCache(sessionId);
                         latch.countDown();
                     }
 
@@ -256,6 +241,7 @@ public class ChatController {
         executor.execute(() -> {
             try {
                 chatSessionService.truncateSessionChain(finalUserId, sessionId, messageIndex);
+                memoryStore.invalidateCache(sessionId);
                 chatStream(request);
             } catch (Exception e) {
                 log.error("重新生成异常: {}", e.getMessage(), e);
@@ -277,8 +263,11 @@ public class ChatController {
             String sessionId = request.getSessionId();
             ConversationMode mode = ConversationMode.fromString(request.getConversationMode());
 
-            String systemPrompt = buildSystemPrompt(request, mode);
-            String userPrompt = buildUserPrompt(request);
+            String systemPrompt = PromptTemplates.buildSystemPrompt(mode, request.getCustomSystemPrompt());
+            String fixedContext = buildFixedContext(request);
+            String edits = (userId != null && sessionId != null)
+                ? chatSessionService.buildEditContextPrompt(userId, sessionId) : "";
+            String userPrompt = PromptTemplates.buildUserPrompt(fixedContext, "", edits, request.getMessage());
 
             dev.langchain4j.model.chat.request.ChatRequest chatReq = dev.langchain4j.model.chat.request.ChatRequest.builder()
                 .messages(
@@ -291,6 +280,7 @@ public class ChatController {
             String content = response.aiMessage().text();
 
             saveMessages(userId, sessionId, request, content, "");
+            memoryStore.invalidateCache(sessionId);
             return content;
         } catch (Exception e) {
             log.error("同步聊天失败: {}", e.getMessage(), e);
@@ -298,53 +288,7 @@ public class ChatController {
         }
     }
 
-    // ==================== Prompt 构建 ====================
-
-    private String buildSystemPrompt(ChatRequest request, ConversationMode mode) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(SYSTEM_PROMPT_PREFIX);
-
-        // 模式指令
-        sb.append(switch (mode) {
-            case WRITE -> MODE_WRITE;
-            case DISCUSS -> MODE_DISCUSS;
-            case ANALYZE -> MODE_ANALYZE;
-            case BRAINSTORM -> MODE_BRAINSTORM;
-            case ASK -> MODE_ASK;
-        });
-
-        // 用户自定义 system prompt 追加
-        if (request.getCustomSystemPrompt() != null && !request.getCustomSystemPrompt().isBlank()) {
-            sb.append("\n【用户自定义指令】\n").append(request.getCustomSystemPrompt()).append("\n");
-        }
-
-        return sb.toString();
-    }
-
-    private String buildUserPrompt(ChatRequest request) {
-        StringBuilder sb = new StringBuilder();
-
-        String fixedContext = buildFixedContext(request);
-        if (!fixedContext.isEmpty()) {
-            sb.append("【固定设定·不可违背】\n").append(fixedContext).append("\n\n");
-        }
-
-        Long userId = getUserIdFromAuth();
-        String history = buildHistoryString(request.getSessionId(), userId);
-        if (!history.isEmpty()) {
-            sb.append("【对话历史】\n").append(history).append("\n\n");
-        }
-
-        if (userId != null && request.getSessionId() != null) {
-            String edits = chatSessionService.buildEditContextPrompt(userId, request.getSessionId());
-            if (!edits.isBlank()) {
-                sb.append(edits).append("\n\n");
-            }
-        }
-
-        sb.append("【用户本轮输入】\n").append(request.getMessage());
-        return sb.toString();
-    }
+    // ==================== 固定上下文构建（只构建设定部分，其余交给 PromptTemplate） ====================
 
     private String buildFixedContext(ChatRequest request) {
         StringBuilder sb = new StringBuilder();
@@ -387,43 +331,6 @@ public class ChatController {
         return sb.toString();
     }
 
-    private String buildHistoryString(String sessionId, Long userId) {
-        if (sessionId == null || sessionId.isBlank() || userId == null) return "";
-        try {
-            StringBuilder sb = new StringBuilder();
-
-            // 1. 历史摘要（如果有）
-            Map<String, Object> summary = chatSessionService.getSummary(userId, sessionId);
-            String summaryText = summary.get("summary") instanceof String ? (String) summary.get("summary") : null;
-            if (summaryText != null && !summaryText.isBlank()) {
-                sb.append("【历史摘要】\n").append(summaryText).append("\n\n");
-            }
-
-            // 2. 近期消息
-            List<Map<String, Object>> msgs = chatSessionService.getSessionMessagesWithEdits(sessionId, userId);
-            if (msgs == null || msgs.isEmpty()) return sb.toString();
-
-            // 如果有摘要，只取摘要之后的消息
-            int skip = summary.get("lastMessageIndex") instanceof Number
-                ? ((Number) summary.get("lastMessageIndex")).intValue() : 0;
-            List<Map<String, Object>> recent = msgs.size() > skip ? msgs.subList(skip, msgs.size()) : msgs;
-
-            if (!recent.isEmpty()) {
-                if (summaryText != null) sb.append("【近期对话】\n");
-                for (Map<String, Object> m : recent) {
-                    String role = "user".equals(m.get("role")) ? "用户" : "AI";
-                    String content = (String) m.get("content");
-                    sb.append(role).append("：").append(content != null ? content : "").append("\n");
-                }
-            }
-
-            return sb.toString();
-        } catch (Exception e) {
-            log.warn("读取历史失败: {}", e.getMessage());
-            return "";
-        }
-    }
-
     // ==================== 消息保存 ====================
 
     private void saveMessages(Long userId, String sessionId, ChatRequest request, String content, String thinking) {
@@ -444,10 +351,8 @@ public class ChatController {
             msgs.add(aiMsg);
 
             chatSessionService.appendMessages(userId, request.getNovelId(), sessionId, msgs);
-            log.info("保存消息: sessionId={}, content长度={}", sessionId, content.length());
-
-            // 异步检查是否需要摘要（不阻塞响应）
             chatSessionService.maybeSummarize(userId, sessionId);
+            log.info("保存消息: sessionId={}, content长度={}", sessionId, content.length());
         } catch (Exception e) {
             log.warn("保存消息失败: {}", e.getMessage());
         }
