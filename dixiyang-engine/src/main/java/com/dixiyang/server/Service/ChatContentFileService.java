@@ -439,6 +439,56 @@ public class ChatContentFileService {
     // ========== 内部辅助 ==========
 
     /** 链文件条目（walkChain 用） */
+    // ==================== 历史摘要 ====================
+
+    private String getSummaryFilePath(Long userId, String sessionId) {
+        return baseDir + "/" + userId + "/" + sessionId + "/summary.json";
+    }
+
+    /**
+     * 读取历史摘要
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> readSummary(Long userId, String sessionId) {
+        File f = new File(getSummaryFilePath(userId, sessionId));
+        if (!f.exists()) return Collections.emptyMap();
+        try {
+            return mapper.readValue(f, Map.class);
+        } catch (IOException e) {
+            log.error("读取 summary.json 失败: sessionId={}", sessionId, e);
+            return Collections.emptyMap();
+        }
+    }
+
+    /**
+     * 保存/更新历史摘要
+     */
+    public void saveSummary(Long userId, String sessionId, String summary, int lastMessageIndex) {
+        synchronized (getLock(userId, sessionId)) {
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("summary", summary);
+            data.put("lastMessageIndex", lastMessageIndex);
+            data.put("updatedAt", java.time.LocalDateTime.now().toString());
+            try {
+                File f = new File(getSummaryFilePath(userId, sessionId));
+                f.getParentFile().mkdirs();
+                mapper.writerWithDefaultPrettyPrinter().writeValue(f, data);
+                log.info("summary.json 已更新: sessionId={}, lastMessageIndex={}", sessionId, lastMessageIndex);
+            } catch (IOException e) {
+                log.error("写入 summary.json 失败: sessionId={}", sessionId, e);
+            }
+        }
+    }
+
+    /**
+     * 删除已摘要的早期消息，保留 lastMessageIndex 之后的消息
+     */
+    public String truncateAfterSummary(String headPath, int keepFromIndex) {
+        return truncateChain(headPath, keepFromIndex);
+    }
+
+    // ==================== 内部类 ====================
+
     private static class ChainFileEntry {
         String filePath;
         List<Map<String, Object>> messages;

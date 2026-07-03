@@ -17,4 +17,6 @@ public interface IChatSessionService extends IService<ChatSession> {
     boolean editMessage(Long userId, String sessionId, int messageIndex, String role, String newContent);
     String buildEditContextPrompt(Long userId, String sessionId);
     boolean truncateSessionChain(Long userId, String sessionId, int keepCount);
+    Map<String, Object> getSummary(Long userId, String sessionId);
+    void maybeSummarize(Long userId, String sessionId);
 }

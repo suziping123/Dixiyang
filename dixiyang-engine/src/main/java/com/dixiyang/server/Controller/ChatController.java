@@ -390,15 +390,34 @@ public class ChatController {
     private String buildHistoryString(String sessionId, Long userId) {
         if (sessionId == null || sessionId.isBlank() || userId == null) return "";
         try {
+            StringBuilder sb = new StringBuilder();
+
+            // 1. 历史摘要（如果有）
+            Map<String, Object> summary = chatSessionService.getSummary(userId, sessionId);
+            String summaryText = summary.get("summary") instanceof String ? (String) summary.get("summary") : null;
+            if (summaryText != null && !summaryText.isBlank()) {
+                sb.append("【历史摘要】\n").append(summaryText).append("\n\n");
+            }
+
+            // 2. 近期消息
             List<Map<String, Object>> msgs = chatSessionService.getSessionMessagesWithEdits(sessionId, userId);
-            if (msgs == null || msgs.isEmpty()) return "";
-            return msgs.stream()
-                .map(m -> {
+            if (msgs == null || msgs.isEmpty()) return sb.toString();
+
+            // 如果有摘要，只取摘要之后的消息
+            int skip = summary.get("lastMessageIndex") instanceof Number
+                ? ((Number) summary.get("lastMessageIndex")).intValue() : 0;
+            List<Map<String, Object>> recent = msgs.size() > skip ? msgs.subList(skip, msgs.size()) : msgs;
+
+            if (!recent.isEmpty()) {
+                if (summaryText != null) sb.append("【近期对话】\n");
+                for (Map<String, Object> m : recent) {
                     String role = "user".equals(m.get("role")) ? "用户" : "AI";
                     String content = (String) m.get("content");
-                    return role + "：" + (content != null ? content : "");
-                })
-                .collect(Collectors.joining("\n"));
+                    sb.append(role).append("：").append(content != null ? content : "").append("\n");
+                }
+            }
+
+            return sb.toString();
         } catch (Exception e) {
             log.warn("读取历史失败: {}", e.getMessage());
             return "";
@@ -426,6 +445,9 @@ public class ChatController {
 
             chatSessionService.appendMessages(userId, request.getNovelId(), sessionId, msgs);
             log.info("保存消息: sessionId={}, content长度={}", sessionId, content.length());
+
+            // 异步检查是否需要摘要（不阻塞响应）
+            chatSessionService.maybeSummarize(userId, sessionId);
         } catch (Exception e) {
             log.warn("保存消息失败: {}", e.getMessage());
         }

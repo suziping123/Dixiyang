@@ -270,6 +270,70 @@ public class ChatSessionServiceImpl extends ServiceImpl<ChatSessionMapper, ChatS
         }
     }
 
+    /**
+     * 检查是否需要摘要：消息超过 12 条时，取前 6 条生成摘要并截断
+     */
+    public void maybeSummarize(Long userId, String sessionId) {
+        ChatSession session = findOwnedSession(sessionId, userId);
+        if (session == null || session.getHeadPath() == null) return;
+
+        Map<String, Object> existing = fileService.readSummary(userId, sessionId);
+        int summarizedCount = existing.get("lastMessageIndex") instanceof Number
+            ? ((Number) existing.get("lastMessageIndex")).intValue() : 0;
+
+        List<Map<String, Object>> messages = fileService.readChain(session.getHeadPath());
+        if (messages == null) return;
+
+        int totalMessages = messages.size();
+        if (totalMessages < 12 || (totalMessages - summarizedCount) < 6) return;
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                List<Map<String, Object>> toSummarize = messages.subList(0, Math.min(6, messages.size()));
+                StringBuilder conversation = new StringBuilder();
+                for (Map<String, Object> msg : toSummarize) {
+                    String role = "user".equals(msg.get("role")) ? "用户" : "AI";
+                    String content = (String) msg.get("content");
+                    if (content != null) {
+                        conversation.append(role).append("：")
+                            .append(content.length() > 200 ? content.substring(0, 200) + "..." : content)
+                            .append("\n");
+                    }
+                }
+
+                String prevSummary = existing.get("summary") != null ? (String) existing.get("summary") : "";
+                String prompt = "请用 3-5 句话概括以下对话的核心内容（设定讨论、创作内容、关键决定）。直接返回摘要，不要解释。\n\n"
+                    + (prevSummary.isEmpty() ? "" : "之前的摘要：" + prevSummary + "\n\n")
+                    + "新对话内容：\n" + conversation;
+
+                ChatResponse response = chatModel.chat(ChatRequest.builder()
+                    .messages(
+                        SystemMessage.from("你是对话摘要生成器，只返回摘要文本。"),
+                        UserMessage.from(prompt)
+                    )
+                    .build());
+
+                String summary = response.aiMessage().text();
+                if (summary != null && !summary.isBlank()) {
+                    fileService.saveSummary(userId, sessionId, summary.trim(), 6);
+                    String newHead = fileService.truncateAfterSummary(session.getHeadPath(), 6);
+                    if (newHead != null) {
+                        session.setHeadPath(newHead);
+                        this.updateById(session);
+                    }
+                    log.info("对话摘要生成成功: sessionId={}", sessionId);
+                }
+            } catch (Exception e) {
+                log.warn("对话摘要生成失败: sessionId={}, error={}", sessionId, e.getMessage());
+            }
+        });
+    }
+
+    @Override
+    public Map<String, Object> getSummary(Long userId, String sessionId) {
+        return fileService.readSummary(userId, sessionId);
+    }
+
     private ChatSession findOwnedSession(String sessionId, Long userId) {
         LambdaQueryWrapper<ChatSession> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(ChatSession::getSessionId, sessionId)
