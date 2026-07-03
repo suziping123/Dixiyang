@@ -364,30 +364,54 @@ public class ChatContentFileService {
     }
 
     /**
-     * 构建注入到AI prompt的修正记录上下文
+     * 构建注入到AI prompt的修正记录上下文（结构化要点格式）
      */
     public String buildEditsPrompt(Long userId, String sessionId) {
         List<Map<String, Object>> edits = readEdits(userId, sessionId);
         if (edits.isEmpty()) return "";
 
         StringBuilder sb = new StringBuilder();
-        sb.append("\n【对话修正记录 - 请仔细学习以下修正，避免重复错误】\n");
+        sb.append("\n【修正要点·必须避免重复犯错】\n");
         for (Map<String, Object> edit : edits) {
-            int idx = edit.get("messageIndex") instanceof Number ? ((Number) edit.get("messageIndex")).intValue() : -1;
-            Object role = edit.get("role");
-            if (role != null) {
-                sb.append("第").append(idx + 1).append("条回答（")
-                  .append("user".equals(role) ? "用户发言" : "AI回答").append("）需要修正：\n");
+            String keyPoint = (String) edit.get("keyPoint");
+            String errorType = (String) edit.get("errorType");
+            if (keyPoint != null && !keyPoint.isBlank()) {
+                String tag = errorType != null ? "[" + errorType + "]" : "[修正]";
+                sb.append("- ").append(tag).append(" ").append(keyPoint).append("\n");
+            } else {
+                // 兼容旧格式：没有 keyPoint 时用 editedContent
+                String edited = (String) edit.get("editedContent");
+                if (edited != null && !edited.isBlank()) {
+                    sb.append("- [修正] ").append(edited.length() > 100 ? edited.substring(0, 100) + "..." : edited).append("\n");
+                }
             }
-            String original = (String) edit.get("originalContent");
-            String edited = (String) edit.get("editedContent");
-            if (original != null && !original.isBlank()) {
-                sb.append("  AI当时输出：").append(original.length() > 200 ? original.substring(0, 200) + "..." : original).append("\n");
-            }
-            sb.append("  修正内容：").append(edited).append("\n\n");
         }
-        sb.append("请参考以上修正记录，在本次回答中吸收教训，给出更准确的回答。");
+        sb.append("请严格遵守以上修正要点，在本次回答中避免重复犯错。");
         return sb.toString();
+    }
+
+    /**
+     * 更新指定编辑记录的 keyPoint 和 errorType（LLM 异步提取后调用）
+     */
+    @SuppressWarnings("unchecked")
+    public void updateEditKeyPoint(Long userId, String sessionId, int editIndex, String keyPoint, String errorType) {
+        List<Map<String, Object>> edits = readEdits(userId, sessionId);
+        if (editIndex < 0 || editIndex >= edits.size()) return;
+
+        Map<String, Object> edit = new LinkedHashMap<>(edits.get(editIndex));
+        edit.put("keyPoint", keyPoint);
+        edit.put("errorType", errorType);
+        edits.set(editIndex, edit);
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("edits", edits);
+        try {
+            File f = new File(getEditsFilePath(userId, sessionId));
+            mapper.writerWithDefaultPrettyPrinter().writeValue(f, data);
+            log.info("edits.json keyPoint 已更新: sessionId={}, index={}", sessionId, editIndex);
+        } catch (IOException e) {
+            log.error("更新 edits.json keyPoint 失败: sessionId={}", sessionId, e);
+        }
     }
 
     /**

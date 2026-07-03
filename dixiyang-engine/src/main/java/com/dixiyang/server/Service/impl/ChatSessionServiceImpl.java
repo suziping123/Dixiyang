@@ -6,14 +6,18 @@ import com.dixiyang.server.Service.ChatContentFileService;
 import com.dixiyang.server.Service.IChatSessionService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.request.ChatRequest;
+import dev.langchain4j.model.chat.response.ChatResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -24,7 +28,7 @@ public class ChatSessionServiceImpl extends ServiceImpl<ChatSessionMapper, ChatS
     private ChatContentFileService fileService;
 
     @Autowired
-    private ChatClient.Builder chatClientBuilder;
+    private ChatModel chatModel;
 
     @Override
     public List<ChatSession> getSessionsByUser(Long userId, Long novelId) {
@@ -124,12 +128,82 @@ public class ChatSessionServiceImpl extends ServiceImpl<ChatSessionMapper, ChatS
         record.put("editedContent", newContent);
         record.put("timestamp", LocalDateTime.now().toString());
         record.put("version", target.get("version") instanceof Number ? ((Number) target.get("version")).intValue() : 1);
-        // 记录原始内容用于 AI 学习
         record.put("originalContent", target.get("originalContent") != null ? target.get("originalContent") : "");
 
         fileService.addEditRecord(userId, sessionId, record);
         log.info("编辑消息: sessionId={}, index={}", sessionId, messageIndex);
+
+        // 3. 异步提取修正要点（不阻塞响应）
+        int editIndex = fileService.readEdits(userId, sessionId).size() - 1;
+        String original = record.get("originalContent") != null ? (String) record.get("originalContent") : "";
+        extractKeyPointsAsync(userId, sessionId, editIndex, original, newContent);
+
         return true;
+    }
+
+    /**
+     * 异步调用 LLM 提取编辑修正的要点和错误类型
+     */
+    private void extractKeyPointsAsync(Long userId, String sessionId, int editIndex,
+                                        String originalContent, String editedContent) {
+        if (originalContent.isBlank() || editedContent.isBlank()) return;
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                String prompt = """
+                    你是修正要点提取器。对比以下 AI 原始输出和用户修正后的内容，提取修正要点。
+
+                    AI 原始输出：%s
+
+                    用户修正后：%s
+
+                    请返回 JSON（不要 markdown 包裹）：
+                    {"keyPoint":"一句话总结修正要点（30字以内）","errorType":"错误类型"}
+
+                    错误类型只能是以下之一：
+                    - FACT_ERROR（事实/数据错误）
+                    - SETTING_VIOLATION（违背设定）
+                    - TONE_WRONG（语气/风格不对）
+                    - TOO_LONG（太啰嗦）
+                    - OFF_TOPIC（答非所问）
+                    - OTHER（其他）
+
+                    只返回 JSON，不要任何解释。""".formatted(
+                        originalContent.length() > 500 ? originalContent.substring(0, 500) : originalContent,
+                        editedContent.length() > 500 ? editedContent.substring(0, 500) : editedContent);
+
+                ChatResponse response = chatModel.chat(ChatRequest.builder()
+                    .messages(
+                        SystemMessage.from("你是修正要点提取器，只返回 JSON。"),
+                        UserMessage.from(prompt)
+                    )
+                    .build());
+
+                String text = response.aiMessage().text().trim();
+                // 解析 JSON
+                if (text.contains("keyPoint") && text.contains("errorType")) {
+                    String keyPoint = extractJsonField(text, "keyPoint");
+                    String errorType = extractJsonField(text, "errorType");
+                    if (keyPoint != null && errorType != null) {
+                        fileService.updateEditKeyPoint(userId, sessionId, editIndex, keyPoint, errorType);
+                        log.info("修正要点提取成功: sessionId={}, keyPoint={}", sessionId, keyPoint);
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("修正要点提取失败: sessionId={}, error={}", sessionId, e.getMessage());
+            }
+        });
+    }
+
+    private String extractJsonField(String json, String field) {
+        String marker = "\"" + field + "\"";
+        int start = json.indexOf(marker);
+        if (start < 0) return null;
+        start = json.indexOf("\"", start + marker.length() + 1);
+        if (start < 0) return null;
+        int end = json.indexOf("\"", start + 1);
+        if (end < 0) return null;
+        return json.substring(start + 1, end);
     }
 
     @Override
@@ -173,9 +247,15 @@ public class ChatSessionServiceImpl extends ServiceImpl<ChatSessionMapper, ChatS
         String prompt = "你是一个对话标题生成器。请用 3-8 个字概括以下对话的主题，直接返回标题，不要任何解释、标点或引号。\n\n对话：\n" + conversation;
 
         try {
-            String title = chatClientBuilder.build().prompt(prompt).call().content();
+            ChatResponse response = chatModel.chat(ChatRequest.builder()
+                .messages(
+                    SystemMessage.from("你是对话标题生成器，只返回标题。"),
+                    UserMessage.from(prompt)
+                )
+                .build());
+            String title = response.aiMessage().text();
             if (title == null || title.isBlank()) return null;
-            title = title.trim();
+            title = title.trim().replace("\"", "").replace("'", "");
 
             session.setTitle(title);
             this.updateById(session);

@@ -356,7 +356,6 @@ public class ChatController {
                 for (NovelCharacter c : characters) {
                     sb.append("【").append(c.getName()).append("】\n");
                     if (c.getGender() != null) sb.append("性别：").append(c.getGender()).append("\n");
-                    if (c.getAge() != null) sb.append("年龄：").append(c.getAge()).append("\n");
                     if (c.getAppearance() != null) sb.append("外貌：").append(c.getAppearance()).append("\n");
                     if (c.getPersonality() != null) sb.append("性格：").append(c.getPersonality()).append("\n");
                     if (c.getBackground() != null) sb.append("背景：").append(c.getBackground()).append("\n");
