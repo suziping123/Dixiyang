@@ -123,7 +123,8 @@
               @click="options.conversationMode = mode.value as any"
               :title="mode.desc"
             >
-              {{ mode.label }}
+              <el-icon :size="14"><component :is="mode.icon" /></el-icon>
+              <span>{{ mode.label }}</span>
             </button>
           </div>
         </div>
@@ -297,12 +298,20 @@ const options = ref({
   conversationMode: 'WRITE' as 'WRITE' | 'DISCUSS' | 'ANALYZE' | 'BRAINSTORM' | 'ASK'
 })
 
+import {
+  Edit,
+  ChatDotRound,
+  Search,
+  MagicStick,
+  Question
+} from '@element-plus/icons-vue'
+
 const conversationModes = [
-  { value: 'WRITE', label: '✍️ 创作', desc: '按设定写剧情/对话/描写' },
-  { value: 'DISCUSS', label: '💬 讨论', desc: '回答设定相关问题' },
-  { value: 'ANALYZE', label: '🔍 分析', desc: '分析角色/剧情逻辑' },
-  { value: 'BRAINSTORM', label: '💡 头脑风暴', desc: '发散思考找灵感' },
-  { value: 'ASK', label: '❓ 提问', desc: '快速精准回答' }
+  { value: 'WRITE', label: '创作', icon: Edit, desc: '按设定写剧情/对话/描写' },
+  { value: 'DISCUSS', label: '讨论', icon: ChatDotRound, desc: '回答设定相关问题' },
+  { value: 'ANALYZE', label: '分析', icon: Search, desc: '分析角色/剧情逻辑' },
+  { value: 'BRAINSTORM', label: '头脑风暴', icon: MagicStick, desc: '发散思考找灵感' },
+  { value: 'ASK', label: '提问', icon: Question, desc: '快速精准回答' }
 ]
 
 const suggestions = [
@@ -1094,6 +1103,9 @@ onMounted(async () => {
 }
 
 .mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   padding: 6px 10px;
   border: 1px solid var(--glass-border);
   border-radius: 8px;
