@@ -121,7 +121,7 @@ export function useChatStream(userId?: number) {
       storyNodeIds?: (string | number)[]
       includeCharacters?: boolean
       includeStory?: boolean
-      profile?: 'FAST' | 'BALANCED' | 'DEEP'
+      conversationMode?: 'WRITE' | 'DISCUSS' | 'ANALYZE' | 'BRAINSTORM' | 'ASK'
     }
   ) => {
     if (!message.trim() || isStreaming.value) return
@@ -154,7 +154,7 @@ export function useChatStream(userId?: number) {
           storyNodeIds: context.storyNodeIds ?? [],
           includeCharacters: context.includeCharacters ?? true,
           includeStory: context.includeStory ?? true,
-          profile: context.profile ?? 'BALANCED',
+          conversationMode: context.conversationMode ?? 'WRITE',
           sessionId: currentSessionId.value || undefined
         }),
         signal: controller.signal
@@ -252,7 +252,7 @@ export function useChatStream(userId?: number) {
       storyNodeIds?: (string | number)[]
       includeCharacters?: boolean
       includeStory?: boolean
-      profile?: 'FAST' | 'BALANCED' | 'DEEP'
+      conversationMode?: 'WRITE' | 'DISCUSS' | 'ANALYZE' | 'BRAINSTORM' | 'ASK'
     }
   ) => {
     if (isStreaming.value || !currentSessionId.value) return
@@ -285,7 +285,7 @@ export function useChatStream(userId?: number) {
           storyNodeIds: context.storyNodeIds ?? [],
           includeCharacters: context.includeCharacters ?? true,
           includeStory: context.includeStory ?? true,
-          profile: context.profile ?? 'BALANCED'
+          conversationMode: context.conversationMode ?? 'WRITE'
         }),
         signal: controller.signal
       })

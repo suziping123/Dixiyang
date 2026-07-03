@@ -109,14 +109,22 @@
               <input type="checkbox" v-model="options.includeStory" />
               <span>包含故事节点</span>
             </label>
-            <label class="option-item profile-selector">
-              <span>执行档案</span>
-              <select v-model="options.profile" class="profile-select" @change="() => {}">
-                <option value="FAST">⚡ 快速创作 —— 仅用固定设定+历史直接生成，不检索、不思考</option>
-                <option value="BALANCED">⚖️ 均衡模式（推荐） —— 意图识别→按需检索1次→生成</option>
-                <option value="DEEP">🔍 深度创作 —— 规划器拆解步骤→多轮检索(≤3次)→显示思考链路→生成</option>
-              </select>
-            </label>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3>对话模式</h3>
+          <div class="mode-buttons">
+            <button
+              v-for="mode in conversationModes"
+              :key="mode.value"
+              class="mode-btn"
+              :class="{ active: options.conversationMode === mode.value }"
+              @click="options.conversationMode = mode.value as any"
+              :title="mode.desc"
+            >
+              {{ mode.label }}
+            </button>
           </div>
         </div>
       </aside>
@@ -286,8 +294,16 @@ const options = ref({
   useRag: true,
   includeCharacters: true,
   includeStory: true,
-  profile: 'BALANCED' as 'FAST' | 'BALANCED' | 'DEEP'
+  conversationMode: 'WRITE' as 'WRITE' | 'DISCUSS' | 'ANALYZE' | 'BRAINSTORM' | 'ASK'
 })
+
+const conversationModes = [
+  { value: 'WRITE', label: '✍️ 创作', desc: '按设定写剧情/对话/描写' },
+  { value: 'DISCUSS', label: '💬 讨论', desc: '回答设定相关问题' },
+  { value: 'ANALYZE', label: '🔍 分析', desc: '分析角色/剧情逻辑' },
+  { value: 'BRAINSTORM', label: '💡 头脑风暴', desc: '发散思考找灵感' },
+  { value: 'ASK', label: '❓ 提问', desc: '快速精准回答' }
+]
 
 const suggestions = [
   '帮我生成一段角色对话',
@@ -350,7 +366,7 @@ const sendStreamMessage = async () => {
     storyNodeIds: selectedNodes.value,
     includeCharacters: options.value.includeCharacters,
     includeStory: options.value.includeStory,
-    profile: options.value.profile
+    conversationMode: options.value.conversationMode
   })
   scrollToBottom()
 }
@@ -439,7 +455,7 @@ const handleRegenerate = async (index: number) => {
     storyNodeIds: selectedNodes.value,
     includeCharacters: options.value.includeCharacters,
     includeStory: options.value.includeStory,
-    profile: options.value.profile
+    conversationMode: options.value.conversationMode
   })
   scrollToBottom()
 }
@@ -1071,41 +1087,34 @@ onMounted(async () => {
   text-align: center;
 }
 
-.profile-selector {
+.mode-buttons {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 6px;
-  align-items: flex-start;
 }
 
-.profile-select {
-  width: 100%;
-  padding: 10px 12px;
+.mode-btn {
+  padding: 6px 10px;
   border: 1px solid var(--glass-border);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.05);
-  color: var(--text-primary);
-  font-size: 0.85rem;
+  color: var(--text-on-glass);
+  font-size: 0.8rem;
   cursor: pointer;
   transition: all 0.2s;
+  white-space: nowrap;
 }
 
-.profile-select:focus {
-  outline: none;
-  border-color: var(--neon-blue);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+.mode-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--accent-primary);
 }
 
-.profile-select option {
-  background: var(--surface-card);
-  color: var(--text-on-card);
-  padding: 8px;
-}
-
-.profile-desc {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  margin-left: 2px;
+.mode-btn.active {
+  background: var(--accent-primary);
+  color: white;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 8px rgba(var(--accent-primary-rgb, 99, 102, 241), 0.4);
 }
 
 .session-list::-webkit-scrollbar,
