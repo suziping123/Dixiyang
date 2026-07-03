@@ -8,8 +8,7 @@ import com.dixiyang.server.Service.IChatSessionService;
 import com.dixiyang.server.Service.INovelCharacterService;
 import com.dixiyang.server.Service.IStoryNodeService;
 import com.dixiyang.server.Service.RagService;
-import com.dixiyang.server.Service.chat.agent.IntentAnalysisService;
-import com.dixiyang.server.Service.chat.agent.IntentAnalysisService.IntentResult;
+import com.dixiyang.server.Service.chat.agent.ConversationMode;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatModel;
@@ -31,16 +30,49 @@ import java.util.stream.Collectors;
 
 /**
  * AI 聊天控制器（LangChain4j 版）
- * 流程：意图识别 → 结构化 Prompt → LLM 流式输出
+ * 流程：用户指定模式 → 结构化 Prompt → LLM 流式输出
  */
 @Tag(name = "聊天模块")
 @RestController
 @Slf4j
 public class ChatController {
 
+    private static final String SYSTEM_PROMPT_PREFIX = """
+        你是小说创作助手。严格遵循以下规则：
+        1. 角色信息必须与【固定设定】中的角色卡完全一致
+        2. 故事事件必须与【固定设定】中的故事节点一致
+        3. 设定中没有的信息不能凭空编造，必须明确说"设定中没有这个信息"
+        4. 如果用户要求写与设定矛盾的内容，拒绝并说明原因
+
+        根据下方【对话模式】决定你的行为：
+        """;
+
+    private static final String MODE_WRITE = """
+        【对话模式：创作】
+        按设定创作剧情、对话、描写、续写。严格基于固定设定，不自由发挥。
+        """;
+    private static final String MODE_DISCUSS = """
+        【对话模式：讨论】
+        只回答关于角色、世界观、大纲的设定问题。不要创作内容。
+        如果用户要求创作，提醒他切换到创作模式。
+        """;
+    private static final String MODE_ANALYZE = """
+        【对话模式：分析】
+        分析角色性格、剧情逻辑、世界观一致性。给出有依据的分析。
+        请输出 <thinking> 分析过程，再给结论。
+        """;
+    private static final String MODE_BRAINSTORM = """
+        【对话模式：头脑风暴】
+        帮用户发散思考、寻找创作灵感。可以提出多种可能性。
+        请输出 <thinking> 思考过程，再给建议。
+        """;
+    private static final String MODE_ASK = """
+        【对话模式：提问】
+        快速精准回答用户问题，简短不啰嗦。
+        """;
+
     private final ChatModel chatModel;
     private final StreamingChatModel streamingChatModel;
-    private final IntentAnalysisService intentAnalysisService;
     private final RagService ragService;
     private final INovelCharacterService characterService;
     private final IStoryNodeService storyNodeService;
@@ -53,14 +85,12 @@ public class ChatController {
 
     public ChatController(ChatModel chatModel,
                           StreamingChatModel streamingChatModel,
-                          IntentAnalysisService intentAnalysisService,
                           @Autowired(required = false) RagService ragService,
                           INovelCharacterService characterService,
                           IStoryNodeService storyNodeService,
                           IChatSessionService chatSessionService) {
         this.chatModel = chatModel;
         this.streamingChatModel = streamingChatModel;
-        this.intentAnalysisService = intentAnalysisService;
         this.ragService = ragService;
         this.characterService = characterService;
         this.storyNodeService = storyNodeService;
@@ -96,22 +126,14 @@ public class ChatController {
             try {
                 Long userId = getUserIdFromAuth();
                 String sessionId = request.getSessionId();
+                ConversationMode mode = ConversationMode.fromString(request.getConversationMode());
 
-                // 1. 意图识别
-                String historyStr = buildHistoryString(sessionId, userId);
-                IntentResult intent = null;
-                try {
-                    intent = intentAnalysisService.analyze(historyStr, request.getMessage());
-                    log.info("Intent: {} | Goal: {}", intent.intent(), intent.goal());
-                } catch (Exception e) {
-                    log.warn("意图识别失败: {}", e.getMessage());
-                }
+                // 构建 Prompt
+                String systemPrompt = buildSystemPrompt(request, mode);
+                String userPrompt = buildUserPrompt(request);
+                log.info("对话模式: {} | sessionId={}", mode.name(), sessionId);
 
-                // 2. 构建 Prompt
-                String systemPrompt = buildSystemPrompt(request);
-                String userPrompt = buildUserPrompt(request, intent);
-
-                // 3. 流式调用 LLM
+                // 流式调用 LLM
                 dev.langchain4j.model.chat.request.ChatRequest chatReq = dev.langchain4j.model.chat.request.ChatRequest.builder()
                     .messages(
                         SystemMessage.from(systemPrompt),
@@ -253,9 +275,10 @@ public class ChatController {
         try {
             Long userId = getUserIdFromAuth();
             String sessionId = request.getSessionId();
+            ConversationMode mode = ConversationMode.fromString(request.getConversationMode());
 
-            String systemPrompt = buildSystemPrompt(request);
-            String userPrompt = buildUserPrompt(request, null);
+            String systemPrompt = buildSystemPrompt(request, mode);
+            String userPrompt = buildUserPrompt(request);
 
             dev.langchain4j.model.chat.request.ChatRequest chatReq = dev.langchain4j.model.chat.request.ChatRequest.builder()
                 .messages(
@@ -277,46 +300,28 @@ public class ChatController {
 
     // ==================== Prompt 构建 ====================
 
-    private String buildSystemPrompt(ChatRequest request) {
-        String profile = request.getProfile() != null ? request.getProfile() : "BALANCED";
-        return switch (profile) {
-            case "FAST" -> """
-                你是小说创作助手。你具备以下能力：
-                - 创作：按设定写剧情/对话/描写
-                - 讨论：回答关于角色、世界观、大纲的设定问题
-                - 分析：分析角色性格、剧情逻辑、世界观一致性
+    private String buildSystemPrompt(ChatRequest request, ConversationMode mode) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(SYSTEM_PROMPT_PREFIX);
 
-                严格遵循【固定设定】与【对话历史】。不自造设定，不违背前文。
-                直接给出回答，简练、沉浸感强。
-                【核心规则】对于设定、数据、细节不确定时，明确说"我不确定"或反问用户，不要编造。
-                """;
-            case "DEEP" -> """
-                你是资深小说创作专家。你具备以下能力：
-                - 创作：按设定写剧情/对话/描写/续写
-                - 讨论：回答关于角色、世界观、大纲的设定问题
-                - 分析：分析角色性格、剧情逻辑、世界观一致性
-                - 检索：使用 knowledge_search 工具查阅设定细节
+        // 模式指令
+        sb.append(switch (mode) {
+            case WRITE -> MODE_WRITE;
+            case DISCUSS -> MODE_DISCUSS;
+            case ANALYZE -> MODE_ANALYZE;
+            case BRAINSTORM -> MODE_BRAINSTORM;
+            case ASK -> MODE_ASK;
+        });
 
-                严格遵循【固定设定】与【对话历史】。
-                根据用户意图切换模式：用户问设定就讨论设定，用户要创作就写内容。不要答非所问。
-                请输出 <thinking> 思考过程，再给最终回答。
-                【核心规则】对于设定、数据、细节不确定时，明确说"我不确定"或反问用户，不要编造。
-                """;
-            default -> """
-                你是小说创作助手。你具备以下能力：
-                - 创作：按设定写剧情/对话/描写/续写
-                - 讨论：回答关于角色、世界观、大纲的设定问题
-                - 分析：分析角色性格、剧情逻辑、世界观一致性
-                - 检索：使用 knowledge_search 工具查阅设定细节
+        // 用户自定义 system prompt 追加
+        if (request.getCustomSystemPrompt() != null && !request.getCustomSystemPrompt().isBlank()) {
+            sb.append("\n【用户自定义指令】\n").append(request.getCustomSystemPrompt()).append("\n");
+        }
 
-                严格遵循【固定设定】与【对话历史】。
-                根据用户意图切换模式：用户问设定就讨论设定，用户要创作就写内容。不要答非所问。
-                【核心规则】对于设定、数据、细节不确定时，明确说"我不确定"或反问用户，不要编造。
-                """;
-        };
+        return sb.toString();
     }
 
-    private String buildUserPrompt(ChatRequest request, IntentResult intent) {
+    private String buildUserPrompt(ChatRequest request) {
         StringBuilder sb = new StringBuilder();
 
         String fixedContext = buildFixedContext(request);
@@ -333,12 +338,8 @@ public class ChatController {
         if (userId != null && request.getSessionId() != null) {
             String edits = chatSessionService.buildEditContextPrompt(userId, request.getSessionId());
             if (!edits.isBlank()) {
-                sb.append("【编辑修正记忆·仅供避免重复错误】\n").append(edits).append("\n\n");
+                sb.append(edits).append("\n\n");
             }
-        }
-
-        if (intent != null) {
-            sb.append("【用户意图】").append(intent.goal()).append("\n\n");
         }
 
         sb.append("【用户本轮输入】\n").append(request.getMessage());
@@ -439,9 +440,7 @@ public class ChatController {
             if (delta != null) evt.put("delta", delta);
             emitter.send(SseEmitter.event().name("message").data(objectMapper.writeValueAsString(evt)));
         } catch (IllegalStateException ignored) {
-            // emitter 已完成/超时，忽略
         } catch (java.io.IOException e) {
-            // 客户端断开连接（正常取消/刷新），静默处理
             log.debug("客户端断开 SSE: {}", e.getMessage());
         } catch (Exception e) {
             log.warn("发送 SSE 事件异常: {}", e.getMessage());

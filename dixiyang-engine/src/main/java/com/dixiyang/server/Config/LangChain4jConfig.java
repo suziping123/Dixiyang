@@ -1,7 +1,6 @@
 package com.dixiyang.server.Config;
 
 import com.dixiyang.server.Service.chat.agent.ChatService;
-import com.dixiyang.server.Service.chat.agent.IntentAnalysisService;
 import com.dixiyang.server.Service.chat.agent.KnowledgeSearchTool;
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
@@ -74,16 +73,6 @@ public class LangChain4jConfig {
             .chatModel(chatModel)
             .chatMemoryProvider(chatMemoryProvider)
             .tools(knowledgeSearchTool)
-            .build();
-    }
-
-    /**
-     * IntentAnalysisService - 意图识别服务（不带工具）
-     */
-    @Bean
-    public IntentAnalysisService intentAnalysisService(ChatModel chatModel) {
-        return AiServices.builder(IntentAnalysisService.class)
-            .chatModel(chatModel)
             .build();
     }
 }

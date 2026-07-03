@@ -27,6 +27,12 @@ public class ChatRequest {
     private String sessionId;
     // 重新生成时指定消息索引（-1 表示普通对话）
     private Integer regenerateIndex = -1;
-    // 执行档案：FAST/BALANCED/DEEP（默认 BALANCED）
-    private String profile = "BALANCED";
+    // 对话模式：WRITE/DISCUSS/ANALYZE/BRAINSTORM/ASK（默认 WRITE）
+    private String conversationMode = "WRITE";
+    // 用户自定义创造性（0.0-1.0）
+    private Double temperature;
+    // 用户自定义最大输出长度
+    private Integer maxTokens;
+    // 用户自定义 system prompt 追加
+    private String customSystemPrompt;
 }
