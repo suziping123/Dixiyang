@@ -243,6 +243,7 @@ import FloatingNav from '@/components/FloatingNav.vue'
 import ChatMessage from '@/components/chat/ChatMessage.vue'
 import EditMessageModal from '@/components/chat/EditMessageModal.vue'
 import http from '@/utils/http'
+import { confirmDelete } from '@/utils/confirm'
 import { eventTypeLabel, eventTypeConfig, genderLabel, genderStyle } from '@/utils/storyMappings'
 
 const userStore = useUserStore()
@@ -303,7 +304,7 @@ import {
   ChatDotRound,
   Search,
   MagicStick,
-  Question
+  Help
 } from '@element-plus/icons-vue'
 
 const conversationModes = [
@@ -311,7 +312,7 @@ const conversationModes = [
   { value: 'DISCUSS', label: '讨论', icon: ChatDotRound, desc: '回答设定相关问题' },
   { value: 'ANALYZE', label: '分析', icon: Search, desc: '分析角色/剧情逻辑' },
   { value: 'BRAINSTORM', label: '头脑风暴', icon: MagicStick, desc: '发散思考找灵感' },
-  { value: 'ASK', label: '提问', icon: Question, desc: '快速精准回答' }
+  { value: 'ASK', label: '提问', icon: Help, desc: '快速精准回答' }
 ]
 
 const suggestions = [
@@ -470,6 +471,10 @@ const handleRegenerate = async (index: number) => {
 }
 
 const handleDeleteSession = async (sessionId: string) => {
+  const session = sessions.value.find(s => s.sessionId === sessionId)
+  const title = session?.title || '未命名会话'
+  const confirmed = await confirmDelete(`确定删除对话「${title}」吗？此操作不可恢复。`)
+  if (!confirmed) return
   await deleteSession(sessionId, selectedNovel.value?.id)
 }
 
