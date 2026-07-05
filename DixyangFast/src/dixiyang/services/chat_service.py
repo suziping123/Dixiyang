@@ -1,150 +1,134 @@
 import json
+import logging
 import os
 from datetime import datetime
 
-from openai import OpenAI
+from langchain_openai import ChatOpenAI
+
+from ..config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
+from .conversation_mode import ConversationMode, MODE_META, get_mode
+from .prompt_templates import (
+    build_keypoint_prompt,
+    build_system_prompt,
+    build_title_prompt,
+    build_user_prompt,
+)
+
+log = logging.getLogger(__name__)
+
+# ==================== LangChain ChatModel 单例 ====================
+
+_llm_cache: dict[str, ChatOpenAI] = {}
 
 
-def _call_deepseek(messages: list[dict], stream: bool = False):
-    from dixiyang.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
-    client = OpenAI(
-        api_key=DEEPSEEK_API_KEY,
-        base_url=DEEPSEEK_BASE_URL,
-    )
-    kwargs = dict(
-        model="deepseek-chat",
-        messages=messages,
-        stream=stream,
-        max_tokens=8192,
-    )
-    if stream:
-        return client.chat.completions.create(**kwargs)
-    return client.chat.completions.create(**kwargs).choices[0].message.content
-
-
-def build_context_query(character_ids: list[int] | None, story_node_ids: list[int] | None) -> str:
-    from dixiyang.utils.database import SessionLocal
-    from dixiyang.models.character import NovelCharacter
-    from dixiyang.models.story_node import StoryNode
-
-    parts: list[str] = []
-    if character_ids:
-        with SessionLocal() as session:
-            chars = session.query(NovelCharacter).filter(NovelCharacter.id.in_(character_ids)).all()
-            for c in chars:
-                parts.append(
-                    f"[角色: {c.name}, 性别: {c.gender or '无'}, "
-                    f"年龄: {c.age or '无'}, 性格: {c.personality or '无'}, "
-                    f"外貌: {c.appearance or '无'}, 背景: {c.background or '无'}]"
-                )
-    if story_node_ids:
-        with SessionLocal() as session:
-            nodes = session.query(StoryNode).filter(StoryNode.id.in_(story_node_ids)).all()
-            for n in nodes:
-                parts.append(
-                    f"[故事节点: {n.title or '无标题'}, 内容: {n.content or '无'}, "
-                    f"时间: {n.event_date or '无'}, 类型: {n.event_type or '无'}]"
-                )
-    if parts:
-        return "参考上下文：\n" + "\n".join(parts)
-    return ""
-
-
-def build_system_prompt(use_rag: bool) -> str:
-    if use_rag:
-        return (
-            "你是一个专业的小说创作助手。你会得到一些参考上下文（角色信息、故事节点等），"
-            "请基于这些上下文回答用户的问题，帮助用户进行小说创作。"
-            "如果没有提供上下文或上下文不相关，则忽略它。"
+def get_chat_model(
+    temperature: float = 0.7,
+    max_tokens: int = 8192,
+) -> ChatOpenAI:
+    key = f"{temperature}:{max_tokens}"
+    if key not in _llm_cache:
+        _llm_cache[key] = ChatOpenAI(
+            model=DEEPSEEK_MODEL,
+            api_key=DEEPSEEK_API_KEY,
+            base_url=DEEPSEEK_BASE_URL,
+            temperature=temperature,
+            max_tokens=max_tokens,
         )
-    return (
-        "你是一个专业的小说创作助手。请帮助用户进行小说创作，"
-        "提供创意建议、写作指导和内容优化。"
-    )
+    return _llm_cache[key]
 
 
-def build_full_prompt(
-    message: str,
-    use_rag: bool,
+def call_llm(messages: list[dict], temperature: float = 0.7, max_tokens: int = 8192) -> str:
+    """同步调用 LLM，返回文本"""
+    llm = get_chat_model(temperature, max_tokens)
+    from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+    lc_msgs = []
+    for m in messages:
+        role = m.get("role", "user")
+        content = m.get("content", "")
+        if role == "system":
+            lc_msgs.append(SystemMessage(content=content))
+        elif role == "assistant":
+            lc_msgs.append(AIMessage(content=content))
+        else:
+            lc_msgs.append(HumanMessage(content=content))
+    resp = llm.invoke(lc_msgs)
+    return resp.content
+
+
+# ==================== 上下文构建 ====================
+
+def build_fixed_context(
     character_ids: list[int] | None,
     story_node_ids: list[int] | None,
-    edit_context: str | None = None,
-) -> list[dict]:
-    context = build_context_query(character_ids, story_node_ids) if use_rag else ""
-    system = build_system_prompt(use_rag)
-    if edit_context:
-        system += "\n\n" + edit_context
-    messages = [{"role": "system", "content": system}]
-    if context:
-        messages.append({"role": "user", "content": context})
-        messages.append({"role": "assistant", "content": "已收到参考上下文，请继续提问。"})
-    messages.append({"role": "user", "content": message})
-    return messages
+    include_characters: bool = True,
+    include_story: bool = True,
+) -> str:
+    """构建固定设定上下文（角色卡 + 故事节点全字段）"""
+    from ..utils.database import SessionLocal
+    from ..models.character import NovelCharacter
+    from ..models.story_node import StoryNode
+
+    parts: list[str] = []
+
+    if include_characters and character_ids:
+        with SessionLocal() as db:
+            chars = db.query(NovelCharacter).filter(NovelCharacter.id.in_(character_ids)).all()
+            for c in chars:
+                lines = [f"[角色: {c.name}"]
+                if c.gender:
+                    lines.append(f"性别: {c.gender}")
+                if c.appearance:
+                    lines.append(f"外貌: {c.appearance}")
+                if c.personality:
+                    lines.append(f"性格: {c.personality}")
+                if c.background:
+                    lines.append(f"背景: {c.background}")
+                if c.extra:
+                    lines.append(f"附加: {c.extra}")
+                lines.append("]")
+                parts.append(", ".join(lines))
+
+    if include_story and story_node_ids:
+        with SessionLocal() as db:
+            nodes = db.query(StoryNode).filter(StoryNode.id.in_(story_node_ids)).all()
+            for n in nodes:
+                lines = [f"[故事节点: {n.title or '无标题'}"]
+                if n.event_date:
+                    lines.append(f"时间: {n.event_date}")
+                if n.event_type:
+                    lines.append(f"类型: {n.event_type}")
+                if n.importance:
+                    lines.append(f"重要性: {n.importance}")
+                if n.character_names:
+                    lines.append(f"涉及角色: {n.character_names}")
+                if n.tags:
+                    lines.append(f"标签: {n.tags}")
+                if n.content:
+                    lines.append(f"内容: {n.content[:300]}")
+                lines.append("]")
+                parts.append(", ".join(lines))
+
+    return "\n".join(parts) if parts else ""
 
 
-def load_chain_messages(chain_dir: str) -> list[dict]:
-    """读取链式文件，返回按顺序的消息列表"""
-    if not os.path.isdir(chain_dir):
-        return []
-    chain_files = sorted(
-        [f for f in os.listdir(chain_dir) if f.endswith(".json") and f != "edits.json"],
-        key=lambda f: f.split("_")[0],
-    )
-    messages: list[dict] = []
-    for fname in chain_files:
-        fpath = os.path.join(chain_dir, fname)
-        try:
-            with open(fpath, encoding="utf-8") as f:
-                data = json.load(f)
-        except Exception:
-            continue
-        items = data if isinstance(data, list) else [data]
-        for item in items:
-            msg = {"role": item.get("role", "user"), "content": item.get("content", "")}
-            if item.get("thinking"):
-                msg["thinking"] = item["thinking"]
-            messages.append(msg)
-    return messages
+# ==================== 链文件操作（委托给 chain_file_manager）====================
+
+from .chain_file_manager import (
+    read_chain as load_chain_messages,
+    write_chain_file as _write_chain,
+    truncate_chain,
+    read_edits,
+    read_summary,
+    write_summary,
+)
 
 
-def save_chain_file(chain_dir: str, messages: list[dict]):
-    """追加消息到新的链文件"""
-    os.makedirs(chain_dir, exist_ok=True)
-    ts = int(datetime.now().timestamp() * 1000)
-    rand = os.urandom(4).hex()
-    fname = f"{ts}_{rand}.json"
-    with open(os.path.join(chain_dir, fname), "w", encoding="utf-8") as f:
-        json.dump(messages, f, ensure_ascii=False, indent=2)
+def save_chain_file(chain_dir: str, messages: list[dict], title: str = ""):
+    """保存消息到新的链文件"""
+    _write_chain(chain_dir, messages, title)
 
 
-def truncate_chain(chain_dir: str, keep_count: int):
-    """保留链中前 keep_count 条消息，删除后续文件"""
-    if not os.path.isdir(chain_dir):
-        return
-    chain_files = sorted(
-        [f for f in os.listdir(chain_dir) if f.endswith(".json") and f != "edits.json"],
-        key=lambda f: f.split("_")[0],
-    )
-    all_msgs: list[dict] = []
-    for fname in chain_files:
-        fpath = os.path.join(chain_dir, fname)
-        try:
-            with open(fpath, encoding="utf-8") as f:
-                data = json.load(f)
-        except Exception:
-            continue
-        items = data if isinstance(data, list) else [data]
-        all_msgs.extend(items)
-        os.remove(fpath)
-
-    kept = all_msgs[:keep_count]
-    if kept:
-        ts = int(datetime.now().timestamp() * 1000)
-        rand = os.urandom(4).hex()
-        fname = f"{ts}_{rand}.json"
-        with open(os.path.join(chain_dir, fname), "w", encoding="utf-8") as f:
-            json.dump(kept, f, ensure_ascii=False, indent=2)
-
+# ==================== 编辑修正 ====================
 
 def load_edit_context(chain_dir: str) -> str:
     """读取 edits.json 构建修正 prompt"""
@@ -160,8 +144,56 @@ def load_edit_context(chain_dir: str) -> str:
         return ""
     lines = ["以下是用户对之前回答的修正记录，请学习这些修正，避免再犯同样错误："]
     for e in edits:
+        key_point = e.get("keyPoint", "")
+        error_type = e.get("errorType", "")
         orig = e.get("original", "")
         edited = e.get("edited", "")
         idx = e.get("message_index", "?")
-        lines.append(f"- 修正 #{idx}: 原文「{orig}」→ 修正版「{edited}」")
+        if key_point:
+            lines.append(f"- 修正 #{idx} [{error_type}]: {key_point}")
+        else:
+            lines.append(f"- 修正 #{idx}: 原文「{orig[:80]}」→ 修正版「{edited[:80]}」")
+    return "\n".join(lines)
+
+
+def extract_keypoint_async(original: str, edited: str):
+    """异步提取编辑修正要点（fire-and-forget）"""
+    import asyncio
+    import threading
+
+    def _run():
+        try:
+            prompt = build_keypoint_prompt(original, edited)
+            result = call_llm(
+                [{"role": "user", "content": prompt}],
+                temperature=0.3,
+                max_tokens=128,
+            )
+            result = result.strip()
+            if result.startswith("```"):
+                result = result.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+            return json.loads(result)
+        except Exception as e:
+            log.warning("keypoint 提取失败: %s", e)
+            return {"keyPoint": "", "errorType": "OTHER"}
+
+    # 在线程池中运行，不阻塞主流程
+    import concurrent.futures
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    return pool.submit(_run)
+
+
+# ==================== 消息历史格式化 ====================
+
+def format_history_for_prompt(messages: list[dict], max_pairs: int = 20) -> str:
+    """将消息列表格式化为历史文本"""
+    recent = messages[-max_pairs * 2:] if len(messages) > max_pairs * 2 else messages
+    lines: list[str] = []
+    for m in recent:
+        role = m.get("role", "user")
+        content = m.get("content", "")
+        if not content:
+            continue
+        label = "用户" if role == "user" else "AI"
+        lines.append(f"{label}：{content[:500]}")
     return "\n".join(lines)
