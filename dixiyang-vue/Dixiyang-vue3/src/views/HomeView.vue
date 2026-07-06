@@ -24,74 +24,75 @@
           <p>正在加载你的创作宇宙...</p>
         </div>
 
-        <div v-else-if="novels.length > 0" class="galaxy-grid">
-          <div v-for="novel in novels" :key="novel.id" class="novel-card-wrapper" @mouseenter="hoveredCard = novel.id" @mouseleave="hoveredCard = null">
-            <div class="glass-card novel-card" :class="{ flipped: flippedCards.has(novel.id) }" @click="handleCardClick(novel, $event)" title="点击查看宇宙概览，快速双击翻转">
-              <div class="card-glow" :style="{ opacity: hoveredCard === novel.id ? 1 : 0 }"></div>
-
-              <!-- 封面层 -->
-              <div class="novel-cover-wrapper">
-                <button class="novel-cover">
-                  <img :src="resolveNovelCover(novel.cover_url)"
-                    alt="封面"
-                    @error="(e: Event) => { (e.target as HTMLImageElement).src = defaultCover }"
-                  >
-                </button>
-              </div>
-
-              <!-- 内容层 -->
-              <div class="card-content">
-                <div class="card-header">
-                  <span class="pen-name">{{ novel.pen_name || '匿名作者' }}</span>
-                  <span class="novel-id">#{{ novel.id }}</span>
-                </div>
-                <h2 class="novel-title">{{ novel.title }}</h2>
-                <p class="description">{{ novel.description || '暂无描述' }}</p>
-                <div class="card-stats" :class="{ expanded: hoveredCard === novel.id }">
-                  <div class="stat">
-                    <svg class="stat-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-                    <span>角色</span>
-                    <b class="stat-value">{{ novel.char_count || 0 }}</b>
-                  </div>
-                  <div class="stat">
-                    <svg class="stat-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h16V4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16v-2H4V6z"/></svg>
-                    <span>节点</span>
-                    <b class="stat-value">{{ novel.node_count || 0 }}</b>
-                  </div>
-                  <div class="stat" v-if="hoveredCard === novel.id">
-                    <svg class="stat-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-5.04-6.71l-2.75 3.54-2.16-2.66c-.44-.53-1.25-.53-1.69 0-.44.54-.44 1.39 0 1.93l3 3.68c.44.53 1.25.53 1.69 0L21.27 9c.44-.54.44-1.39 0-1.93-.44-.54-1.25-.54-1.69 0l-6.62 8.22z"/></svg>
-                    <span>关联</span>
-                    <b class="stat-value">{{ novel.relation_count || 0 }}</b>
-                  </div>
-                </div>
-                <div class="card-actions-row">
-                  <button class="action-btn-sm character-btn" @click.stop="openCharacterManager(novel)" title="角色管理">
-                    <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-                  </button>
-                  <button class="action-btn-sm timeline-btn" @click.stop="openTimeline(novel)" title="时间线管理">
-                    <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
-                  </button>
-                  <button class="action-btn-sm delete-btn" @click.stop="deleteNovel(novel)" title="删除小说">
-                    <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                  </button>
-                </div>
-                <button class="enter-btn" @click.stop="openNovel(novel)" title="进入创作">
-                  <span class="btn-text">进入创作</span>
-                  <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M5 13l4 4L19 7"/></svg>
-                </button>
-              </div>
-              <div class="card-border-gradient"></div>
-            </div>
+        <template v-else>
+          <div v-if="novels.length === 0" class="empty-hint">
+            <svg viewBox="0 0 100 100" class="empty-icon"><circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" stroke-width="2" opacity="0.3"/><path d="M50 30 L60 50 L50 70 L40 50 Z" fill="currentColor" opacity="0.3"/></svg>
+            <p>暂无创作宇宙，开始构建你的第一个宇宙吧</p>
           </div>
 
-          <CreateCard @create-success="fetchNovels" />
-        </div>
+          <div class="galaxy-grid" :class="{ 'single-card': novels.length === 0 }">
+            <div v-for="novel in novels" :key="novel.id" class="novel-card-wrapper" @mouseenter="hoveredCard = novel.id" @mouseleave="hoveredCard = null">
+              <div class="glass-card novel-card" :class="{ flipped: flippedCards.has(novel.id) }" @click="handleCardClick(novel, $event)" title="点击查看宇宙概览，快速双击翻转">
+                <div class="card-glow" :style="{ opacity: hoveredCard === novel.id ? 1 : 0 }"></div>
 
-        <div v-else class="empty-state">
-          <svg viewBox="0 0 100 100" class="empty-icon"><circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" stroke-width="2" opacity="0.3"/><path d="M50 30 L60 50 L50 70 L40 50 Z" fill="currentColor" opacity="0.3"/></svg>
-          <p>暂无创作宇宙，点击下方按钮开始创建</p>
-          <CreateCard @create-success="fetchNovels" />
-        </div>
+                <!-- 封面层 -->
+                <div class="novel-cover-wrapper">
+                  <button class="novel-cover">
+                    <img :src="resolveNovelCover(novel.cover_url)"
+                      alt="封面"
+                      @error="(e: Event) => { (e.target as HTMLImageElement).src = defaultCover }"
+                    >
+                  </button>
+                </div>
+
+                <!-- 内容层 -->
+                <div class="card-content">
+                  <div class="card-header">
+                    <span class="pen-name">{{ novel.pen_name || '匿名作者' }}</span>
+                    <span class="novel-id">#{{ novel.id }}</span>
+                  </div>
+                  <h2 class="novel-title">{{ novel.title }}</h2>
+                  <p class="description">{{ novel.description || '暂无描述' }}</p>
+                  <div class="card-stats" :class="{ expanded: hoveredCard === novel.id }">
+                    <div class="stat">
+                      <svg class="stat-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                      <span>角色</span>
+                      <b class="stat-value">{{ novel.char_count || 0 }}</b>
+                    </div>
+                    <div class="stat">
+                      <svg class="stat-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h16V4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16v-2H4V6z"/></svg>
+                      <span>节点</span>
+                      <b class="stat-value">{{ novel.node_count || 0 }}</b>
+                    </div>
+                    <div class="stat" v-if="hoveredCard === novel.id">
+                      <svg class="stat-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-5.04-6.71l-2.75 3.54-2.16-2.66c-.44-.53-1.25-.53-1.69 0-.44.54-.44 1.39 0 1.93l3 3.68c.44.53 1.25.53 1.69 0L21.27 9c.44-.54.44-1.39 0-1.93-.44-.54-1.25-.54-1.69 0l-6.62 8.22z"/></svg>
+                      <span>关联</span>
+                      <b class="stat-value">{{ novel.relation_count || 0 }}</b>
+                    </div>
+                  </div>
+                  <div class="card-actions-row">
+                    <button class="action-btn-sm character-btn" @click.stop="openCharacterManager(novel)" title="角色管理">
+                      <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                    </button>
+                    <button class="action-btn-sm timeline-btn" @click.stop="openTimeline(novel)" title="时间线管理">
+                      <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+                    </button>
+                    <button class="action-btn-sm delete-btn" @click.stop="deleteNovel(novel)" title="删除小说">
+                      <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                    </button>
+                  </div>
+                  <button class="enter-btn" @click.stop="openNovel(novel)" title="进入创作">
+                    <span class="btn-text">进入创作</span>
+                    <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M5 13l4 4L19 7"/></svg>
+                  </button>
+                </div>
+                <div class="card-border-gradient"></div>
+              </div>
+            </div>
+
+            <CreateCard @create-success="fetchNovels" />
+          </div>
+        </template>
 
 
       </div>
@@ -541,6 +542,21 @@ onBeforeUnmount(() => {
   gap: 35px;
   margin-top: 30px;
 }
+.galaxy-grid.single-card {
+  max-width: 320px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.empty-hint {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 40px 20px 0;
+}
+.empty-hint p {
+  margin: 0;
+  font-size: 1rem;
+}
 
 .novel-card-wrapper {
   cursor: pointer;
@@ -912,18 +928,6 @@ onBeforeUnmount(() => {
 }
 
 /* ============ 空状态 ============ */
-.empty-state, .empty-state-drawer {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.empty-state {
-  padding: 80px 40px;
-}
 
 .empty-state-drawer {
   height: 300px;
