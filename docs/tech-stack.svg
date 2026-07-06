@@ -1,414 +1,299 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 620" font-family="'Segoe UI', system-ui, sans-serif">
   <defs>
-    <!-- 渐变定义 -->
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#0f0f23"/>
-      <stop offset="50%" style="stop-color:#1a1a3e"/>
-      <stop offset="100%" style="stop-color:#0d1117"/>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0a1a"/>
+      <stop offset="100%" style="stop-color:#1a1a2e"/>
     </linearGradient>
-    <linearGradient id="vueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="vueGrad" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" style="stop-color:#42b883"/>
       <stop offset="100%" style="stop-color:#35495e"/>
     </linearGradient>
-    <linearGradient id="springGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#6db33f"/>
-      <stop offset="100%" style="stop-color:#5a9a2f"/>
-    </linearGradient>
-    <linearGradient id="pythonGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#3776ab"/>
+    <linearGradient id="pyGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#306998"/>
       <stop offset="100%" style="stop-color:#ffd43b"/>
     </linearGradient>
-    <linearGradient id="aiGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#ff6b6b"/>
-      <stop offset="100%" style="stop-color:#a855f7"/>
+    <linearGradient id="cudaGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#76b900"/>
+      <stop offset="100%" style="stop-color:#5a8f00"/>
     </linearGradient>
-    <linearGradient id="dbGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#00758f"/>
-      <stop offset="100%" style="stop-color:#f29111"/>
-    </linearGradient>
-    <linearGradient id="chromaGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#ff6b35"/>
-      <stop offset="100%" style="stop-color:#f7c948"/>
-    </linearGradient>
-    
-    <!-- 发光效果 -->
     <filter id="glow">
-      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-      <feMerge>
-        <feMergeNode in="coloredBlur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-    <filter id="softGlow">
-      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
-      <feMerge>
-        <feMergeNode in="coloredBlur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
 
   <!-- 背景 -->
-  <rect width="1200" height="800" fill="url(#bgGrad)"/>
+  <rect width="1000" height="620" fill="url(#bg)"/>
   
-  <!-- 装饰网格 -->
-  <g opacity="0.03">
-    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" stroke-width="1"/>
-    </pattern>
-    <rect width="1200" height="800" fill="url(#grid)"/>
-  </g>
-
   <!-- 标题 -->
-  <text x="600" y="55" text-anchor="middle" fill="white" font-size="32" font-weight="800" letter-spacing="2" filter="url(#softGlow)">
-    DIXIYANG ENGINE
-  </text>
-  <text x="600" y="80" text-anchor="middle" fill="#888" font-size="14" letter-spacing="4">
-    AI-POWERED NOVEL CREATION PLATFORM
-  </text>
+  <text x="500" y="40" text-anchor="middle" fill="white" font-size="26" font-weight="800" filter="url(#glow)">DIXIYANG</text>
+  <text x="500" y="60" text-anchor="middle" fill="#666" font-size="11" letter-spacing="6">AI-POWERED RAG SYSTEM</text>
 
-  <!-- ==================== 前端层 (Vue3) ==================== -->
-  <g transform="translate(50, 100)">
-    <!-- 层背景 -->
-    <rect x="0" y="0" width="1100" height="140" rx="16" fill="rgba(66,184,131,0.08)" stroke="rgba(66,184,131,0.3)" stroke-width="1"/>
-    <text x="25" y="30" fill="#42b883" font-size="14" font-weight="700" letter-spacing="2">FRONTEND</text>
-    
-    <!-- Vue3 核心 -->
-    <g transform="translate(25, 45)">
-      <rect x="0" y="0" width="100" height="80" rx="12" fill="rgba(66,184,131,0.15)" stroke="#42b883" stroke-width="1.5"/>
-      <text x="50" y="35" text-anchor="middle" fill="#42b883" font-size="24" font-weight="800">Vue</text>
-      <text x="50" y="55" text-anchor="middle" fill="#42b883" font-size="11">3.5.29</text>
-      <text x="50" y="70" text-anchor="middle" fill="#888" font-size="9">Composition API</text>
+  <!-- ==================== 阶段1: GPU 离线向量化 ==================== -->
+  <g transform="translate(40, 85)">
+    <rect x="0" y="0" width="920" height="150" rx="14" fill="rgba(118,185,0,0.06)" stroke="rgba(118,185,0,0.3)" stroke-width="1.5"/>
+    <text x="20" y="25" fill="#76b900" font-size="13" font-weight="700" letter-spacing="3">PHASE 1 · GPU 向量化 (离线)</text>
+
+    <!-- NVIDIA Logo 简化 -->
+    <g transform="translate(20, 45)">
+      <rect width="70" height="70" rx="10" fill="rgba(118,185,0,0.15)" stroke="#76b900" stroke-width="1.5"/>
+      <text x="35" y="30" text-anchor="middle" fill="#76b900" font-size="22" font-weight="900">N</text>
+      <text x="35" y="50" text-anchor="middle" fill="#76b900" font-size="8" letter-spacing="1">VIDIA</text>
+      <text x="35" y="65" text-anchor="middle" fill="#888" font-size="8">GPU</text>
     </g>
 
-    <!-- Vite -->
-    <g transform="translate(140, 45)">
-      <rect x="0" y="0" width="90" height="80" rx="12" fill="rgba(189,52,254,0.12)" stroke="#bd34fe" stroke-width="1.5"/>
-      <text x="45" y="35" text-anchor="middle" fill="#bd34fe" font-size="20" font-weight="800">Vite</text>
-      <text x="45" y="55" text-anchor="middle" fill="#bd34fe" font-size="10">7.3.1</text>
-      <text x="45" y="70" text-anchor="middle" fill="#888" font-size="9">Build Tool</text>
+    <!-- 数据源 -->
+    <g transform="translate(105, 50)">
+      <rect width="100" height="55" rx="8" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+      <text x="50" y="22" text-anchor="middle" fill="#aaa" font-size="11" font-weight="600">Data Sources</text>
+      <text x="50" y="38" text-anchor="middle" fill="#666" font-size="9">PDF / CSV / MD</text>
+      <text x="50" y="50" text-anchor="middle" fill="#666" font-size="8">processor.py</text>
     </g>
 
-    <!-- Tailwind -->
-    <g transform="translate(245, 45)">
-      <rect x="0" y="0" width="100" height="80" rx="12" fill="rgba(56,189,248,0.12)" stroke="#38bdf8" stroke-width="1.5"/>
-      <text x="50" y="30" text-anchor="middle" fill="#38bdf8" font-size="16" font-weight="700">Tailwind</text>
-      <text x="50" y="48" text-anchor="middle" fill="#38bdf8" font-size="10">CSS 4.2.1</text>
-      <text x="50" y="65" text-anchor="middle" fill="#888" font-size="9">Utility-First</text>
+    <!-- 箭头 -->
+    <g opacity="0.4">
+      <line x1="215" y1="82" x2="240" y2="82" stroke="#76b900" stroke-width="1.5"/>
+      <polygon points="240,78 248,82 240,86" fill="#76b900"/>
     </g>
 
-    <!-- Element Plus -->
-    <g transform="translate(360, 45)">
-      <rect x="0" y="0" width="100" height="80" rx="12" fill="rgba(64,158,255,0.12)" stroke="#409eff" stroke-width="1.5"/>
-      <text x="50" y="30" text-anchor="middle" fill="#409eff" font-size="14" font-weight="700">Element</text>
-      <text x="50" y="48" text-anchor="middle" fill="#409eff" font-size="10">Plus 2.13</text>
-      <text x="50" y="65" text-anchor="middle" fill="#888" font-size="9">UI Components</text>
+    <!-- 切割 -->
+    <g transform="translate(260, 50)">
+      <rect width="100" height="55" rx="8" fill="rgba(255,107,107,0.08)" stroke="rgba(255,107,107,0.3)" stroke-width="1"/>
+      <text x="50" y="22" text-anchor="middle" fill="#ff6b6b" font-size="11" font-weight="600">Chunking</text>
+      <text x="50" y="38" text-anchor="middle" fill="#888" font-size="8">RecursiveTextSplitter</text>
+      <text x="50" y="50" text-anchor="middle" fill="#666" font-size="8">512 tokens</text>
     </g>
 
-    <!-- Pinia -->
-    <g transform="translate(475, 45)">
-      <rect x="0" y="0" width="80" height="80" rx="12" fill="rgba(255,214,0,0.12)" stroke="#ffd600" stroke-width="1.5"/>
-      <text x="40" y="30" text-anchor="middle" fill="#ffd600" font-size="16" font-weight="700">Pinia</text>
-      <text x="40" y="48" text-anchor="middle" fill="#ffd600" font-size="10">3.0.4</text>
-      <text x="40" y="65" text-anchor="middle" fill="#888" font-size="9">State Mgmt</text>
+    <!-- 箭头 -->
+    <g opacity="0.4">
+      <line x1="370" y1="82" x2="395" y2="82" stroke="#ff6b6b" stroke-width="1.5"/>
+      <polygon points="395,78 403,82 395,86" fill="#ff6b6b"/>
     </g>
 
-    <!-- Router -->
-    <g transform="translate(570, 45)">
-      <rect x="0" y="0" width="80" height="80" rx="12" fill="rgba(66,184,131,0.12)" stroke="#42b883" stroke-width="1.5"/>
-      <text x="40" y="30" text-anchor="middle" fill="#42b883" font-size="14" font-weight="700">Router</text>
-      <text x="40" y="48" text-anchor="middle" fill="#42b883" font-size="10">5.0.3</text>
-      <text x="40" y="65" text-anchor="middle" fill="#888" font-size="9">Navigation</text>
+    <!-- bge-m3 Embedding -->
+    <g transform="translate(415, 45)">
+      <rect width="130" height="65" rx="10" fill="rgba(255,212,59,0.1)" stroke="rgba(255,212,59,0.4)" stroke-width="1.5"/>
+      <!-- bge-m3 简化 logo -->
+      <circle cx="25" cy="32" r="14" fill="none" stroke="#ffd43b" stroke-width="1.5"/>
+      <text x="25" y="36" text-anchor="middle" fill="#ffd43b" font-size="10" font-weight="700">bge</text>
+      <text x="80" y="22" text-anchor="middle" fill="#ffd43b" font-size="13" font-weight="700">bge-m3</text>
+      <text x="80" y="38" text-anchor="middle" fill="#888" font-size="8">Embedding</text>
+      <text x="80" y="50" text-anchor="middle" fill="#666" font-size="8">1024 dim</text>
+      <text x="80" y="60" text-anchor="middle" fill="#666" font-size="7">sentence-transformers</text>
     </g>
 
-    <!-- GSAP -->
-    <g transform="translate(665, 45)">
-      <rect x="0" y="0" width="80" height="80" rx="12" fill="rgba(136,0,255,0.12)" stroke="#8800ff" stroke-width="1.5"/>
-      <text x="40" y="30" text-anchor="middle" fill="#8800ff" font-size="18" font-weight="800">GSAP</text>
-      <text x="40" y="48" text-anchor="middle" fill="#8800ff" font-size="10">3.14.2</text>
-      <text x="40" y="65" text-anchor="middle" fill="#888" font-size="9">Animation</text>
+    <!-- 箭头 -->
+    <g opacity="0.4">
+      <line x1="555" y1="82" x2="580" y2="82" stroke="#ffd43b" stroke-width="1.5"/>
+      <polygon points="580,78 588,82 580,86" fill="#ffd43b"/>
     </g>
-
-    <!-- Axios -->
-    <g transform="translate(760, 45)">
-      <rect x="0" y="0" width="80" height="80" rx="12" fill="rgba(100,53,202,0.12)" stroke="#6435c9" stroke-width="1.5"/>
-      <text x="40" y="30" text-anchor="middle" fill="#6435c9" font-size="14" font-weight="700">Axios</text>
-      <text x="40" y="48" text-anchor="middle" fill="#6435c9" font-size="10">1.13.6</text>
-      <text x="40" y="65" text-anchor="middle" fill="#888" font-size="9">HTTP Client</text>
-    </g>
-
-    <!-- TypeScript -->
-    <g transform="translate(855, 45)">
-      <rect x="0" y="0" width="90" height="80" rx="12" fill="rgba(49,120,198,0.12)" stroke="#3178c6" stroke-width="1.5"/>
-      <text x="45" y="30" text-anchor="middle" fill="#3178c6" font-size="16" font-weight="700">TS</text>
-      <text x="45" y="48" text-anchor="middle" fill="#3178c6" font-size="10">5.9.3</text>
-      <text x="45" y="65" text-anchor="middle" fill="#888" font-size="9">Type Safety</text>
-    </g>
-
-    <!-- Marked + Highlight.js -->
-    <g transform="translate(960, 45)">
-      <rect x="0" y="0" width="100" height="80" rx="12" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
-      <text x="50" y="30" text-anchor="middle" fill="#ccc" font-size="12" font-weight="600">Markdown</text>
-      <text x="50" y="48" text-anchor="middle" fill="#888" font-size="9">marked + hljs</text>
-      <text x="50" y="65" text-anchor="middle" fill="#888" font-size="9">DOMPurify</text>
-    </g>
-  </g>
-
-  <!-- ==================== Java 后端层 ==================== -->
-  <g transform="translate(50, 260)">
-    <rect x="0" y="0" width="530" height="180" rx="16" fill="rgba(109,179,63,0.08)" stroke="rgba(109,179,63,0.3)" stroke-width="1"/>
-    <text x="25" y="30" fill="#6db33f" font-size="14" font-weight="700" letter-spacing="2">JAVA BACKEND · Spring Boot 3.4.2</text>
-    
-    <!-- Spring Boot -->
-    <g transform="translate(25, 45)">
-      <rect x="0" y="0" width="120" height="55" rx="10" fill="rgba(109,179,63,0.15)" stroke="#6db33f" stroke-width="1.5"/>
-      <text x="60" y="25" text-anchor="middle" fill="#6db33f" font-size="16" font-weight="800">Spring Boot</text>
-      <text x="60" y="42" text-anchor="middle" fill="#888" font-size="10">REST API + Security</text>
-    </g>
-
-    <!-- MyBatis Plus -->
-    <g transform="translate(160, 45)">
-      <rect x="0" y="0" width="100" height="55" rx="10" fill="rgba(0,144,215,0.12)" stroke="#0090d7" stroke-width="1.5"/>
-      <text x="50" y="25" text-anchor="middle" fill="#0090d7" font-size="14" font-weight="700">MyBatis+</text>
-      <text x="50" y="42" text-anchor="middle" fill="#888" font-size="10">ORM 3.5.10</text>
-    </g>
-
-    <!-- JWT -->
-    <g transform="translate(275, 45)">
-      <rect x="0" y="0" width="80" height="55" rx="10" fill="rgba(212,175,55,0.12)" stroke="#d4af37" stroke-width="1.5"/>
-      <text x="40" y="25" text-anchor="middle" fill="#d4af37" font-size="16" font-weight="700">JWT</text>
-      <text x="40" y="42" text-anchor="middle" fill="#888" font-size="10">Auth 0.11.5</text>
-    </g>
-
-    <!-- Mail -->
-    <g transform="translate(370, 45)">
-      <rect x="0" y="0" width="80" height="55" rx="10" fill="rgba(234,88,12,0.12)" stroke="#ea580c" stroke-width="1.5"/>
-      <text x="40" y="25" text-anchor="middle" fill="#ea580c" font-size="14" font-weight="700">Mail</text>
-      <text x="40" y="42" text-anchor="middle" fill="#888" font-size="10">QQ SMTP</text>
-    </g>
-
-    <!-- Spring AI + LangChain4j -->
-    <g transform="translate(25, 110)">
-      <rect x="0" y="0" width="230" height="55" rx="10" fill="rgba(255,107,107,0.1)" stroke="rgba(255,107,107,0.4)" stroke-width="1.5" stroke-dasharray="4,2"/>
-      <text x="115" y="25" text-anchor="middle" fill="#ff6b6b" font-size="14" font-weight="700">Spring AI 1.0.0-M5 + LangChain4j 1.17</text>
-      <text x="115" y="42" text-anchor="middle" fill="#888" font-size="10">Agent Loop · Tool Calling · RAG</text>
-    </g>
-
-    <!-- DeepSeek -->
-    <g transform="translate(270, 110)">
-      <rect x="0" y="0" width="100" height="55" rx="10" fill="rgba(99,102,241,0.12)" stroke="#6366f1" stroke-width="1.5"/>
-      <text x="50" y="25" text-anchor="middle" fill="#6366f1" font-size="14" font-weight="700">DeepSeek</text>
-      <text x="50" y="42" text-anchor="middle" fill="#888" font-size="10">LLM API</text>
-    </g>
-
-    <!-- MySQL -->
-    <g transform="translate(385, 110)">
-      <rect x="0" y="0" width="100" height="55" rx="10" fill="rgba(0,117,143,0.12)" stroke="#00758f" stroke-width="1.5"/>
-      <text x="50" y="25" text-anchor="middle" fill="#00758f" font-size="14" font-weight="700">MySQL</text>
-      <text x="50" y="42" text-anchor="middle" fill="#888" font-size="10">Docker 8.0</text>
-    </g>
-  </g>
-
-  <!-- ==================== Python 后端层 ==================== -->
-  <g transform="translate(620, 260)">
-    <rect x="0" y="0" width="530" height="180" rx="16" fill="rgba(55,118,171,0.08)" stroke="rgba(55,118,171,0.3)" stroke-width="1"/>
-    <text x="25" y="30" fill="#3776ab" font-size="14" font-weight="700" letter-spacing="2">PYTHON BACKEND · RAG SERVICE</text>
-    
-    <!-- FastAPI -->
-    <g transform="translate(25, 45)">
-      <rect x="0" y="0" width="100" height="55" rx="10" fill="rgba(0,150,136,0.12)" stroke="#009688" stroke-width="1.5"/>
-      <text x="50" y="25" text-anchor="middle" fill="#009688" font-size="16" font-weight="800">FastAPI</text>
-      <text x="50" y="42" text-anchor="middle" fill="#888" font-size="10">ASGI · Pydantic</text>
-    </g>
-
-    <!-- SQLAlchemy -->
-    <g transform="translate(140, 45)">
-      <rect x="0" y="0" width="100" height="55" rx="10" fill="rgba(207,68,55,0.12)" stroke="#cf4437" stroke-width="1.5"/>
-      <text x="50" y="25" text-anchor="middle" fill="#cf4437" font-size="14" font-weight="700">SQLAlchemy</text>
-      <text x="50" y="42" text-anchor="middle" fill="#888" font-size="10">ORM</text>
-    </g>
-
-    <!-- LangChain -->
-    <g transform="translate(255, 45)">
-      <rect x="0" y="0" width="110" height="55" rx="10" fill="rgba(255,107,107,0.1)" stroke="rgba(255,107,107,0.4)" stroke-width="1.5" stroke-dasharray="4,2"/>
-      <text x="55" y="25" text-anchor="middle" fill="#ff6b6b" font-size="14" font-weight="700">langchain</text>
-      <text x="55" y="42" text-anchor="middle" fill="#888" font-size="10">-openai</text>
-    </g>
-
-    <!-- JWT -->
-    <g transform="translate(380, 45)">
-      <rect x="0" y="0" width="80" height="55" rx="10" fill="rgba(212,175,55,0.12)" stroke="#d4af37" stroke-width="1.5"/>
-      <text x="40" y="25" text-anchor="middle" fill="#d4af37" font-size="14" font-weight="700">JWT</text>
-      <text x="40" y="42" text-anchor="middle" fill="#888" font-size="10">python-jose</text>
-    </g>
-
-    <!-- Embedding -->
-    <g transform="translate(25, 110)">
-      <rect x="0" y="0" width="140" height="55" rx="10" fill="rgba(255,212,59,0.1)" stroke="rgba(255,212,59,0.4)" stroke-width="1.5"/>
-      <text x="70" y="22" text-anchor="middle" fill="#ffd43b" font-size="13" font-weight="700">BAAI/bge-m3</text>
-      <text x="70" y="40" text-anchor="middle" fill="#888" font-size="10">Embedding Model</text>
-    </g>
-
-    <!-- Reranker -->
-    <g transform="translate(180, 110)">
-      <rect x="0" y="0" width="140" height="55" rx="10" fill="rgba(168,85,247,0.1)" stroke="rgba(168,85,247,0.4)" stroke-width="1.5"/>
-      <text x="70" y="22" text-anchor="middle" fill="#a855f7" font-size="13" font-weight="700">bge-reranker</text>
-      <text x="70" y="40" text-anchor="middle" fill="#888" font-size="10">-base · FlagEmbedding</text>
-    </g>
-
-    <!-- sentence-transformers -->
-    <g transform="translate(335, 110)">
-      <rect x="0" y="0" width="140" height="55" rx="10" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
-      <text x="70" y="22" text-anchor="middle" fill="#ccc" font-size="11" font-weight="600">sentence-</text>
-      <text x="70" y="38" text-anchor="middle" fill="#ccc" font-size="11" font-weight="600">transformers</text>
-      <text x="70" y="52" text-anchor="middle" fill="#888" font-size="9">Model Runtime</text>
-    </g>
-  </g>
-
-  <!-- ==================== AI / 向量数据库层 ==================== -->
-  <g transform="translate(50, 460)">
-    <rect x="0" y="0" width="1100" height="130" rx="16" fill="rgba(255,107,107,0.05)" stroke="rgba(255,107,107,0.2)" stroke-width="1"/>
-    <text x="25" y="30" fill="#ff6b6b" font-size="14" font-weight="700" letter-spacing="2">AI PIPELINE &amp; VECTOR STORE</text>
 
     <!-- ChromaDB -->
-    <g transform="translate(25, 45)">
-      <rect x="0" y="0" width="160" height="65" rx="12" fill="rgba(255,107,53,0.12)" stroke="#ff6b35" stroke-width="2"/>
-      <text x="80" y="28" text-anchor="middle" fill="#ff6b35" font-size="20" font-weight="800">ChromaDB</text>
-      <text x="80" y="48" text-anchor="middle" fill="#888" font-size="10">向量数据库 · Port 8000</text>
-      <text x="80" y="62" text-anchor="middle" fill="#888" font-size="9">111,509 Documents</text>
+    <g transform="translate(600, 45)">
+      <rect width="140" height="65" rx="10" fill="rgba(255,107,53,0.1)" stroke="rgba(255,107,53,0.4)" stroke-width="1.5"/>
+      <!-- Chroma 简化 logo -->
+      <circle cx="25" cy="32" r="12" fill="none" stroke="#ff6b35" stroke-width="2"/>
+      <circle cx="25" cy="32" r="4" fill="#ff6b35"/>
+      <text x="90" y="22" text-anchor="middle" fill="#ff6b35" font-size="13" font-weight="700">ChromaDB</text>
+      <text x="90" y="38" text-anchor="middle" fill="#888" font-size="8">Vector Store</text>
+      <text x="90" y="50" text-anchor="middle" fill="#666" font-size="8">111,509 docs</text>
+      <text x="90" y="60" text-anchor="middle" fill="#666" font-size="7">:8000</text>
     </g>
 
-    <!-- RAG Pipeline -->
-    <g transform="translate(200, 45)">
-      <rect x="0" y="0" width="300" height="65" rx="12" fill="rgba(99,102,241,0.08)" stroke="rgba(99,102,241,0.3)" stroke-width="1.5" stroke-dasharray="6,3"/>
-      <text x="150" y="22" text-anchor="middle" fill="#6366f1" font-size="14" font-weight="700">RAG Pipeline</text>
-      <text x="150" y="40" text-anchor="middle" fill="#888" font-size="10">Query → Embed → ChromaDB Retrieve → Rerank → LLM</text>
-      <text x="150" y="55" text-anchor="middle" fill="#888" font-size="9">宽召回 top_k×4 → bge-reranker-base 精排 → DeepSeek 生成</text>
+    <!-- 箭头到备份 -->
+    <g opacity="0.4">
+      <line x1="750" y1="82" x2="775" y2="82" stroke="#ff6b35" stroke-width="1.5"/>
+      <polygon points="775,78 783,82 775,86" fill="#ff6b35"/>
     </g>
 
-    <!-- Agent Loop -->
-    <g transform="translate(515, 45)">
-      <rect x="0" y="0" width="200" height="65" rx="12" fill="rgba(236,72,153,0.08)" stroke="rgba(236,72,153,0.3)" stroke-width="1.5"/>
-      <text x="100" y="22" text-anchor="middle" fill="#ec4899" font-size="14" font-weight="700">Agent Loop</text>
-      <text x="100" y="40" text-anchor="middle" fill="#888" font-size="10">Tool Calling · MAX_ROUNDS=5</text>
-      <text x="100" y="55" text-anchor="middle" fill="#888" font-size="9">Java streamWithToolLoop + Python _stream_with_tool_loop</text>
-    </g>
-
-    <!-- SSE Streaming -->
-    <g transform="translate(730, 45)">
-      <rect x="0" y="0" width="150" height="65" rx="12" fill="rgba(6,182,212,0.1)" stroke="rgba(6,182,212,0.3)" stroke-width="1.5"/>
-      <text x="75" y="22" text-anchor="middle" fill="#06b6d4" font-size="14" font-weight="700">SSE Streaming</text>
-      <text x="75" y="40" text-anchor="middle" fill="#888" font-size="10">Flux&lt;String&gt; · SseEmitter</text>
-      <text x="75" y="55" text-anchor="middle" fill="#888" font-size="9">thinking / content / tool events</text>
-    </g>
-
-    <!-- File Storage -->
-    <g transform="translate(895, 45)">
-      <rect x="0" y="0" width="180" height="65" rx="12" fill="rgba(132,204,22,0.1)" stroke="rgba(132,204,22,0.3)" stroke-width="1.5"/>
-      <text x="90" y="22" text-anchor="middle" fill="#84cc16" font-size="14" font-weight="700">File Storage</text>
-      <text x="90" y="40" text-anchor="middle" fill="#888" font-size="10">JSON Chain + __file__: refs</text>
-      <text x="90" y="55" text-anchor="middle" fill="#888" font-size="9">uploads/storage/ · 相对路径</text>
+    <!-- JSONL 备份 -->
+    <g transform="translate(795, 55)">
+      <rect width="90" height="40" rx="6" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.1)" stroke-width="1" stroke-dasharray="3,2"/>
+      <text x="45" y="18" text-anchor="middle" fill="#666" font-size="9">Backup</text>
+      <text x="45" y="32" text-anchor="middle" fill="#555" font-size="8">JSONL chunks</text>
     </g>
   </g>
 
-  <!-- ==================== 数据库层 ==================== -->
-  <g transform="translate(50, 610)">
-    <rect x="0" y="0" width="1100" height="100" rx="16" fill="rgba(0,117,143,0.05)" stroke="rgba(0,117,143,0.2)" stroke-width="1"/>
-    <text x="25" y="28" fill="#00758f" font-size="14" font-weight="700" letter-spacing="2">DATA LAYER</text>
+  <!-- ==================== 阶段2: 在线服务 ==================== -->
+  <g transform="translate(40, 255)">
+    <rect x="0" y="0" width="920" height="200" rx="14" fill="rgba(66,184,131,0.04)" stroke="rgba(66,184,131,0.2)" stroke-width="1"/>
+    <text x="20" y="25" fill="#42b883" font-size="13" font-weight="700" letter-spacing="3">PHASE 2 · ONLINE SERVICE</text>
 
-    <!-- MySQL -->
-    <g transform="translate(25, 40)">
-      <rect x="0" y="0" width="140" height="45" rx="8" fill="rgba(0,117,143,0.12)" stroke="#00758f" stroke-width="1.5"/>
-      <text x="70" y="20" text-anchor="middle" fill="#00758f" font-size="14" font-weight="700">MySQL 8.0</text>
-      <text x="70" y="35" text-anchor="middle" fill="#888" font-size="9">9 Tables · Docker · 127.0.0.1:3306</text>
+    <!-- Vue3 前端 -->
+    <g transform="translate(20, 45)">
+      <rect width="180" height="135" rx="12" fill="rgba(66,184,131,0.08)" stroke="#42b883" stroke-width="1.5"/>
+      <!-- Vue Logo -->
+      <g transform="translate(70, 10)">
+        <polygon points="30,0 60,50 0,50" fill="none" stroke="#42b883" stroke-width="2"/>
+        <polygon points="30,12 48,42 12,42" fill="none" stroke="#35495e" stroke-width="1.5"/>
+        <text x="30" y="38" text-anchor="middle" fill="#42b883" font-size="11" font-weight="800">V3</text>
+      </g>
+      <text x="90" y="75" text-anchor="middle" fill="#42b883" font-size="14" font-weight="700">Vue 3.5</text>
+      
+      <!-- 技术标签 -->
+      <g transform="translate(12, 85)">
+        <rect width="55" height="18" rx="4" fill="rgba(56,189,248,0.1)" stroke="#38bdf8" stroke-width="0.8"/>
+        <text x="27" y="13" text-anchor="middle" fill="#38bdf8" font-size="8">Tailwind</text>
+      </g>
+      <g transform="translate(73, 85)">
+        <rect width="45" height="18" rx="4" fill="rgba(64,158,255,0.1)" stroke="#409eff" stroke-width="0.8"/>
+        <text x="22" y="13" text-anchor="middle" fill="#409eff" font-size="8">Element</text>
+      </g>
+      <g transform="translate(124, 85)">
+        <rect width="45" height="18" rx="4" fill="rgba(255,214,0,0.1)" stroke="#ffd600" stroke-width="0.8"/>
+        <text x="22" y="13" text-anchor="middle" fill="#ffd600" font-size="8">Pinia</text>
+      </g>
+      
+      <g transform="translate(12, 110)">
+        <rect width="45" height="18" rx="4" fill="rgba(136,0,255,0.1)" stroke="#8800ff" stroke-width="0.8"/>
+        <text x="22" y="13" text-anchor="middle" fill="#8800ff" font-size="8">GSAP</text>
+      </g>
+      <g transform="translate(63, 110)">
+        <rect width="50" height="18" rx="4" fill="rgba(189,52,254,0.1)" stroke="#bd34fe" stroke-width="0.8"/>
+        <text x="25" y="13" text-anchor="middle" fill="#bd34fe" font-size="8">Vite 7</text>
+      </g>
+      <g transform="translate(119, 110)">
+        <rect width="48" height="18" rx="4" fill="rgba(49,120,198,0.1)" stroke="#3178c6" stroke-width="0.8"/>
+        <text x="24" y="13" text-anchor="middle" fill="#3178c6" font-size="8">TS 5.9</text>
+      </g>
     </g>
 
-    <!-- ChromaDB Storage -->
-    <g transform="translate(180, 40)">
-      <rect x="0" y="0" width="140" height="45" rx="8" fill="rgba(255,107,53,0.12)" stroke="#ff6b35" stroke-width="1.5"/>
-      <text x="70" y="20" text-anchor="middle" fill="#ff6b35" font-size="14" font-weight="700">ChromaDB</text>
-      <text x="70" y="35" text-anchor="middle" fill="#888" font-size="9">Vector Storage · dixiyang_knowledge</text>
+    <!-- 连接线 Vue → Python -->
+    <g opacity="0.5">
+      <path d="M 210 120 Q 250 120 270 120" stroke="#42b883" stroke-width="2" fill="none" stroke-dasharray="4,3"/>
+      <polygon points="270,116 278,120 270,124" fill="#42b883"/>
+      <text x="240" y="112" text-anchor="middle" fill="#42b883" font-size="8">HTTP</text>
+      <text x="240" y="122" text-anchor="middle" fill="#42b883" font-size="7">:8084</text>
     </g>
 
-    <!-- File System -->
-    <g transform="translate(335, 40)">
-      <rect x="0" y="0" width="180" height="45" rx="8" fill="rgba(132,204,22,0.12)" stroke="#84cc16" stroke-width="1.5"/>
-      <text x="90" y="20" text-anchor="middle" fill="#84cc16" font-size="14" font-weight="700">File System</text>
-      <text x="90" y="35" text-anchor="middle" fill="#888" font-size="9">uploads/ · covers/ · backgrounds/ · storage/</text>
+    <!-- Python FastAPI 后端 -->
+    <g transform="translate(290, 45)">
+      <rect width="280" height="135" rx="12" fill="rgba(55,118,171,0.08)" stroke="#3776ab" stroke-width="1.5"/>
+      <!-- Python Logo 简化 -->
+      <g transform="translate(115, 5)">
+        <rect width="50" height="50" rx="8" fill="rgba(48,105,152,0.2)" stroke="#306998" stroke-width="1.5"/>
+        <text x="25" y="22" text-anchor="middle" fill="#306998" font-size="16" font-weight="900">Py</text>
+        <text x="25" y="40" text-anchor="middle" fill="#ffd43b" font-size="16" font-weight="900">thon</text>
+      </g>
+      <text x="140" y="68" text-anchor="middle" fill="#3776ab" font-size="14" font-weight="700">FastAPI</text>
+
+      <!-- RAG Pipeline 内部 -->
+      <g transform="translate(15, 80)">
+        <rect width="250" height="45" rx="6" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+        <text x="125" y="15" text-anchor="middle" fill="#888" font-size="9" font-weight="600">RAG Pipeline</text>
+        
+        <!-- Query → Embed → Retrieve → Rerank → LLM -->
+        <g transform="translate(8, 22)">
+          <rect width="38" height="18" rx="3" fill="rgba(6,182,212,0.15)" stroke="#06b6d4" stroke-width="0.8"/>
+          <text x="19" y="13" text-anchor="middle" fill="#06b6d4" font-size="7">Query</text>
+        </g>
+        <g opacity="0.4"><line x1="50" y1="31" x2="58" y2="31" stroke="#06b6d4" stroke-width="0.8"/><polygon points="58,29 62,31 58,33" fill="#06b6d4"/></g>
+        <g transform="translate(65, 22)">
+          <rect width="35" height="18" rx="3" fill="rgba(255,212,59,0.15)" stroke="#ffd43b" stroke-width="0.8"/>
+          <text x="17" y="13" text-anchor="middle" fill="#ffd43b" font-size="7">Embed</text>
+        </g>
+        <g opacity="0.4"><line x1="104" y1="31" x2="112" y2="31" stroke="#ffd43b" stroke-width="0.8"/><polygon points="112,29 116,31 112,33" fill="#ffd43b"/></g>
+        <g transform="translate(119, 22)">
+          <rect width="42" height="18" rx="3" fill="rgba(255,107,53,0.15)" stroke="#ff6b35" stroke-width="0.8"/>
+          <text x="21" y="13" text-anchor="middle" fill="#ff6b35" font-size="7">Retrieve</text>
+        </g>
+        <g opacity="0.4"><line x1="165" y1="31" x2="173" y2="31" stroke="#ff6b35" stroke-width="0.8"/><polygon points="173,29 177,31 173,33" fill="#ff6b35"/></g>
+        <g transform="translate(180, 22)">
+          <rect width="40" height="18" rx="3" fill="rgba(168,85,247,0.15)" stroke="#a855f7" stroke-width="0.8"/>
+          <text x="20" y="13" text-anchor="middle" fill="#a855f7" font-size="7">Rerank</text>
+        </g>
+        <g opacity="0.4"><line x1="224" y1="31" x2="230" y2="31" stroke="#a855f7" stroke-width="0.8"/></g>
+      </g>
+
+      <!-- 底部组件 -->
+      <g transform="translate(15, 108)">
+        <rect width="60" height="20" rx="4" fill="rgba(255,107,107,0.1)" stroke="rgba(255,107,107,0.3)" stroke-width="0.8"/>
+        <text x="30" y="14" text-anchor="middle" fill="#ff6b6b" font-size="8">DeepSeek</text>
+      </g>
+      <g transform="translate(82, 108)">
+        <rect width="55" height="20" rx="4" fill="rgba(212,175,55,0.1)" stroke="rgba(212,175,55,0.3)" stroke-width="0.8"/>
+        <text x="27" y="14" text-anchor="middle" fill="#d4af37" font-size="8">JWT Auth</text>
+      </g>
+      <g transform="translate(144, 108)">
+        <rect width="60" height="20" rx="4" fill="rgba(0,150,136,0.1)" stroke="rgba(0,150,136,0.3)" stroke-width="0.8"/>
+        <text x="30" y="14" text-anchor="middle" fill="#009688" font-size="8">SQLAlchemy</text>
+      </g>
     </g>
 
-    <!-- Local Models -->
-    <g transform="translate(530, 40)">
-      <rect x="0" y="0" width="180" height="45" rx="8" fill="rgba(168,85,247,0.12)" stroke="#a855f7" stroke-width="1.5"/>
-      <text x="90" y="20" text-anchor="middle" fill="#a855f7" font-size="14" font-weight="700">Local Models</text>
-      <text x="90" y="35" text-anchor="middle" fill="#888" font-size="9">models/bge-m3 + bge-reranker-base</text>
+    <!-- 连接线 Python → ChromaDB -->
+    <g opacity="0.5">
+      <path d="M 580 120 L 630 120" stroke="#ff6b35" stroke-width="2" fill="none" stroke-dasharray="4,3"/>
+      <polygon points="630,116 638,120 630,124" fill="#ff6b35"/>
+      <text x="608" y="110" text-anchor="middle" fill="#ff6b35" font-size="7">Query</text>
     </g>
 
-    <!-- Docker -->
-    <g transform="translate(725, 40)">
-      <rect x="0" y="0" width="120" height="45" rx="8" fill="rgba(0,136,209,0.12)" stroke="#0088d1" stroke-width="1.5"/>
-      <text x="60" y="20" text-anchor="middle" fill="#0088d1" font-size="14" font-weight="700">Docker</text>
-      <text x="60" y="35" text-anchor="middle" fill="#888" font-size="9">MySQL Container</text>
+    <!-- ChromaDB (运行时) -->
+    <g transform="translate(650, 55)">
+      <rect width="120" height="85" rx="10" fill="rgba(255,107,53,0.1)" stroke="#ff6b35" stroke-width="1.5"/>
+      <circle cx="60" cy="25" r="16" fill="none" stroke="#ff6b35" stroke-width="2"/>
+      <circle cx="60" cy="25" r="5" fill="#ff6b35"/>
+      <text x="60" y="55" text-anchor="middle" fill="#ff6b35" font-size="11" font-weight="700">ChromaDB</text>
+      <text x="60" y="68" text-anchor="middle" fill="#888" font-size="8">Runtime</text>
+      <text x="60" y="78" text-anchor="middle" fill="#666" font-size="7">:8000</text>
     </g>
 
-    <!-- UV -->
-    <g transform="translate(860, 40)">
-      <rect x="0" y="0" width="100" height="45" rx="8" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
-      <text x="50" y="20" text-anchor="middle" fill="#ccc" font-size="14" font-weight="700">uv</text>
-      <text x="50" y="35" text-anchor="middle" fill="#888" font-size="9">Python Pkg Mgr</text>
+    <!-- 连接 ChromaDB → Reranker -->
+    <g opacity="0.5">
+      <path d="M 710 145 Q 710 170 680 170 L 630 170" stroke="#a855f7" stroke-width="1.5" fill="none" stroke-dasharray="3,2"/>
+      <polygon points="630,166 622,170 630,174" fill="#a855f7"/>
     </g>
 
-    <!-- Maven -->
-    <g transform="translate(975, 40)">
-      <rect x="0" y="0" width="100" height="45" rx="8" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
-      <text x="50" y="20" text-anchor="middle" fill="#ccc" font-size="14" font-weight="700">Maven</text>
-      <text x="50" y="35" text-anchor="middle" fill="#888" font-size="9">Java Build</text>
+    <!-- bge-reranker -->
+    <g transform="translate(790, 55)">
+      <rect width="110" height="85" rx="10" fill="rgba(168,85,247,0.08)" stroke="rgba(168,85,247,0.3)" stroke-width="1.5"/>
+      <!-- 简化 reranker 图标 -->
+      <g transform="translate(35, 8)">
+        <rect width="40" height="40" rx="6" fill="rgba(168,85,247,0.15)" stroke="#a855f7" stroke-width="1"/>
+        <text x="20" y="18" text-anchor="middle" fill="#a855f7" font-size="8" font-weight="700">bge</text>
+        <text x="20" y="32" text-anchor="middle" fill="#a855f7" font-size="7">rerank</text>
+      </g>
+      <text x="55" y="60" text-anchor="middle" fill="#a855f7" font-size="10" font-weight="700">Reranker</text>
+      <text x="55" y="73" text-anchor="middle" fill="#888" font-size="8">bge-reranker-base</text>
+      <text x="55" y="83" text-anchor="middle" fill="#666" font-size="7">FlagEmbedding</text>
+    </g>
+
+    <!-- SSE 返回前端 -->
+    <g opacity="0.4">
+      <path d="M 290 165 Q 250 185 210 185 Q 180 185 160 165" stroke="#06b6d4" stroke-width="1.5" fill="none" stroke-dasharray="3,2"/>
+      <text x="220" y="195" text-anchor="middle" fill="#06b6d4" font-size="7">SSE Stream</text>
     </g>
   </g>
 
-  <!-- ==================== 连接箭头 ==================== -->
-  <!-- 前端 → Java -->
-  <g opacity="0.6">
-    <line x1="300" y1="245" x2="300" y2="265" stroke="#42b883" stroke-width="2" marker-end="url(#arrowGreen)"/>
-    <text x="315" y="257" fill="#42b883" font-size="9">HTTP :8084</text>
+  <!-- ==================== 底部: 端口 & 数据流 ==================== -->
+  <g transform="translate(40, 475)">
+    <rect x="0" y="0" width="920" height="80" rx="12" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <text x="20" y="22" fill="#555" font-size="11" font-weight="600" letter-spacing="2">PORT ALLOCATION</text>
+    
+    <!-- 端口标签 -->
+    <g transform="translate(20, 35)">
+      <rect width="130" height="30" rx="6" fill="rgba(66,184,131,0.08)" stroke="rgba(66,184,131,0.2)" stroke-width="1"/>
+      <text x="65" y="20" text-anchor="middle" fill="#42b883" font-size="9">Vue Dev :5173</text>
+    </g>
+    <g transform="translate(165, 35)">
+      <rect width="130" height="30" rx="6" fill="rgba(55,118,171,0.08)" stroke="rgba(55,118,171,0.2)" stroke-width="1"/>
+      <text x="65" y="20" text-anchor="middle" fill="#3776ab" font-size="9">FastAPI :8084</text>
+    </g>
+    <g transform="translate(310, 35)">
+      <rect width="130" height="30" rx="6" fill="rgba(255,107,53,0.08)" stroke="rgba(255,107,53,0.2)" stroke-width="1"/>
+      <text x="65" y="20" text-anchor="middle" fill="#ff6b35" font-size="9">ChromaDB :8000</text>
+    </g>
+    <g transform="translate(455, 35)">
+      <rect width="130" height="30" rx="6" fill="rgba(0,117,143,0.08)" stroke="rgba(0,117,143,0.2)" stroke-width="1"/>
+      <text x="65" y="20" text-anchor="middle" fill="#00758f" font-size="9">MySQL :3306</text>
+    </g>
+    <g transform="translate(600, 35)">
+      <rect width="130" height="30" rx="6" fill="rgba(168,85,247,0.08)" stroke="rgba(168,85,247,0.2)" stroke-width="1"/>
+      <text x="65" y="20" text-anchor="middle" fill="#a855f7" font-size="9">Reranker :8085</text>
+    </g>
   </g>
 
-  <!-- 前端 → Python (RAG) -->
-  <g opacity="0.6">
-    <line x1="800" y1="245" x2="800" y2="265" stroke="#3776ab" stroke-width="2"/>
-    <text x="815" y="257" fill="#3776ab" font-size="9">RAG :8085</text>
-  </g>
-
-  <!-- Java ↔ Python -->
-  <g opacity="0.5">
-    <line x1="580" y1="350" x2="620" y2="350" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" stroke-dasharray="4,3"/>
-    <text x="600" y="345" text-anchor="middle" fill="#888" font-size="8">Feign</text>
-  </g>
-
-  <!-- Python → ChromaDB -->
-  <g opacity="0.5">
-    <line x1="750" y1="445" x2="300" y2="505" stroke="rgba(255,107,53,0.4)" stroke-width="1.5" stroke-dasharray="4,3"/>
-    <text x="520" y="470" fill="#ff6b35" font-size="8">Query/Embed</text>
-  </g>
-
-  <!-- Java → ChromaDB -->
-  <g opacity="0.5">
-    <line x1="350" y1="445" x2="300" y2="505" stroke="rgba(109,179,63,0.4)" stroke-width="1.5" stroke-dasharray="4,3"/>
-    <text x="310" y="475" fill="#6db33f" font-size="8">RAG Search</text>
-  </g>
-
-  <!-- ==================== 底部信息 ==================== -->
-  <text x="600" y="750" text-anchor="middle" fill="#555" font-size="11">
-    Architecture: Dual Backend (Java REST + Python RAG) · ChromaDB Vector Store · DeepSeek LLM · Agent Loop with Tool Calling
+  <!-- 版本信息 -->
+  <text x="500" y="590" text-anchor="middle" fill="#333" font-size="10">
+    Vue 3.5 + FastAPI + ChromaDB + bge-m3 + bge-reranker + DeepSeek LLM
   </text>
-  <text x="600" y="770" text-anchor="middle" fill="#444" font-size="10">
-    Port Allocation: Vue Dev :5173 → Java :8084 → Python RAG :8085 → ChromaDB :8000 → MySQL :3306
-  </text>
-
-  <!-- 箭头标记 -->
-  <defs>
-    <marker id="arrowGreen" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-      <polygon points="0 0, 10 3.5, 0 7" fill="#42b883"/>
-    </marker>
-  </defs>
 </svg>
