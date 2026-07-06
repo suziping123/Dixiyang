@@ -122,6 +122,18 @@ htmlcov/
 *.docx
 *.doc
 models/cache/
+models/bge-m3/
+models/bge-reranker*/
+models/*.bin
+models/*.pt
+
+# ChromaDB 数据
+chroma_data/
+
+# 大文件
+*.mp4
+*.zip
+daily-log.zip
 storage/
 *.jsonl
 *.sqlite3
