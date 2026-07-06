@@ -27,6 +27,7 @@ from dixiyang.config import UPLOAD_DIR
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     os.makedirs(UPLOAD_DIR, exist_ok=True)
+    Base.metadata.create_all(bind=engine)
     yield
 
 

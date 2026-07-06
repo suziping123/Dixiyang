@@ -1,16 +1,36 @@
 """
-知识检索工具 — 封装 ChromaDB 语义检索，可供 LLM function calling 调用
+知识检索工具 — 封装 LangChain Chroma 语义检索，可供 LLM function calling 调用
 对齐 Spring 版 KnowledgeSearchTool.java
 """
 
 import logging
 import os
 import time
-from pathlib import Path
+
+from langchain_chroma import Chroma
+
+from .embeddings import DixiyangEmbeddings
 
 log = logging.getLogger(__name__)
 
 RERANKER_URL = os.getenv("RERANKER_URL", "http://localhost:8085")
+
+_embeddings = DixiyangEmbeddings()
+_vectorstore: Chroma | None = None
+
+
+def _get_vectorstore() -> Chroma:
+    global _vectorstore
+    if _vectorstore is None:
+        persist_dir = os.getenv("CHROMA_PERSIST_DIR", "./storage/vectordb_4060")
+        collection_name = os.getenv("CHROMA_COLLECTION_NAME", "dixiyang_knowledge")
+        _vectorstore = Chroma(
+            collection_name=collection_name,
+            embedding_function=_embeddings,
+            persist_directory=persist_dir,
+            collection_metadata={"hnsw:space": "cosine"},
+        )
+    return _vectorstore
 
 
 def _rerank_results(query: str, documents: list[str]) -> list[int]:
@@ -27,7 +47,6 @@ def _rerank_results(query: str, documents: list[str]) -> list[int]:
         if resp.status_code == 200:
             data = resp.json()
             results = data.get("results", [])
-            # results 按 score 降序，内容是文档原文，需要映射回原始索引
             doc_to_idx = {d: i for i, d in enumerate(documents)}
             return [doc_to_idx[r["content"]] for r in results if r["content"] in doc_to_idx]
     except Exception as e:
@@ -49,45 +68,20 @@ def knowledge_search(query: str, top_k: int = 5, doc_type: str | None = None) ->
     """
     start = time.time()
     try:
-        import chromadb
-        from chromadb.config import Settings
-
-        persist_dir = os.getenv("CHROMA_PERSIST_DIR", "./storage/vectordb_4060")
-        collection_name = os.getenv("CHROMA_COLLECTION_NAME", "dixiyang_knowledge")
-
-        client = chromadb.PersistentClient(
-            path=persist_dir,
-            settings=Settings(anonymized_telemetry=False),
-        )
-        collection = client.get_or_create_collection(
-            name=collection_name,
-            metadata={"hnsw:space": "cosine"},
-        )
-
-        # 用 embedding 服务或本地模型生成查询向量
-        query_emb = _get_embedding(query)
-        if query_emb is None:
-            return "检索失败：embedding 模型不可用"
+        vectorstore = _get_vectorstore()
 
         # 宽召回：多取 4 倍候选，供 reranker 精排
         recall_k = min(top_k * 4, 100)
-        results = collection.query(
-            query_embeddings=[query_emb],
-            n_results=recall_k,
-            include=["documents", "metadatas", "distances"],
-        )
-
-        docs = results.get("documents", [[]])[0]
-        metas = results.get("metadatas", [[]])[0]
+        results = vectorstore.similarity_search_with_score(query, k=recall_k)
 
         # 构建候选文档（带元数据）
         candidates: list[dict] = []
-        for i, doc in enumerate(docs):
-            meta = metas[i] if i < len(metas) else {}
+        for doc, _score in results:
+            meta = doc.metadata
             if doc_type and not _matches_type(meta, doc_type):
                 continue
             source = meta.get("book_title") or meta.get("source") or ""
-            candidates.append({"doc": doc, "source": source})
+            candidates.append({"doc": doc.page_content, "source": source})
 
         if not candidates:
             elapsed = int((time.time() - start) * 1000)
@@ -124,33 +118,6 @@ def _matches_type(metadata: dict, doc_type: str) -> bool:
         return doc_type.lower() == str(meta_type).lower()
     source = metadata.get("source", "")
     return doc_type.lower() in str(source).lower()
-
-
-def _get_embedding(text: str) -> list[float] | None:
-    """获取文本 embedding 向量"""
-    try:
-        # 优先调用 Python embedding 服务（端口 8085）
-        import httpx
-        resp = httpx.post(
-            "http://localhost:8085/api/rag/embed",
-            json={"text": text},
-            timeout=10,
-        )
-        if resp.status_code == 200:
-            return resp.json().get("embedding")
-    except Exception:
-        pass
-
-    try:
-        # 降级：本地 SentenceTransformer
-        model_path = os.getenv("RAG_EMBEDDING_MODEL", str(Path(__file__).parent.parent.parent.parent / "models" / "bge-m3"))
-        from sentence_transformers import SentenceTransformer
-        model = SentenceTransformer(model_path, device="cpu")
-        emb = model.encode([text], normalize_embeddings=True).tolist()[0]
-        return emb
-    except Exception as e:
-        log.warning("Embedding 生成失败: %s", e)
-        return None
 
 
 # ==================== OpenAI Function Calling 工具定义 ====================

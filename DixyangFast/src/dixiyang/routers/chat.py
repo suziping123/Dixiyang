@@ -6,7 +6,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
-from ..config import CHAT_STORAGE_PATH, DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
+from ..config import CHAT_STORAGE_PATH, DEEPSEEK_API_KEY
 from ..services.conversation_mode import get_mode, MODE_META
 from ..schemas.chat import ChatRequest
 from ..services.chat_service import (
@@ -157,59 +157,36 @@ MAX_TOOL_ROUNDS = 5
 
 async def _stream_llm(messages: list[dict], temperature: float = 0.7, max_tokens: int = 8192,
                        tools: list[dict] | None = None):
-    """流式调用 LLM，yield (type, delta)。支持工具调用。"""
-    from openai import AsyncOpenAI
-    from ..config import DEEPSEEK_MODEL
-    client = AsyncOpenAI(api_key=DEEPSEEK_API_KEY, base_url=DEEPSEEK_BASE_URL)
-
-    kwargs: dict = dict(
-        model=DEEPSEEK_MODEL,
-        messages=messages,
-        stream=True,
-        max_tokens=max_tokens,
-        temperature=temperature,
-    )
+    """流式调用 LLM（LangChain），yield (type, delta)。支持工具调用。"""
+    llm = get_chat_model(temperature, max_tokens)
     if tools:
-        kwargs["tools"] = tools
-
-    stream = await client.chat.completions.create(**kwargs)
+        llm = llm.bind_tools(tools)
 
     state = "INIT"
     buf = ""
-    # 工具调用累积
-    tool_calls_map: dict[int, dict] = {}  # index → {id, name, arguments}
+    tool_calls_map: dict[int, dict] = {}
     has_tool_calls = False
 
-    async for chunk in stream:
-        choice = chunk.choices[0] if chunk.choices else None
-        if not choice:
-            continue
-
-        delta = choice.delta
-
-        # 处理工具调用增量
-        if delta.tool_calls:
+    async for chunk in llm.astream(messages):
+        if chunk.tool_call_chunks:
             has_tool_calls = True
-            for tc in delta.tool_calls:
-                idx = tc.index
+            for tc in chunk.tool_call_chunks:
+                idx = tc.index or 0
                 if idx not in tool_calls_map:
                     tool_calls_map[idx] = {"id": tc.id or "", "name": "", "arguments": ""}
                 entry = tool_calls_map[idx]
                 if tc.id:
                     entry["id"] = tc.id
-                if tc.function:
-                    if tc.function.name:
-                        entry["name"] = tc.function.name
-                    if tc.function.arguments:
-                        entry["arguments"] += tc.function.arguments
+                if tc.name:
+                    entry["name"] = tc.name
+                if tc.args:
+                    entry["arguments"] += tc.args
 
-        # 处理文本内容增量
-        content = delta.content or ""
+        content = chunk.content or ""
         if not content:
             continue
         buf += content
 
-        # <thinking> 标签检测拆分
         if state == "INIT":
             idx = buf.find("<thinking>")
             if idx >= 0:
@@ -244,7 +221,6 @@ async def _stream_llm(messages: list[dict], temperature: float = 0.7, max_tokens
     if buf:
         yield ("content" if state != "THINKING" else "thinking", buf)
 
-    # 输出工具调用结果
     if has_tool_calls and tool_calls_map:
         yield ("tool_calls", tool_calls_map)
 
