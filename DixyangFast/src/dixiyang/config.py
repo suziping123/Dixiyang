@@ -9,14 +9,14 @@ QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
-UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/home/lijiajia/项目/Dixiyang/uploads")
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "uploads"))
 STORAGE_DIR = os.getenv("STORAGE_DIR", os.path.join(UPLOAD_DIR, "storage"))
 
 CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", os.getenv("DS_API_KEY", ""))
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/")
-DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
 
 # 聊天存储
 CHAT_STORAGE_PATH = os.getenv("CHAT_STORAGE_PATH", STORAGE_DIR)

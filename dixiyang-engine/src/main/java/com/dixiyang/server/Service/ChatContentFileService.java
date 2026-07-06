@@ -19,7 +19,7 @@ public class ChatContentFileService {
     private final ObjectMapper mapper = new ObjectMapper();
     private final ConcurrentHashMap<String, Object> locks = new ConcurrentHashMap<>();
 
-    @Value("${app.chat.storage-path:/home/lijiajia/项目/Dixiyang/uploads/storage/chat}")
+    @Value("${app.chat.storage-path:../uploads/storage/chat}")
     private String baseDir;
 
     @Value("${app.chat.max-file-size:102400}")

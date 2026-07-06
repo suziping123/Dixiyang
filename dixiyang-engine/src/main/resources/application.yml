@@ -99,7 +99,7 @@ server:
 # 5. 聊天内容文件存储
 app:
   chat:
-    storage-path: ${CHAT_STORAGE_PATH:/home/lijiajia/项目/Dixiyang/uploads/storage/chat}
+    storage-path: ${CHAT_STORAGE_PATH:../uploads/storage/chat}
     max-file-size: ${CHAT_MAX_FILE_SIZE:102400}
   # 6. ChromaDB 向量数据库配置（用于 RAG 检索）
   chromadb:

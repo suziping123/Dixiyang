@@ -23,7 +23,7 @@ public class StorageService {
 
     private final ObjectMapper mapper = new ObjectMapper();
 
-    @Value("${app.chat.storage-path:/home/lijiajia/项目/Dixiyang/uploads/storage/chat}")
+    @Value("${app.chat.storage-path:../uploads/storage/chat}")
     private String chatBaseDir;
 
     // storage/chat/../character/ → 即 storage/character/

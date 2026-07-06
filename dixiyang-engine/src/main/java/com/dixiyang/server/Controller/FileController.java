@@ -30,8 +30,9 @@ public class FileController {
 
     private static final Logger log = LoggerFactory.getLogger(FileController.class);
 
-    private static final String COVERS_DIR = "/home/lijiajia/项目/Dixiyang/uploads/covers";
-    private static final String BACKGROUNDS_DIR = "/home/lijiajia/项目/Dixiyang/uploads/backgrounds";
+    private static final String UPLOADS_ROOT = System.getProperty("user.dir") + "/../uploads";
+    private static final String COVERS_DIR = UPLOADS_ROOT + "/covers";
+    private static final String BACKGROUNDS_DIR = UPLOADS_ROOT + "/backgrounds";
 
     private static final Set<String> COVER_TYPES = Set.of("image/jpeg", "image/png", "image/webp", "image/gif");
     private static final Set<String> BG_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
