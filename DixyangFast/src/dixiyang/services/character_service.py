@@ -7,6 +7,7 @@ from ..models.character import NovelCharacter
 from ..schemas.character import CharacterCreate, CharacterUpdate
 from ..utils.database import get_db
 from ..utils.response import Result
+from .storage_service import save_json, load_json, delete_json, CHARACTER_DIR
 
 
 class CharacterService:
@@ -19,6 +20,7 @@ class CharacterService:
 
     @staticmethod
     def _prepare_extra(val):
+        """准备 extra 数据：解析 JSON 字符串为 dict"""
         if val is None:
             return None
         if isinstance(val, dict):
@@ -29,6 +31,7 @@ class CharacterService:
             return {"content": val}
 
     def _item(self, c):
+        """返回角色数据，extra 通过 storage_service 加载"""
         return {
             "id": c.id,
             "novelId": c.novel_id,
@@ -38,7 +41,7 @@ class CharacterService:
             "appearance": c.appearance,
             "background": c.background,
             "personality": c.personality,
-            "extra": c.extra,
+            "extra": load_json(CHARACTER_DIR, c.id, c.extra),
             "createTime": self._dt(c.create_time),
         }
 
@@ -73,11 +76,16 @@ class CharacterService:
             appearance=req.appearance,
             background=req.background,
             personality=req.personality,
-            extra=self._prepare_extra(req.extra),
+            extra=None,  # 先创建，后面单独保存 extra
         )
         self.db.add(c)
         self.db.commit()
         self.db.refresh(c)
+        # 保存 extra 到文件
+        if req.extra is not None:
+            extra_data = self._prepare_extra(req.extra)
+            c.extra = save_json(CHARACTER_DIR, c.id, extra_data)
+            self.db.commit()
         return Result.success("创建成功", self._item(c))
 
     def update(self, char_id: int, req: CharacterUpdate) -> dict:
@@ -97,7 +105,11 @@ class CharacterService:
         if req.personality is not None:
             c.personality = req.personality
         if req.extra is not None:
-            c.extra = self._prepare_extra(req.extra)
+            # 删除旧文件
+            delete_json(CHARACTER_DIR, c.id, c.extra)
+            # 保存新数据
+            extra_data = self._prepare_extra(req.extra)
+            c.extra = save_json(CHARACTER_DIR, c.id, extra_data)
         self.db.commit()
         self.db.refresh(c)
         return Result.success("更新成功", self._item(c))
@@ -106,6 +118,26 @@ class CharacterService:
         c = self.db.query(NovelCharacter).filter(NovelCharacter.id == char_id).first()
         if not c:
             return Result.error("角色不存在")
+        # 删除关联文件
+        delete_json(CHARACTER_DIR, c.id, c.extra)
         self.db.delete(c)
         self.db.commit()
         return Result.success("删除成功", None)
+
+    def save_settings(self, char_id: int, settings: dict) -> dict:
+        """保存角色设定（AI 提取的结构化数据）- 合并模式，不覆盖已有字段"""
+        c = self.db.query(NovelCharacter).filter(NovelCharacter.id == char_id).first()
+        if not c:
+            return Result.error("角色不存在")
+        # 加载已有设定
+        existing = load_json(CHARACTER_DIR, c.id, c.extra)
+        if existing is None:
+            existing = {}
+        elif isinstance(existing, str):
+            existing = {"content": existing}
+        # 合并：已有字段保留，新字段追加，同名字段用新值覆盖
+        merged = {**existing, **settings}
+        # 保存合并后的设定
+        c.extra = save_json(CHARACTER_DIR, c.id, merged)
+        self.db.commit()
+        return Result.success("设定保存成功", self._item(c))

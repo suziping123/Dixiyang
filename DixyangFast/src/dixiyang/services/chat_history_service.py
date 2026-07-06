@@ -38,7 +38,7 @@ class ChatHistoryService:
         os.makedirs(d, exist_ok=True)
         return d
 
-    def _upsert_session(self, user_id: int, session_id: str, novel_id: int | None = None):
+    def _upsert_session(self, user_id: int, session_id: str, novel_id: int | None = None, head_path: str | None = None):
         session = self.db.query(ChatSession).filter(
             ChatSession.session_id == session_id,
             ChatSession.user_id == user_id,
@@ -48,11 +48,14 @@ class ChatHistoryService:
                 user_id=user_id,
                 novel_id=novel_id,
                 session_id=session_id,
+                head_path=head_path,
                 title="新对话",
             )
             self.db.add(session)
         else:
             session.update_time = datetime.now()
+            if head_path:
+                session.head_path = head_path
         self.db.commit()
         return session
 
@@ -76,8 +79,11 @@ class ChatHistoryService:
         sessions = q.order_by(ChatSession.update_time.desc()).all()
         return Result.success("获取成功", [
             {
-                "sessionId": s.session_id,
+                "id": s.id,
+                "userId": s.user_id,
                 "novelId": s.novel_id,
+                "sessionId": s.session_id,
+                "headPath": s.head_path,
                 "title": s.title or "新对话",
                 "createTime": s.create_time.isoformat() if s.create_time else None,
                 "updateTime": s.update_time.isoformat() if s.update_time else None,
@@ -111,12 +117,13 @@ class ChatHistoryService:
         except Exception as e:
             return Result.error(f"编辑失败: {e}")
 
-        # 记录到 edits.json（结构化：含 keyPoint 和 errorType）
+        # 记录到 edits.json（Spring 兼容格式：camelCase 字段名）
         edits = read_edits(chain_dir)
         record = {
-            "message_index": message_index,
-            "original": original,
-            "edited": edited,
+            "messageIndex": message_index,
+            "originalContent": original,
+            "editedContent": edited,
+            "role": role,
             "timestamp": datetime.now().isoformat(),
             "version": len(edits) + 1,
             "keyPoint": "",
@@ -127,21 +134,20 @@ class ChatHistoryService:
         try:
             from .chat_service import extract_keypoint_async
             future = extract_keypoint_async(original, edited)
-            # 不阻塞，后台线程会更新
             import concurrent.futures
             def _update_keypoint(f):
                 try:
                     result = f.result(timeout=30)
-                    record["keyPoint"] = result.get("keyPoint", "")
-                    record["errorType"] = result.get("errorType", "OTHER")
-                    # 重新写入（覆盖刚才的空值）
+                    kp = result.get("keyPoint", "")
+                    et = result.get("errorType", "OTHER")
+                    # 重新读取并更新（Spring 兼容格式）
                     all_edits = read_edits(chain_dir)
                     if all_edits and all_edits[-1].get("version") == record["version"]:
-                        all_edits[-1]["keyPoint"] = record["keyPoint"]
-                        all_edits[-1]["errorType"] = record["errorType"]
+                        all_edits[-1]["keyPoint"] = kp
+                        all_edits[-1]["errorType"] = et
                         edits_path = os.path.join(chain_dir, "edits.json")
                         with open(edits_path, "w", encoding="utf-8") as f:
-                            json.dump(all_edits, f, ensure_ascii=False, indent=2)
+                            json.dump({"edits": all_edits}, f, ensure_ascii=False, indent=2)
                 except Exception as e:
                     log.warning("keypoint 更新失败: %s", e)
             future.add_done_callback(_update_keypoint)
@@ -167,15 +173,19 @@ class ChatHistoryService:
             self.db.commit()
             return Result.success("标题生成成功", title)
 
-        from .prompt_templates import build_title_prompt
         conv = []
-        for msg in messages[:4]:
+        count = 0
+        for msg in messages:
             role = msg.get("role", "")
             content = msg.get("content", "")
             if role and content:
                 label = "用户" if role == "user" else "AI"
                 conv.append(f"{label}：{content[:200]}")
+                count += 1
+                if count >= 2:
+                    break
 
+        from .prompt_templates import build_title_prompt
         prompt = build_title_prompt("\n".join(conv))
         try:
             from .chat_service import call_llm
@@ -235,8 +245,15 @@ class ChatHistoryService:
 
                 if new_summary:
                     write_summary(chain_dir, new_summary, len(messages))
-                    # 截断链：保留前 6 条（摘要覆盖了它们的内容）
-                    truncate_chain(chain_dir, 6)
+                    new_fname = truncate_chain(chain_dir, 6)
+                    if new_fname:
+                        session = self.db.query(ChatSession).filter(
+                            ChatSession.session_id == session_id,
+                            ChatSession.user_id == user_id,
+                        ).first()
+                        if session:
+                            session.head_path = f"__file__:chat/{user_id}/{session_id}/{new_fname}"
+                            self.db.commit()
                     log.info("历史摘要完成: session=%s, summary=%s", session_id, new_summary[:50])
             except Exception as e:
                 log.warning("历史摘要失败: session=%s, %s", session_id, e)

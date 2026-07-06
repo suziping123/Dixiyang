@@ -13,6 +13,7 @@ from .prompt_templates import (
     build_title_prompt,
     build_user_prompt,
 )
+from .storage_service import load_json, CHARACTER_DIR
 
 log = logging.getLogger(__name__)
 
@@ -84,7 +85,9 @@ def build_fixed_context(
                 if c.background:
                     lines.append(f"背景: {c.background}")
                 if c.extra:
-                    lines.append(f"附加: {c.extra}")
+                    extra_data = load_json(CHARACTER_DIR, c.id, c.extra)
+                    if extra_data:
+                        lines.append(f"附加: {json.dumps(extra_data, ensure_ascii=False)}")
                 lines.append("]")
                 parts.append(", ".join(lines))
 
@@ -123,32 +126,26 @@ from .chain_file_manager import (
 )
 
 
-def save_chain_file(chain_dir: str, messages: list[dict], title: str = ""):
-    """保存消息到新的链文件"""
-    _write_chain(chain_dir, messages, title)
+def save_chain_file(chain_dir: str, messages: list[dict], title: str = "") -> str:
+    """保存消息到新的链文件，返回文件名"""
+    return _write_chain(chain_dir, messages, title)
 
 
 # ==================== 编辑修正 ====================
 
 def load_edit_context(chain_dir: str) -> str:
     """读取 edits.json 构建修正 prompt"""
-    edits_path = os.path.join(chain_dir, "edits.json")
-    if not os.path.isfile(edits_path):
-        return ""
-    try:
-        with open(edits_path, encoding="utf-8") as f:
-            edits = json.load(f)
-    except Exception:
-        return ""
+    from .chain_file_manager import read_edits
+    edits = read_edits(chain_dir)
     if not edits:
         return ""
     lines = ["以下是用户对之前回答的修正记录，请学习这些修正，避免再犯同样错误："]
     for e in edits:
         key_point = e.get("keyPoint", "")
         error_type = e.get("errorType", "")
-        orig = e.get("original", "")
-        edited = e.get("edited", "")
-        idx = e.get("message_index", "?")
+        orig = e.get("originalContent", "")
+        edited = e.get("editedContent", "")
+        idx = e.get("messageIndex", "?")
         if key_point:
             lines.append(f"- 修正 #{idx} [{error_type}]: {key_point}")
         else:

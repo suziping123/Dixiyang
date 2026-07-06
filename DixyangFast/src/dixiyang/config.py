@@ -10,7 +10,7 @@ QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/home/lijiajia/项目/Dixiyang/uploads")
-STORAGE_DIR = os.getenv("STORAGE_DIR", os.path.join(os.path.dirname(os.path.dirname(__file__)), "storage"))
+STORAGE_DIR = os.getenv("STORAGE_DIR", os.path.join(UPLOAD_DIR, "storage"))
 
 CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
 

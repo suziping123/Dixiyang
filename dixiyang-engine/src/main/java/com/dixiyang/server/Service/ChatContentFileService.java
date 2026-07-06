@@ -19,7 +19,7 @@ public class ChatContentFileService {
     private final ObjectMapper mapper = new ObjectMapper();
     private final ConcurrentHashMap<String, Object> locks = new ConcurrentHashMap<>();
 
-    @Value("${app.chat.storage-path:storage/chat}")
+    @Value("${app.chat.storage-path:/home/lijiajia/项目/Dixiyang/uploads/storage/chat}")
     private String baseDir;
 
     @Value("${app.chat.max-file-size:102400}")
@@ -29,6 +29,34 @@ public class ChatContentFileService {
         return locks.computeIfAbsent(userId + ":" + sessionId, k -> new Object());
     }
 
+    /**
+     * 解析 __file__: 前缀，返回实际文件路径
+     * head_path 格式: __file__:chat/{userId}/{sessionId}/{file}.json
+     * 相对于 storage 根目录（baseDir 的父目录）
+     */
+    private String resolvePath(String ref) {
+        if (ref != null && ref.startsWith("__file__:")) {
+            String relPath = ref.substring("__file__:".length());
+            // baseDir = storage/chat, storage 根 = baseDir 的 parent
+            String storageRoot = Paths.get(baseDir).getParent().toString();
+            return Paths.get(storageRoot, relPath).toString();
+        }
+        return ref;
+    }
+
+    /**
+     * 构建 __file__: 格式的引用路径
+     */
+    private String toRef(String absPath) {
+        if (absPath == null) return null;
+        String storageRoot = Paths.get(baseDir).getParent().toString();
+        String prefix = storageRoot + "/";
+        if (absPath.startsWith(prefix)) {
+            return "__file__:" + absPath.substring(prefix.length());
+        }
+        return absPath;
+    }
+
     public String append(Long userId, String sessionId, String headPath, List<Map<String, Object>> messages, String title) {
         synchronized (getLock(userId, sessionId)) {
             try {
@@ -36,16 +64,18 @@ public class ChatContentFileService {
                 Files.createDirectories(Paths.get(dirPath));
 
                 if (headPath == null || headPath.isBlank()) {
-                    String newPath = dirPath + "/" + System.currentTimeMillis() + "_" + (int)(Math.random() * 10000) + ".json";
+                    String fileName = System.currentTimeMillis() + "_" + (int)(Math.random() * 10000) + ".json";
+                    String newPath = dirPath + "/" + fileName;
                     Map<String, Object> data = new LinkedHashMap<>();
                     if (title != null) data.put("title", title);
                     data.put("messages", messages);
                     data.put("next", null);
                     writeFile(newPath, data);
-                    return newPath;
+                    return toRef(newPath);
                 }
 
-                String tailPath = findTail(headPath);
+                String resolved = resolvePath(headPath);
+                String tailPath = findTail(resolved);
                 Map<String, Object> tail = readFile(tailPath);
                 if (tail == null) return headPath;
 
@@ -55,7 +85,7 @@ public class ChatContentFileService {
                 merged.addAll(messages);
 
                 // Preserve title from first file when updating tail
-                String firstTitle = readTitle(headPath);
+                String firstTitle = readTitle(resolved);
                 Map<String, Object> updated = new LinkedHashMap<>();
                 updated.put("messages", merged);
                 updated.put("next", tail.get("next"));
@@ -72,7 +102,8 @@ public class ChatContentFileService {
                 newData.put("next", null);
                 writeFile(newPath, newData);
 
-                tail.put("next", newPath);
+                String newFileName = Paths.get(newPath).getFileName().toString();
+                tail.put("next", newFileName);
                 writeFile(tailPath, tail);
                 return headPath;
 
@@ -86,8 +117,9 @@ public class ChatContentFileService {
     @SuppressWarnings("unchecked")
     public List<Map<String, Object>> readChain(String headPath) {
         if (headPath == null || headPath.isBlank()) return Collections.emptyList();
+        String resolved = resolvePath(headPath);
         List<Map<String, Object>> all = new ArrayList<>();
-        String current = headPath;
+        String current = resolved;
         while (current != null) {
             Map<String, Object> data = readFile(current);
             if (data == null) break;
@@ -95,7 +127,8 @@ public class ChatContentFileService {
             if (data.containsKey("messages")) {
                 List<Map<String, Object>> msgs = (List<Map<String, Object>>) data.get("messages");
                 if (msgs != null) all.addAll(msgs);
-                current = (String) data.get("next");
+                String next = (String) data.get("next");
+                current = (next != null) ? Paths.get(current).getParent().resolve(next).toString() : null;
             } else if (data.containsKey("content")) {
                 Map<String, Object> msg = new LinkedHashMap<>();
                 msg.put("role", "assistant");
@@ -113,7 +146,8 @@ public class ChatContentFileService {
 
     public boolean deleteChain(String headPath) {
         if (headPath == null || headPath.isBlank()) return true;
-        String current = headPath;
+        String resolved = resolvePath(headPath);
+        String current = resolved;
         boolean allOk = true;
         while (current != null) {
             Map<String, Object> data = readFile(current);
@@ -123,7 +157,8 @@ public class ChatContentFileService {
                 log.error("删除文件失败: {}", current, e);
                 allOk = false;
             }
-            current = data != null ? (String) data.get("next") : null;
+            String next = data != null ? (String) data.get("next") : null;
+            current = (next != null && !next.isBlank()) ? Paths.get(current).getParent().resolve(next).toString() : null;
         }
         return allOk;
     }
@@ -155,7 +190,7 @@ public class ChatContentFileService {
             if (data == null) break;
             String next = (String) data.get("next");
             if (next == null || next.isBlank()) return current;
-            current = next;
+            current = Paths.get(current).getParent().resolve(next).toString();
             depth++;
         }
         return current;
@@ -163,7 +198,8 @@ public class ChatContentFileService {
 
     public boolean updateTitle(String headPath, String title) {
         if (headPath == null || headPath.isBlank()) return false;
-        Map<String, Object> data = readFile(headPath);
+        String resolved = resolvePath(headPath);
+        Map<String, Object> data = readFile(resolved);
         if (data == null) return false;
         if (title != null) {
             data.put("title", title);
@@ -171,7 +207,7 @@ public class ChatContentFileService {
             data.remove("title");
         }
         try {
-            writeFile(headPath, data);
+            writeFile(resolved, data);
             return true;
         } catch (IOException e) {
             log.error("更新标题失败: {}", headPath, e);
@@ -181,7 +217,8 @@ public class ChatContentFileService {
 
     public String readTitle(String headPath) {
         if (headPath == null || headPath.isBlank()) return null;
-        Map<String, Object> data = readFile(headPath);
+        String resolved = resolvePath(headPath);
+        Map<String, Object> data = readFile(resolved);
         return data != null ? (String) data.get("title") : null;
     }
 
@@ -207,8 +244,9 @@ public class ChatContentFileService {
      */
     public String truncateChain(String headPath, int keepCount) {
         if (headPath == null || headPath.isBlank() || keepCount < 0) return headPath;
+        String resolved = resolvePath(headPath);
         // 1. 读取全链
-        List<ChainFileEntry> entries = walkChain(headPath);
+        List<ChainFileEntry> entries = walkChain(resolved);
         if (entries.isEmpty()) return headPath;
 
         int totalMessages = 0;
@@ -290,8 +328,9 @@ public class ChatContentFileService {
     @SuppressWarnings("unchecked")
     public List<Map<String, Object>> replaceMessageInChain(String headPath, int messageIndex, String newContent) {
         if (headPath == null || headPath.isBlank() || messageIndex < 0) return null;
+        String resolved = resolvePath(headPath);
 
-        List<ChainFileEntry> entries = walkChain(headPath);
+        List<ChainFileEntry> entries = walkChain(resolved);
         int accumulated = 0;
 
         for (ChainFileEntry entry : entries) {
@@ -511,7 +550,8 @@ public class ChatContentFileService {
             Object msgs = data.get("messages");
             if (msgs instanceof List) {
                 entries.add(new ChainFileEntry(current, (List<Map<String, Object>>) msgs));
-                current = (String) data.get("next");
+                String next = (String) data.get("next");
+                current = (next != null && !next.isBlank()) ? Paths.get(current).getParent().resolve(next).toString() : null;
             } else {
                 break;
             }

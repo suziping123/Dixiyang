@@ -70,9 +70,8 @@ def read_chain(chain_dir: str) -> list[dict]:
         msgs, next_ref = _parse_chain_file(current)
         messages.extend(msgs)
         if next_ref:
-            # next_ref 是相对路径如 "./xxx.json"
-            next_name = next_ref.lstrip("./")
-            current = os.path.join(chain_dir, next_name)
+            # next_ref 是纯文件名
+            current = os.path.join(chain_dir, next_ref)
         else:
             current = None
 
@@ -86,8 +85,11 @@ def read_chain(chain_dir: str) -> list[dict]:
     return messages
 
 
-def write_chain_file(chain_dir: str, messages: list[dict], title: str = ""):
-    """将消息写入新的链文件（追加到链尾）"""
+def write_chain_file(chain_dir: str, messages: list[dict], title: str = "") -> str:
+    """
+    将消息写入新的链文件（追加到链尾）。
+    返回新建文件的文件名。
+    """
     os.makedirs(chain_dir, exist_ok=True)
     fname = _make_filename()
     data = {"title": title, "messages": messages, "next": None}
@@ -105,7 +107,7 @@ def write_chain_file(chain_dir: str, messages: list[dict], title: str = ""):
             with open(tail_path, encoding="utf-8") as f:
                 tail_data = json.load(f)
             if isinstance(tail_data, dict):
-                tail_data["next"] = f"./{fname}"
+                tail_data["next"] = fname
                 with open(tail_path, "w", encoding="utf-8") as f:
                     json.dump(tail_data, f, ensure_ascii=False, indent=2)
         except Exception:
@@ -114,11 +116,13 @@ def write_chain_file(chain_dir: str, messages: list[dict], title: str = ""):
     with open(os.path.join(chain_dir, fname), "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
+    return fname
 
-def truncate_chain(chain_dir: str, keep_count: int):
-    """保留链中前 keep_count 条消息，删除后续文件"""
+
+def truncate_chain(chain_dir: str, keep_count: int) -> str | None:
+    """保留链中前 keep_count 条消息，删除后续文件。返回新文件名（如有）"""
     if not os.path.isdir(chain_dir):
-        return
+        return None
 
     json_files = [
         f for f in os.listdir(chain_dir)
@@ -137,18 +141,23 @@ def truncate_chain(chain_dir: str, keep_count: int):
         data = {"title": "", "messages": kept, "next": None}
         with open(os.path.join(chain_dir, fname), "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+        return fname
+    return None
 
 
 def replace_message(chain_dir: str, index: int, role: str, content: str) -> tuple[str, str]:
     """
     替换链中指定索引的消息内容。
     返回 (original_content, edited_content)
+    Spring 兼容：替换前将原内容存入消息的 originalContent 字段
     """
     messages = read_chain(chain_dir)
     if index < 0 or index >= len(messages):
         raise IndexError(f"消息索引 {index} 越界，共 {len(messages)} 条")
 
     original = messages[index].get("content", "")
+    # Spring 兼容：保留原始内容到 originalContent 字段
+    messages[index]["originalContent"] = original
     messages[index]["role"] = role
     messages[index]["content"] = content
 
@@ -165,24 +174,39 @@ def replace_message(chain_dir: str, index: int, role: str, content: str) -> tupl
 
 
 def read_edits(chain_dir: str) -> list[dict]:
-    """读取 edits.json"""
+    """
+    读取 edits.json
+    兼容两种格式：
+    - Spring: {"edits": [...]}
+    - 旧版: [...]
+    """
     edits_path = os.path.join(chain_dir, "edits.json")
     if not os.path.isfile(edits_path):
         return []
     try:
         with open(edits_path, encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+        # Spring 格式：{"edits": [...]}
+        if isinstance(data, dict) and "edits" in data:
+            return data["edits"]
+        # 旧格式：直接是数组
+        if isinstance(data, list):
+            return data
+        return []
     except Exception:
         return []
 
 
 def write_edit(chain_dir: str, record: dict):
-    """追加一条编辑记录到 edits.json"""
+    """
+    追加一条编辑记录到 edits.json
+    Spring 兼容格式：{"edits": [...]}
+    """
     edits = read_edits(chain_dir)
     edits.append(record)
     edits_path = os.path.join(chain_dir, "edits.json")
     with open(edits_path, "w", encoding="utf-8") as f:
-        json.dump(edits, f, ensure_ascii=False, indent=2)
+        json.dump({"edits": edits}, f, ensure_ascii=False, indent=2)
 
 
 def read_summary(chain_dir: str) -> dict | None:

@@ -66,6 +66,7 @@ jacoco/
 *.temp
 .cache/
 .tmp/
+SHOW
 
 # Docker 相关
 docker-compose.override.yml

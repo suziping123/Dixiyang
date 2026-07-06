@@ -5,9 +5,11 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dixiyang.server.Entity.NovelCharacter;
 import com.dixiyang.server.Mapper.NovelCharacterMapper;
 import com.dixiyang.server.Service.INovelCharacterService;
+import com.dixiyang.server.Utils.StorageService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,10 +25,13 @@ import java.util.List;
  * @since 2026-03-23
  */
 @Service
-public class NovelCharacterServiceImpl extends ServiceImpl<NovelCharacterMapper, NovelCharacter> implements INovelCharacterService {
+public class NovelCharacterServiceImpl extends ServiceImpl<NovelCharacterMapper, NovelCharacter>
+        implements INovelCharacterService {
 
     private static final Logger log = LoggerFactory.getLogger(NovelCharacterServiceImpl.class);
 
+    @Autowired
+    private StorageService storageService;
     @Override
     public Page<NovelCharacter> getCharacterPage(Long novelId, int page, int pageSize) {
         LambdaQueryWrapper<NovelCharacter> wrapper = new LambdaQueryWrapper<>();
@@ -74,6 +79,11 @@ public class NovelCharacterServiceImpl extends ServiceImpl<NovelCharacterMapper,
     @Transactional(rollbackFor = Exception.class)
     public boolean deleteCharacter(Long id) {
         try {
+            // 删除前清理 extra 文件
+            NovelCharacter character = this.getById(id);
+            if (character != null && character.getExtra() != null && !character.getExtra().isBlank()) {
+                storageService.deleteJson(character.getExtra());
+            }
             return this.removeById(id);
         } catch (Exception e) {
             log.error("删除角色失败: {}", e.getMessage(), e);

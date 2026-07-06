@@ -111,10 +111,13 @@ async def delete_background(url: str = Query(...), userId: int = Query(..., alia
     r = _do_delete_file(url, BACKGROUNDS_DIR)
     if isinstance(r, dict) and r.get("code") != 200:
         return r
+    from ..services.storage_service import load_json, save_json
     config = db.query(UserConfig).filter(UserConfig.user_id == userId).first()
     if config and config.custom_bgs:
-        arr = config.custom_bgs if isinstance(config.custom_bgs, list) else []
-        arr = [item for item in arr if item.get("url") != url]
-        config.custom_bgs = arr if arr else None
-        db.commit()
+        arr = load_json("user/customBgs", userId, config.custom_bgs)
+        if isinstance(arr, list):
+            arr = [item for item in arr if item.get("url") != url]
+            ref = save_json("user/customBgs", userId, arr if arr else None)
+            config.custom_bgs = ref
+            db.commit()
     return Result.success("删除成功")

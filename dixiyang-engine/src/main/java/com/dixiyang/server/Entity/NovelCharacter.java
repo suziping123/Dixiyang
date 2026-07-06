@@ -13,9 +13,6 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
-import java.util.Map; // 解决找不到 Map 的问题
-
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -47,8 +44,9 @@ public class NovelCharacter {
     @TableField("personality")
     private String personality;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
-    private Map<String, Object> extra;
+    /** 角色扩展设定：存储文件路径引用（__file__:character/{id}.json）或 JSON 字符串 */
+    @TableField("extra")
+    private String extra;
 
     @TableField(value = "create_time", fill = FieldFill.INSERT)
     private LocalDateTime createTime;

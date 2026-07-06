@@ -47,9 +47,49 @@
 4. `ChatContentFileService.java:326` - `buildEditsPrompt()` 方法（编辑修正记录的 prompt 模板，注入到每次对话）
 
 ### 存储结构
+
+统一存储根目录：`/home/lijiajia/项目/Dixiyang/uploads/`
+
 ```
-storage/chat/{userId}/{sessionId}/
-├── 1719500000_1234.json   # 链文件 1 (max 100KB)
-├── 1719500100_5678.json   # 链文件 2 (next 指针连接)
-└── edits.json             # 编辑修正记录（含原文+修改版+时间戳+版本号）
+uploads/
+├── backgrounds/                    # 背景图（实际图片文件）
+│   ├── {md5hash}.jpg              # 上传的背景图
+│   └── {md5hash}.md5              # MD5 去重映射
+├── covers/                         # 封面图（实际图片文件）
+│   ├── {md5hash}.jpg
+│   └── {md5hash}.md5
+└── storage/                        # JSON 数据存储（DB 只存路径引用）
+    ├── chat/{userId}/{sessionId}/
+    │   ├── {timestamp}_{rand}.json  # 链文件（next 指针连接，纯文件名）
+    │   ├── edits.json              # 编辑修正记录
+    │   └── summary.json            # 历史摘要
+    ├── character/{id}.json          # 角色设定
+    └── user/
+        ├── customBgs/{userId}.json  # 自定义背景元数据
+        └── fontColors/{userId}.json # 字体颜色配置
 ```
+
+### 文件引用格式（统一约定）
+
+所有 DB 中的文件引用字段使用 `__file__:` 前缀 + 相对路径：
+
+| 字段 | 格式示例 | 说明 |
+|------|---------|------|
+| `extra` | `__file__:character/{id}.json` | 角色设定 |
+| `head_path` | `__file__:chat/{userId}/{sessionId}/{file}.json` | 聊天链头文件 |
+| `custom_bgs` | `__file__:user/customBgs/{userId}.json` | 用户自定义背景 |
+| `font_colors_json` | `__file__:user/fontColors/{userId}.json` | 字体颜色配置 |
+| `cover_url` | `/api/uploads/covers/{filename}.png` | **例外**：HTTP URL，前端直接使用 |
+
+**读取规则**：
+- Java：`StorageService.loadJson(subdir, id, dbValue)` → 自动判断 `__file__:` 前缀
+- Python：`storage_service.load_json(subdir, id, db_value)` → 同上
+
+### 链文件 next 指针格式（统一约定）
+
+链文件的 `next` 字段存储**纯文件名**（不含路径前缀）：
+```json
+{ "messages": [...], "next": "1783271834717_61b2d203.json" }
+```
+- 遍历时基于当前文件的父目录拼接：`Paths.get(currentFile).getParent().resolve(next)`
+- 不使用 `./` 前缀，不使用绝对路径

@@ -1,7 +1,6 @@
-import json
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, String, Text, JSON, func, TypeDecorator
+from sqlalchemy import DateTime, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..utils.database import Base
@@ -18,5 +17,5 @@ class NovelCharacter(Base):
     appearance: Mapped[str | None] = mapped_column(Text)
     background: Mapped[str | None] = mapped_column(Text)
     personality: Mapped[str | None] = mapped_column(Text)
-    extra: Mapped[dict | None] = mapped_column(JSON)
+    extra: Mapped[str | None] = mapped_column(Text)
     create_time: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

@@ -18,6 +18,7 @@ from ..services.chat_service import (
     save_chain_file,
     truncate_chain,
 )
+from ..services.knowledge_search_tool import KNOWLEDGE_SEARCH_TOOL, knowledge_search
 from ..services.prompt_templates import build_system_prompt, build_user_prompt
 from ..utils.auth_deps import get_current_user_id
 from ..utils.response import Result
@@ -76,7 +77,10 @@ def _maybe_summarize(user_id: int, session_id: str):
 
             if new_summary:
                 write_summary(chain_dir, new_summary, len(messages))
-                truncate_chain(chain_dir, 6)
+                new_fname = truncate_chain(chain_dir, 6)
+                if new_fname:
+                    new_hp = f"__file__:chat/{user_id}/{session_id}/{new_fname}"
+                    _upsert_session(user_id, session_id, None, new_hp)
         except Exception:
             pass
 
@@ -148,27 +152,62 @@ def _build_stream_messages(req: ChatRequest, chain_dir: str) -> list[dict]:
     return [{"role": "system", "content": system}, {"role": "user", "content": user_prompt}]
 
 
-async def _stream_llm(messages: list[dict], temperature: float = 0.7, max_tokens: int = 8192):
-    """流式调用 LLM，yield (type, delta)"""
+MAX_TOOL_ROUNDS = 5
+
+
+async def _stream_llm(messages: list[dict], temperature: float = 0.7, max_tokens: int = 8192,
+                       tools: list[dict] | None = None):
+    """流式调用 LLM，yield (type, delta)。支持工具调用。"""
     from openai import AsyncOpenAI
     from ..config import DEEPSEEK_MODEL
     client = AsyncOpenAI(api_key=DEEPSEEK_API_KEY, base_url=DEEPSEEK_BASE_URL)
-    stream = await client.chat.completions.create(
+
+    kwargs: dict = dict(
         model=DEEPSEEK_MODEL,
         messages=messages,
         stream=True,
         max_tokens=max_tokens,
         temperature=temperature,
     )
+    if tools:
+        kwargs["tools"] = tools
+
+    stream = await client.chat.completions.create(**kwargs)
 
     state = "INIT"
     buf = ""
+    # 工具调用累积
+    tool_calls_map: dict[int, dict] = {}  # index → {id, name, arguments}
+    has_tool_calls = False
 
     async for chunk in stream:
-        delta = chunk.choices[0].delta.content or ""
-        if not delta:
+        choice = chunk.choices[0] if chunk.choices else None
+        if not choice:
             continue
-        buf += delta
+
+        delta = choice.delta
+
+        # 处理工具调用增量
+        if delta.tool_calls:
+            has_tool_calls = True
+            for tc in delta.tool_calls:
+                idx = tc.index
+                if idx not in tool_calls_map:
+                    tool_calls_map[idx] = {"id": tc.id or "", "name": "", "arguments": ""}
+                entry = tool_calls_map[idx]
+                if tc.id:
+                    entry["id"] = tc.id
+                if tc.function:
+                    if tc.function.name:
+                        entry["name"] = tc.function.name
+                    if tc.function.arguments:
+                        entry["arguments"] += tc.function.arguments
+
+        # 处理文本内容增量
+        content = delta.content or ""
+        if not content:
+            continue
+        buf += content
 
         # <thinking> 标签检测拆分
         if state == "INIT":
@@ -205,8 +244,72 @@ async def _stream_llm(messages: list[dict], temperature: float = 0.7, max_tokens
     if buf:
         yield ("content" if state != "THINKING" else "thinking", buf)
 
+    # 输出工具调用结果
+    if has_tool_calls and tool_calls_map:
+        yield ("tool_calls", tool_calls_map)
 
-def _upsert_session(user_id: int, session_id: str, novel_id: int | None = None):
+
+async def _stream_with_tool_loop(messages: list[dict], temperature: float, max_tokens: int):
+    """Agent 循环：LLM → 工具调用 → 执行工具 → 结果回传 → 再次 LLM → ..."""
+    current_messages = list(messages)
+
+    for round_num in range(MAX_TOOL_ROUNDS + 1):
+        tool_calls_map = None
+        full_content = ""
+
+        async for type_, delta in _stream_llm(current_messages, temperature, max_tokens,
+                                               tools=[KNOWLEDGE_SEARCH_TOOL]):
+            if type_ == "tool_calls":
+                tool_calls_map = delta
+            elif type_ in ("content", "thinking"):
+                full_content += delta
+                yield (type_, delta)
+
+        if tool_calls_map is None:
+            return  # 无工具调用，正常结束
+
+        # 有工具调用 → 追加 AI 消息 + 执行工具
+        ai_tool_calls = []
+        for idx in sorted(tool_calls_map.keys()):
+            tc = tool_calls_map[idx]
+            ai_tool_calls.append({
+                "id": tc["id"],
+                "type": "function",
+                "function": {"name": tc["name"], "arguments": tc["arguments"]},
+            })
+
+        ai_msg: dict = {"role": "assistant", "content": full_content or None, "tool_calls": ai_tool_calls}
+        current_messages.append(ai_msg)
+
+        # 执行每个工具调用
+        for tc in ai_tool_calls:
+            func_name = tc["function"]["name"]
+            try:
+                args = json.loads(tc["function"]["arguments"])
+            except (json.JSONDecodeError, KeyError):
+                args = {}
+
+            yield ("tool_start", func_name)
+
+            if func_name == "knowledge_search":
+                result = knowledge_search(
+                    query=args.get("query", ""),
+                    top_k=args.get("top_k", 5),
+                    doc_type=args.get("doc_type"),
+                )
+            else:
+                result = f"未知工具: {func_name}"
+
+            yield ("tool_result", {"name": func_name, "result": result[:200] + "..." if len(result) > 200 else result})
+
+            current_messages.append({
+                "role": "tool",
+                "tool_call_id": tc["id"],
+                "content": result,
+            })
+
+
+def _upsert_session(user_id: int, session_id: str, novel_id: int | None = None, head_path: str | None = None):
     from ..models.chat_session import ChatSession
     from ..utils.database import SessionLocal
     db = SessionLocal()
@@ -220,11 +323,14 @@ def _upsert_session(user_id: int, session_id: str, novel_id: int | None = None):
                 user_id=user_id,
                 novel_id=novel_id,
                 session_id=session_id,
+                head_path=head_path,
                 title="新对话",
             )
             db.add(session)
         else:
             session.update_time = datetime.now()
+            if head_path:
+                session.head_path = head_path
         db.commit()
     finally:
         db.close()
@@ -249,33 +355,41 @@ async def chat_stream(req: ChatRequest,
         temperature = req.temperature or 0.7
 
         full_content = ""
+        saved = False
         try:
-            async for type_, delta in _stream_llm(messages, temperature, max_tokens):
-                if type_ == "content":
+            async for type_, delta in _stream_with_tool_loop(messages, temperature, max_tokens):
+                if type_ in ("content", "thinking"):
                     full_content += delta
-                yield _sse(type_, {"delta": delta})
+                if type_ == "tool_start":
+                    yield _sse("tool_start", {"tool": delta})
+                elif type_ == "tool_result":
+                    yield _sse("tool_result", delta)
+                elif type_ in ("content", "thinking"):
+                    yield _sse(type_, {"delta": delta})
             if full_content:
                 now = datetime.now().isoformat()
                 user_msg = {"role": "user", "content": req.message, "createTime": now}
                 asst_msg = {"role": "assistant", "content": full_content, "createTime": now}
-                save_chain_file(chain_dir, [user_msg, asst_msg])
-                _upsert_session(user_id, session_id, req.novel_id)
-                # 异步检查是否需要历史摘要
-                _maybe_summarize(user_id, session_id)
-            yield _sse_done()
+                fname = save_chain_file(chain_dir, [user_msg, asst_msg])
+                hp = f"__file__:chat/{user_id}/{session_id}/{fname}"
+                _upsert_session(user_id, session_id, req.novel_id, hp)
+                saved = True
         except Exception as e:
             yield _sse("error", {"message": f"{type(e).__name__}: {e}"})
-            if full_content:
+            if full_content and not saved:
                 try:
                     now = datetime.now().isoformat()
                     user_msg = {"role": "user", "content": req.message, "createTime": now}
                     asst_msg = {"role": "assistant", "content": full_content, "createTime": now}
-                    save_chain_file(chain_dir, [user_msg, asst_msg])
-                    _upsert_session(user_id, session_id, req.novel_id)
-                    _maybe_summarize(user_id, session_id)
+                    fname = save_chain_file(chain_dir, [user_msg, asst_msg])
+                    hp = f"__file__:chat/{user_id}/{session_id}/{fname}"
+                    _upsert_session(user_id, session_id, req.novel_id, hp)
+                    saved = True
                 except Exception as e2:
                     yield _sse("error", {"message": f"save after error failed: {e2}"})
-            yield _sse_done()
+        if saved:
+            _maybe_summarize(user_id, session_id)
+        yield _sse_done()
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
@@ -298,7 +412,10 @@ async def chat_regenerate(req: ChatRequest,
         chain_dir = _chain_dir(user_id, req.session_id)
         os.makedirs(chain_dir, exist_ok=True)
 
-        truncate_chain(chain_dir, req.regenerate_index)
+        new_fname = truncate_chain(chain_dir, req.regenerate_index)
+        if new_fname:
+            new_hp = f"__file__:chat/{user_id}/{req.session_id}/{new_fname}"
+            _upsert_session(user_id, req.session_id, req.novel_id, new_hp)
 
         mode = get_mode(req.conversation_mode)
         messages = _build_stream_messages(req, chain_dir)
@@ -306,28 +423,38 @@ async def chat_regenerate(req: ChatRequest,
         temperature = req.temperature or 0.7
 
         full_content = ""
+        saved = False
         try:
-            async for type_, delta in _stream_llm(messages, temperature, max_tokens):
-                if type_ == "content":
+            async for type_, delta in _stream_with_tool_loop(messages, temperature, max_tokens):
+                if type_ in ("content", "thinking"):
                     full_content += delta
-                yield _sse(type_, {"delta": delta})
+                if type_ == "tool_start":
+                    yield _sse("tool_start", {"tool": delta})
+                elif type_ == "tool_result":
+                    yield _sse("tool_result", delta)
+                elif type_ in ("content", "thinking"):
+                    yield _sse(type_, {"delta": delta})
             if full_content:
                 now = datetime.now().isoformat()
                 asst_msg = {"role": "assistant", "content": full_content, "createTime": now}
-                save_chain_file(chain_dir, [asst_msg])
-                _upsert_session(user_id, req.session_id, req.novel_id)
-                _maybe_summarize(user_id, req.session_id)
-            yield _sse_done()
+                fname = save_chain_file(chain_dir, [asst_msg])
+                hp = f"__file__:chat/{user_id}/{req.session_id}/{fname}"
+                _upsert_session(user_id, req.session_id, req.novel_id, hp)
+                saved = True
         except Exception as e:
             yield _sse("error", {"message": f"{type(e).__name__}: {e}"})
-            if full_content:
+            if full_content and not saved:
                 try:
                     now = datetime.now().isoformat()
                     asst_msg = {"role": "assistant", "content": full_content, "createTime": now}
-                    save_chain_file(chain_dir, [asst_msg])
-                    _upsert_session(user_id, req.session_id, req.novel_id)
+                    fname = save_chain_file(chain_dir, [asst_msg])
+                    hp = f"__file__:chat/{user_id}/{req.session_id}/{fname}"
+                    _upsert_session(user_id, req.session_id, req.novel_id, hp)
+                    saved = True
                 except Exception as e2:
                     yield _sse("error", {"message": f"save after error failed: {e2}"})
-            yield _sse_done()
+        if saved:
+            _maybe_summarize(user_id, req.session_id)
+        yield _sse_done()
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

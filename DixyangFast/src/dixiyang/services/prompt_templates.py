@@ -105,3 +105,36 @@ def build_summarize_prompt(previous_summary: str, conversation: str) -> str:
         previous_summary=prev,
         conversation=conversation,
     )
+
+
+# ==================== 角色设定提取 ====================
+
+_CHARACTER_EXTRACT_TEMPLATE = """你是一个角色设定提取器。分析以下对话内容，提取与角色相关的结构化信息。
+
+对话内容：
+{conversation}
+
+请返回 JSON 格式的角色设定（不要 markdown 包裹）：
+{{
+  "势力": "角色所属势力/组织",
+  "技能": ["技能1", "技能2"],
+  "武器": "武器名称",
+  "弱点": ["弱点1", "弱点2"],
+  "性格特点": "性格描述",
+  "外貌特征": "外貌描述",
+  "背景故事": "背景描述",
+  "人际关系": {{
+    "角色名": "关系描述"
+  }},
+  "其他信息": "未归类的重要信息"
+}}
+
+规则：
+1. 只返回对话中明确提到的信息，不要编造
+2. 如果某个字段没有相关信息，不要包含该字段
+3. 只返回 JSON，不要任何解释
+4. 如果对话中没有任何可提取的设定信息，返回空对象 {{}}"""
+
+
+def build_character_extract_prompt(conversation: str) -> str:
+    return _CHARACTER_EXTRACT_TEMPLATE.format(conversation=conversation)

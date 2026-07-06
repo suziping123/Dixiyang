@@ -40,6 +40,8 @@ public class FileController {
     private NovelMapper novelMapper;
     @Autowired
     private UserConfigMapper userConfigMapper;
+    @Autowired
+    private com.dixiyang.server.Utils.StorageService storageService;
 
     // ==================== 封面 ====================
 
@@ -75,20 +77,37 @@ public class FileController {
         Result<Void> fileResult = doDeleteFile(url, BACKGROUNDS_DIR);
         if (fileResult.getCode() != 200) return fileResult;
 
-        // 从 user_config.custom_bgs JSON 数组中移除
+        // 从 user_config.custom_bgs 中移除对应项
         UserConfig config = userConfigMapper.selectOne(
                 new LambdaQueryWrapper<UserConfig>().eq(UserConfig::getUserId, userId));
         if (config != null && config.getCustomBgs() != null) {
-            JSONArray arr = JSON.parseArray(config.getCustomBgs());
-            JSONArray updated = new JSONArray();
-            for (int i = 0; i < arr.size(); i++) {
-                JSONObject item = arr.getJSONObject(i);
-                if (!url.equals(item.getString("url"))) {
-                    updated.add(item);
+            String raw = config.getCustomBgs();
+            if (raw.startsWith("__file__:")) {
+                // __file__ 引用：加载文件内容，过滤后回写
+                Object loaded = storageService.loadJson("user/customBgs", userId, raw);
+                if (loaded instanceof java.util.List) {
+                    @SuppressWarnings("unchecked")
+                    java.util.List<java.util.Map<String, Object>> arr =
+                            (java.util.List<java.util.Map<String, Object>>) loaded;
+                    arr.removeIf(item -> url.equals(item.get("url")));
+                    String ref = storageService.saveJsonString("user/customBgs", userId,
+                            arr.isEmpty() ? null : new com.alibaba.fastjson.JSONArray(arr).toJSONString());
+                    config.setCustomBgs(ref);
+                    userConfigMapper.updateById(config);
                 }
+            } else {
+                // 旧格式：直接是 JSON 字符串
+                com.alibaba.fastjson.JSONArray arr = com.alibaba.fastjson.JSON.parseArray(raw);
+                com.alibaba.fastjson.JSONArray updated = new com.alibaba.fastjson.JSONArray();
+                for (int i = 0; i < arr.size(); i++) {
+                    com.alibaba.fastjson.JSONObject item = arr.getJSONObject(i);
+                    if (!url.equals(item.getString("url"))) {
+                        updated.add(item);
+                    }
+                }
+                config.setCustomBgs(updated.isEmpty() ? null : updated.toJSONString());
+                userConfigMapper.updateById(config);
             }
-            config.setCustomBgs(updated.isEmpty() ? null : updated.toJSONString());
-            userConfigMapper.updateById(config);
         }
         return Result.success(null);
     }
