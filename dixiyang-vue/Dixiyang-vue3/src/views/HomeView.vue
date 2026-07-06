@@ -26,7 +26,7 @@
 
         <template v-else>
           <div v-if="novels.length === 0" class="empty-hint">
-            <svg viewBox="0 0 100 100" class="empty-icon"><circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" stroke-width="2" opacity="0.3"/><path d="M50 30 L60 50 L50 70 L40 50 Z" fill="currentColor" opacity="0.3"/></svg>
+            <svg viewBox="0 0 100 100" class="empty-icon"><circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" stroke-width="2" opacity="0.5"/><path d="M50 30 L60 50 L50 70 L40 50 Z" fill="currentColor" opacity="0.5"/></svg>
             <p>暂无创作宇宙，开始构建你的第一个宇宙吧</p>
           </div>
 
@@ -550,12 +550,16 @@ onBeforeUnmount(() => {
 
 .empty-hint {
   text-align: center;
-  color: rgba(255, 255, 255, 0.5);
-  padding: 40px 20px 0;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 50px 20px 0;
 }
 .empty-hint p {
-  margin: 0;
+  margin: 16px 0 0;
   font-size: 1rem;
+}
+.empty-icon {
+  width: 80px;
+  height: 80px;
 }
 
 .novel-card-wrapper {
