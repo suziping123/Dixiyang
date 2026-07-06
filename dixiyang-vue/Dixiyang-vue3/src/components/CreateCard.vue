@@ -27,7 +27,7 @@
           <div class="form-group cover-upload-group">
             <label class="form-label">宇宙封面</label>
             <div class="cover-upload-wrapper">
-              <div class="cover-preview" :style="{ backgroundImage: `url(${coverPreview || defaultCover})` }">
+              <div class="cover-preview" :style="{ backgroundImage: `url(${coverPreview || defaultCover})` }" @click="triggerUpload">
                 <input
                   ref="fileInputRef"
                   type="file"
@@ -124,6 +124,11 @@ const form = ref<NovelDTO>({
   description: '',
   coverUrl: ''
 })
+
+const triggerUpload = (e?: Event) => {
+  e?.stopPropagation()
+  fileInputRef.value?.click()
+}
 
 const handleCoverUpload = async (e: Event) => {
   const file = (e.target as HTMLInputElement).files?.[0]
