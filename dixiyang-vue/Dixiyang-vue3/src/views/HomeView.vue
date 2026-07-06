@@ -549,17 +549,15 @@ onBeforeUnmount(() => {
 }
 
 .empty-hint {
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   color: rgba(255, 255, 255, 0.6);
   padding: 50px 20px 0;
 }
 .empty-hint p {
   margin: 16px 0 0;
   font-size: 1rem;
-}
-.empty-icon {
-  width: 80px;
-  height: 80px;
 }
 
 .novel-card-wrapper {
