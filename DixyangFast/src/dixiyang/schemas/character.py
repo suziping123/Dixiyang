@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class CharacterCreate(BaseModel):
@@ -13,6 +13,13 @@ class CharacterCreate(BaseModel):
 
     model_config = {"populate_by_name": True}
 
+    @field_validator("age", mode="before")
+    @classmethod
+    def cast_age(cls, v):
+        if v is None:
+            return None
+        return int(v)
+
 
 class CharacterUpdate(BaseModel):
     name: str | None = None
@@ -22,3 +29,10 @@ class CharacterUpdate(BaseModel):
     background: str | None = None
     personality: str | None = None
     extra: dict | str | None = None
+
+    @field_validator("age", mode="before")
+    @classmethod
+    def cast_age(cls, v):
+        if v is None:
+            return None
+        return int(v)

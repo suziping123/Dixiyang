@@ -33,6 +33,11 @@ spring:
           connectiontimeout: 5000
           timeout: 5000
 
+  # Jackson 配置
+  jackson:
+    deserialization:
+      accept-float-as-int: true
+
   # 3. Spring AI 混合配置
   ai:
     # Ollama 本地模型 - 暂时禁用
@@ -108,7 +113,6 @@ mybatis-plus:
   type-aliases-package: com.dixiyang.server.Entity
   configuration:
     map-underscore-to-camel-case: true
-    # 打印 SQL 日志，开发阶段非常有帮助，能看到实际执行的 SQL
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
 logging:
