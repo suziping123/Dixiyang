@@ -90,6 +90,7 @@
         <div v-else class="empty-state">
           <svg viewBox="0 0 100 100" class="empty-icon"><circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" stroke-width="2" opacity="0.3"/><path d="M50 30 L60 50 L50 70 L40 50 Z" fill="currentColor" opacity="0.3"/></svg>
           <p>暂无创作宇宙，点击下方按钮开始创建</p>
+          <CreateCard @create-success="fetchNovels" />
         </div>
 
 
