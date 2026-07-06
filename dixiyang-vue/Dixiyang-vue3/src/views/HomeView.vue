@@ -84,15 +84,7 @@
             </div>
           </div>
 
-          <div class="novel-card-wrapper create-card-wrapper">
-            <div class="glass-card create-card" @click="openCreateDialog">
-              <div class="card-create-content">
-                <svg class="create-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-                <span>构建新宇宙</span>
-                <p class="create-hint">开启你的新故事</p>
-              </div>
-            </div>
-          </div>
+          <CreateCard @create-success="fetchNovels" />
         </div>
 
         <div v-else class="empty-state">
@@ -152,12 +144,6 @@
     </div>
 
     <div class="backdrop-overlay" v-if="showRag" @click="showRag = false"></div>
-    <!-- 创建小说弹窗 -->
-    <CreateNovelModal
-      :visible="showCreateModal"
-      @close="handleCreateModalClose"
-      @create-success="fetchNovels"
-    />
   </div>
 </template>
 
@@ -168,8 +154,6 @@ import { useRouter } from 'vue-router'
 import { gsap } from 'gsap'
 // 组件导入
 import BackgroundControl from '@/components/BackgroundControl.vue'
-import CreateNovelModal from '@/components/CreateNovelModal.vue'
-import NovelCard from '@/components/NovelCard.vue'
 import CreateCard from '@/components/CreateCard.vue'
 import FloatingNav from '@/components/FloatingNav.vue'
 // 工具/状态导入
@@ -212,7 +196,6 @@ const ragLoading = ref(false)
 const novels = ref<Novel[]>([])
 const flippedCards = ref<Set<string | number>>(new Set())
 const clickTimers = new Map<string | number, ReturnType<typeof setTimeout>>()
-const showCreateModal = ref(false); // 弹窗显隐状态
 
 
 
@@ -285,16 +268,6 @@ async function deleteNovel(novel: Novel) {
   } catch {
     // 用户取消确认
   }
-}
-
-// 事件处理：打开创建弹窗
-const openCreateDialog = () => {
-  showCreateModal.value = true;
-};
-
-// 事件处理：关闭创建弹窗
-const handleCreateModalClose = () => {
-  showCreateModal.value = false
 }
 
 // 事件处理：跳转到RAG助手页面
