@@ -60,17 +60,30 @@ cd "$SCRIPT_DIR"
 EMBED_PID=$!
 echo "   Embedding Service PID: $EMBED_PID"
 
-# 等待服务启动
-echo "   等待 Embedding Service 就绪..."
-for i in $(seq 1 60); do
+# 等待服务启动（先等日志出现 "Uvicorn running"，再等 health check）
+echo "   等待 Embedding Service 就绪（模型加载中，请稍候）..."
+LOG_READY=false
+for i in $(seq 1 120); do
+    # 先检查日志是否已输出启动完成
+    if [ "$LOG_READY" = false ] && grep -q "Uvicorn running" "$LOG_DIR/embedding_service.log" 2>/dev/null; then
+        LOG_READY=true
+        echo "   📝 日志显示服务已启动，等待 health check..."
+    fi
+    # 再检查 health check
     if curl -s http://localhost:8085/api/rag/health > /dev/null 2>&1; then
         echo "   ✅ Embedding Service 就绪"
         break
     fi
-    if [ $i -eq 60 ]; then
-        echo "   ❌ Embedding Service 启动超时"
+    if [ $i -eq 120 ]; then
+        echo "   ❌ Embedding Service 启动超时（240s）"
+        echo "   最后 10 行日志:"
+        tail -10 "$LOG_DIR/embedding_service.log"
         kill $CHROMA_PID $EMBED_PID 2>/dev/null
         exit 1
+    fi
+    # 每 10 秒显示进度
+    if [ $((i % 10)) -eq 0 ]; then
+        echo "   ⏳ 已等待 ${i}s..."
     fi
     sleep 2
 done

@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI):
     # 加载 Reranker 模型（可选）
     use_reranker = os.getenv("RAG_USE_RERANKER", "true").lower() == "true"
     if use_reranker:
-        reranker_path = os.getenv("RAG_RERANKER_MODEL", "/home/lijiajia/models/bge-reranker-large")
+        reranker_path = os.getenv("RAG_RERANKER_MODEL", str(Path(__file__).parent.parent / "models" / "bge-reranker-base"))
         if Path(reranker_path).exists():
             try:
                 from FlagEmbedding import FlagReranker

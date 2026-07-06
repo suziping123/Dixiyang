@@ -30,7 +30,7 @@ def get_chroma_collection():
 
 def get_embedding_model():
     from sentence_transformers import SentenceTransformer
-    model_path = os.getenv("RAG_EMBEDDING_MODEL", "BAAI/bge-m3")
+    model_path = os.getenv("RAG_EMBEDDING_MODEL", str(Path(__file__).parent.parent.parent.parent / "models" / "bge-m3"))
     device = "cuda" if os.getenv("RAG_DEVICE", "cuda") == "cuda" else "cpu"
     model = SentenceTransformer(model_path, device=device)
     if device == "cuda":

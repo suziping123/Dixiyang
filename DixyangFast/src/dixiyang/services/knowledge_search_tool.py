@@ -6,6 +6,7 @@
 import logging
 import os
 import time
+from pathlib import Path
 
 log = logging.getLogger(__name__)
 
@@ -142,7 +143,7 @@ def _get_embedding(text: str) -> list[float] | None:
 
     try:
         # 降级：本地 SentenceTransformer
-        model_path = os.getenv("RAG_EMBEDDING_MODEL", "BAAI/bge-m3")
+        model_path = os.getenv("RAG_EMBEDDING_MODEL", str(Path(__file__).parent.parent.parent.parent / "models" / "bge-m3"))
         from sentence_transformers import SentenceTransformer
         model = SentenceTransformer(model_path, device="cpu")
         emb = model.encode([text], normalize_embeddings=True).tolist()[0]
