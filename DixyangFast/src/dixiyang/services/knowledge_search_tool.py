@@ -9,6 +9,30 @@ import time
 
 log = logging.getLogger(__name__)
 
+RERANKER_URL = os.getenv("RERANKER_URL", "http://localhost:8085")
+
+
+def _rerank_results(query: str, documents: list[str]) -> list[int]:
+    """调用 reranker 精排，返回按相关性降序排列的原始索引列表"""
+    if len(documents) <= 1:
+        return list(range(len(documents)))
+    try:
+        import httpx
+        resp = httpx.post(
+            f"{RERANKER_URL}/api/rag/rerank",
+            json={"query": query, "documents": documents, "top_k": len(documents)},
+            timeout=30,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            results = data.get("results", [])
+            # results 按 score 降序，内容是文档原文，需要映射回原始索引
+            doc_to_idx = {d: i for i, d in enumerate(documents)}
+            return [doc_to_idx[r["content"]] for r in results if r["content"] in doc_to_idx]
+    except Exception as e:
+        log.warning("Reranker 调用失败，回退到原始顺序: %s", e)
+    return list(range(len(documents)))
+
 
 def knowledge_search(query: str, top_k: int = 5, doc_type: str | None = None) -> str:
     """
@@ -44,30 +68,47 @@ def knowledge_search(query: str, top_k: int = 5, doc_type: str | None = None) ->
         if query_emb is None:
             return "检索失败：embedding 模型不可用"
 
+        # 宽召回：多取 4 倍候选，供 reranker 精排
+        recall_k = min(top_k * 4, 100)
         results = collection.query(
             query_embeddings=[query_emb],
-            n_results=top_k,
+            n_results=recall_k,
             include=["documents", "metadatas", "distances"],
         )
 
         docs = results.get("documents", [[]])[0]
         metas = results.get("metadatas", [[]])[0]
 
-        filtered: list[str] = []
+        # 构建候选文档（带元数据）
+        candidates: list[dict] = []
         for i, doc in enumerate(docs):
             meta = metas[i] if i < len(metas) else {}
-            # 类型过滤
             if doc_type and not _matches_type(meta, doc_type):
                 continue
             source = meta.get("book_title") or meta.get("source") or ""
-            prefix = f"[{source}] " if source else ""
-            filtered.append(f"{prefix}{doc}")
+            candidates.append({"doc": doc, "source": source})
+
+        if not candidates:
+            elapsed = int((time.time() - start) * 1000)
+            log.info("知识检索: query=%s, type=%s, 结果数=0, 耗时=%dms", query, doc_type, elapsed)
+            return "未检索到相关资料"
+
+        # 调用 reranker 精排
+        reranked = _rerank_results(query, [c["doc"] for c in candidates])
+
+        # 按 rerank 顺序取 top_k
+        filtered: list[str] = []
+        for idx in reranked:
+            c = candidates[idx]
+            prefix = f"[{c['source']}] " if c["source"] else ""
+            filtered.append(f"{prefix}{c['doc']}")
+
+        filtered = filtered[:top_k]
 
         elapsed = int((time.time() - start) * 1000)
-        log.info("知识检索: query=%s, type=%s, 结果数=%d, 耗时=%dms", query, doc_type, len(filtered), elapsed)
+        log.info("知识检索: query=%s, type=%s, 候选数=%d, 结果数=%d, 耗时=%dms",
+                 query, doc_type, len(candidates), len(filtered), elapsed)
 
-        if not filtered:
-            return "未检索到相关资料"
         return "\n---\n".join(filtered)
 
     except Exception as e:

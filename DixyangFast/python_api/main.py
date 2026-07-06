@@ -28,13 +28,14 @@ CHROMA_PORT = int(os.getenv("CHROMADB_PORT", "8000"))
 COLLECTION_NAME = os.getenv("RAG_COLLECTION_NAME", "dixiyang_knowledge")
 
 _model = None
+_reranker = None
 _chroma_url = f"http://{CHROMA_HOST}:{CHROMA_PORT}"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """启动时加载模型"""
-    global _model
+    global _model, _reranker
     from sentence_transformers import SentenceTransformer
 
     cache_dir = str(Path(__file__).parent.parent / "models" / "cache")
@@ -48,6 +49,22 @@ async def lifespan(app: FastAPI):
     print(f"加载 Embedding 模型: {model_path} ...")
     _model = SentenceTransformer(model_path, cache_folder=cache_dir)
     print(f"模型加载完成，维度: {_model.get_sentence_embedding_dimension()}")
+
+    # 加载 Reranker 模型（可选）
+    use_reranker = os.getenv("RAG_USE_RERANKER", "true").lower() == "true"
+    if use_reranker:
+        reranker_path = os.getenv("RAG_RERANKER_MODEL", "/home/lijiajia/models/bge-reranker-large")
+        if Path(reranker_path).exists():
+            try:
+                from FlagEmbedding import FlagReranker
+                print(f"加载 Reranker 模型: {reranker_path} ...")
+                _reranker = FlagReranker(reranker_path, use_fp16=False)
+                print("Reranker 模型加载完成")
+            except Exception as e:
+                print(f"Reranker 加载失败: {e}")
+        else:
+            print(f"Reranker 模型不存在: {reranker_path}，跳过")
+
     yield
 
 
@@ -66,6 +83,11 @@ class SearchRequest(BaseModel):
     top_k: int = 5
     source_filter: str | None = None
 
+class RerankRequest(BaseModel):
+    query: str
+    documents: list[str]
+    top_k: int = 5
+
 
 # ========== Embedding 接口 ==========
 
@@ -78,6 +100,27 @@ async def embed(req: EmbedRequest):
 async def embed_batch(req: EmbedBatchRequest):
     embs = _model.encode(req.texts, normalize_embeddings=True)
     return {"embeddings": embs.tolist()}
+
+@app.post("/api/rag/rerank")
+async def rerank(req: RerankRequest):
+    """重排序：对候选文档按 (query, doc) 相关性精排"""
+    if _reranker is None:
+        return {"error": "Reranker 模型未加载", "results": []}
+    if not req.documents:
+        return {"results": []}
+
+    pairs = [[req.query, doc] for doc in req.documents]
+    scores = _reranker.compute_score(pairs)
+    if isinstance(scores, (int, float)):
+        scores = [scores]
+
+    ranked = sorted(zip(req.documents, scores), key=lambda x: x[1], reverse=True)
+    return {
+        "results": [
+            {"content": d, "score": round(float(s), 4)}
+            for d, s in ranked[:req.top_k]
+        ]
+    }
 
 @app.get("/api/rag/health")
 async def health():
@@ -187,7 +230,7 @@ async def rag_stats():
 
 @app.post("/api/rag/search")
 async def rag_search(req: SearchRequest):
-    """检索测试"""
+    """检索测试（宽召回 + reranker 精排）"""
     col_name, col_id = await _get_collection()
     if not col_id:
         return {"error": "集合不存在"}
@@ -198,9 +241,11 @@ async def rag_search(req: SearchRequest):
     if req.source_filter:
         where = {"source": req.source_filter}
 
+    # 宽召回：多取 4 倍候选
+    recall_k = min(req.top_k * 4, 100)
     body = {
         "query_embeddings": emb,
-        "n_results": req.top_k,
+        "n_results": recall_k,
         "include": ["documents", "metadatas", "distances"],
     }
     if where:
@@ -213,6 +258,7 @@ async def rag_search(req: SearchRequest):
         )
         data = resp.json()
         results = []
+        doc_texts = []
         if data.get("documents") and data["documents"][0]:
             docs = data["documents"][0]
             metas = data["metadatas"][0] if data.get("metadatas") else [None] * len(docs)
@@ -220,12 +266,27 @@ async def rag_search(req: SearchRequest):
             ids = data["ids"][0] if data.get("ids") else [""] * len(docs)
             for i in range(len(docs)):
                 meta = metas[i] if i < len(metas) else {}
+                doc_texts.append(docs[i])
                 results.append({
                     "id": ids[i] if i < len(ids) else "",
                     "content": docs[i][:500],
                     "metadata": meta,
                     "score": round(1.0 - (dists[i] if dists[i] else 0), 4),
                 })
+
+        # 调用 reranker 精排
+        if results and _reranker is not None:
+            pairs = [[req.query, doc] for doc in doc_texts]
+            scores = _reranker.compute_score(pairs)
+            if isinstance(scores, (int, float)):
+                scores = [scores]
+
+            # 按 rerank 分数降序排列
+            ranked_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
+            results = [results[i] for i in ranked_indices[:req.top_k]]
+            for r in results:
+                r["reranked"] = True
+
         return {"query": req.query, "results": results, "total": len(results)}
 
 
