@@ -36,7 +36,7 @@ if __name__ == "__main__":
 
     # 实例化重排模型
     print("正在加载 FlagReranker 模型...")
-    reranker = FlagReranker("BAAI/bge-reranker-large", use_fp16=True)
+    reranker = FlagReranker("/home/lijiajia/models/bge-reranker-large", use_fp16=True)
     
     def rerank_docs(input_dict: dict) -> List[Document]:
         docs: List[Document] = input_dict["context"]
