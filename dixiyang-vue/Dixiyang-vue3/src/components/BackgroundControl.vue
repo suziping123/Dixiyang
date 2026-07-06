@@ -129,7 +129,14 @@ const handleDeleteCustom = async (id: string) => {
 .bg-image-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: var(--text-muted); }
 .bg-image-label { position: absolute; bottom: 0; left: 0; right: 0; padding: 3px 6px; background: rgba(0,0,0,0.55); color: white; font-size: 0.7rem; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bg-image-card.no-bg { display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.bg-image-empty { font-size: 1.6rem; color: var(--text-muted); }
+
+
+.bg-image-empty { font-size: 1.6rem; color: var(--text-muted);transition: color 0.3s, transform 0.3s; }
+
+.bg-image-empty:hover {
+  color: var(--accent-cyan);
+  transform: scale(1.15) rotate(90deg);
+}
 
 .upload-card {
   display: flex;

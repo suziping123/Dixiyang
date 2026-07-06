@@ -12,8 +12,16 @@ export interface CharacterDTO {
   extra?: string;
 }
 
-export interface CharacterVO extends CharacterDTO {
+export interface CharacterVO {
   id: number;
+  novelId: number;
+  name: string;
+  gender?: string;
+  age?: number;
+  appearance?: string;
+  background?: string;
+  personality?: string;
+  extra?: Record<string, unknown>;
   createTime?: string;
 }
 

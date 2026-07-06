@@ -43,6 +43,7 @@
                 <div class="character-info">
                   <span v-if="character.gender" class="info-tag">{{ character.gender }}</span>
                   <span v-if="character.age" class="info-tag">{{ character.age }}岁</span>
+                  <span v-if="character.extra && Object.keys(character.extra).length > 0" class="info-tag settings-tag">📋 有设定</span>
                 </div>
                 <p v-if="character.appearance" class="character-desc">{{ character.appearance }}</p>
                 <p v-else-if="character.background" class="character-desc">{{ character.background }}</p>
@@ -258,7 +259,12 @@ const jsonToExtraFields = (extra: Record<string, unknown> | string | undefined) 
 
   if (extraObj && typeof extraObj === 'object') {
     for (const [key, value] of Object.entries(extraObj)) {
-      extraFields.value.push({ key, value: String(value) })
+      extraFields.value.push({
+        key,
+        value: typeof value === 'object' && value !== null
+          ? JSON.stringify(value)
+          : String(value)
+      })
     }
   }
 }
@@ -539,6 +545,12 @@ onMounted(() => {
   border-radius: 12px;
   font-size: 0.85rem;
   color: var(--neon-blue);
+}
+
+.settings-tag {
+  background: rgba(168, 85, 247, 0.2);
+  border-color: rgba(168, 85, 247, 0.3);
+  color: var(--neon-purple, #a855f7);
 }
 
 .character-desc {

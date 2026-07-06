@@ -194,18 +194,11 @@ export function useTextColorCustomizer() {
         accentColor: accentColor.value,
       }
 
-      // 创建完整的背景配置 DTO（包含字体颜色）
-      const bgConfigRes = await http.get('/user/bg-config')
-      const bgConfigData = bgConfigRes as any
-      let fullConfig = bgConfigData.data || {}
+      // 获取当前用户 ID
+      const userStore = JSON.parse(localStorage.getItem('userInfo') || '{}')
+      const userId = userStore.id
 
-      // 合并字体颜色到背景配置中
-      fullConfig = {
-        ...fullConfig,
-        fontColors: config,
-      }
-
-      const res = await http.post('/user/bg-config', fullConfig)
+      const res = await http.post('/userConfig/fontColors', { userId, colors: config })
       const resData = res as any
       if (resData.code === 200) {
         syncMessage.value = '✅ 颜色已保存'
@@ -221,10 +214,7 @@ export function useTextColorCustomizer() {
       return false
     } finally {
       isSyncing.value = false
-      // 2秒后清空提示信息
-      setTimeout(() => {
-        syncMessage.value = ''
-      }, 2000)
+      setTimeout(() => { syncMessage.value = '' }, 2000)
     }
   }
 
@@ -233,20 +223,22 @@ export function useTextColorCustomizer() {
    */
   const loadFromBackend = async (): Promise<boolean> => {
     try {
-      const res = await http.get('/user/bg-config')
+      const userStore = JSON.parse(localStorage.getItem('userInfo') || '{}')
+      const userId = userStore.id
+      if (!userId) return false
+
+      const res = await http.get('/userConfig/fontColors', { params: { userId } })
       const resData = res as any
       if (resData.code === 200 && resData.data) {
-        const bgConfig = resData.data
-        if (bgConfig.fontColors) {
-          textPrimary.value = bgConfig.fontColors.textPrimary || DEFAULT_CONFIG.textPrimary
-          textSecondary.value = bgConfig.fontColors.textSecondary || DEFAULT_CONFIG.textSecondary
-          textMuted.value = bgConfig.fontColors.textMuted || DEFAULT_CONFIG.textMuted
-          textDisabled.value = bgConfig.fontColors.textDisabled || DEFAULT_CONFIG.textDisabled
-          descriptionColor.value = bgConfig.fontColors.descriptionColor || DEFAULT_CONFIG.descriptionColor || ''
-          linkColor.value = bgConfig.fontColors.linkColor || DEFAULT_CONFIG.linkColor || ''
-          accentColor.value = bgConfig.fontColors.accentColor || DEFAULT_CONFIG.accentColor || ''
-          return true
-        }
+        const colors = resData.data
+        textPrimary.value = colors.textPrimary || DEFAULT_CONFIG.textPrimary
+        textSecondary.value = colors.textSecondary || DEFAULT_CONFIG.textSecondary
+        textMuted.value = colors.textMuted || DEFAULT_CONFIG.textMuted
+        textDisabled.value = colors.textDisabled || DEFAULT_CONFIG.textDisabled
+        descriptionColor.value = colors.descriptionColor || DEFAULT_CONFIG.descriptionColor || ''
+        linkColor.value = colors.linkColor || DEFAULT_CONFIG.linkColor || ''
+        accentColor.value = colors.accentColor || DEFAULT_CONFIG.accentColor || ''
+        return true
       }
     } catch (error) {
       console.warn('⚠️ 从后端加载文本颜色配置异常:', error)

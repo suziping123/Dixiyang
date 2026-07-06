@@ -171,6 +171,7 @@
               @userEdit="handleUserEdit(index, $event)"
               @userEditSave="handleUserEditSave"
               @userEditCancel="cancelUserEdit"
+              @extractSettings="handleExtractSettings(index)"
               class="message-item-wrapper"
             />
 
@@ -232,6 +233,11 @@
     </div>
   </div>
   <EditMessageModal ref="editModalRef" @save="handleEditSave" />
+  <CharacterSettingsDialog
+    v-model="showSettingsDialog"
+    :conversation="settingsConversation"
+    :novel-id="selectedNovel?.id"
+  />
 </template>
 
 <script setup lang="ts">
@@ -242,6 +248,7 @@ import { useUserStore } from '@/stores/UserStore'
 import FloatingNav from '@/components/FloatingNav.vue'
 import ChatMessage from '@/components/chat/ChatMessage.vue'
 import EditMessageModal from '@/components/chat/EditMessageModal.vue'
+import CharacterSettingsDialog from '@/components/CharacterSettingsDialog.vue'
 import http from '@/utils/http'
 import { confirmDelete } from '@/utils/confirm'
 import { eventTypeLabel, eventTypeConfig, genderLabel, genderStyle } from '@/utils/storyMappings'
@@ -298,6 +305,10 @@ const options = ref({
   includeStory: true,
   conversationMode: 'WRITE' as 'WRITE' | 'DISCUSS' | 'ANALYZE' | 'BRAINSTORM' | 'ASK'
 })
+
+// 设定助手弹窗状态
+const showSettingsDialog = ref(false)
+const settingsConversation = ref<Array<{ role: 'user' | 'assistant'; content: string }>>([])
 
 import {
   Edit,
@@ -468,6 +479,18 @@ const handleRegenerate = async (index: number) => {
     conversationMode: options.value.conversationMode
   })
   scrollToBottom()
+}
+
+const handleExtractSettings = (index: number) => {
+  // 截取上下文：当前消息前后各2条
+  const start = Math.max(0, index - 2)
+  const end = Math.min(messages.value.length, index + 3)
+  const context = messages.value.slice(start, end).map(m => ({
+    role: m.role as 'user' | 'assistant',
+    content: m.content
+  }))
+  settingsConversation.value = context
+  showSettingsDialog.value = true
 }
 
 const handleDeleteSession = async (sessionId: string) => {
