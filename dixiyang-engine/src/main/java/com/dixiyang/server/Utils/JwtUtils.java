@@ -9,8 +9,8 @@ import java.util.Date;
 
 @Component
 public class JwtUtils {
-    // 固定密钥（必须32个字符以上，HS256要求），重启服务也不会变，Token才有效
-    private static final String SECRET_STRING = "dixiyang-secret-key-1234567890abcdef12345678";
+    // 从环境变量读取密钥，避免硬编码
+    private static final String SECRET_STRING = System.getenv("JWT_SECRET_KEY");
     private static final SecretKey KEY = Keys.hmacShaKeyFor(SECRET_STRING.getBytes());
 
     private static final long EXPIRATION_TIME = 7*24*60*60*1000;//7天过期

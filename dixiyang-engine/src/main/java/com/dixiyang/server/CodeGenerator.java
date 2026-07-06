@@ -20,10 +20,10 @@ import java.util.Collections;
 
 public class CodeGenerator {
     public static void main(String[] args) {
-        // 1. 数据库配置（改成你自己的）
+        // 1. 数据库配置（从环境变量读取）
         String url = "jdbc:mysql://localhost:3306/dixiyang";
-        String username = "root";
-        String password = "123456";
+        String username = System.getenv("DB_USERNAME");
+        String password = System.getenv("DB_PASSWORD");
 
         // 2. 全局配置
         FastAutoGenerator.create(url, username, password)

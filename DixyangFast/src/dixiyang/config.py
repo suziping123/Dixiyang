@@ -1,7 +1,7 @@
 import os
 
-DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://root:123321@127.0.0.1:3306/dixiyang?charset=utf8")
-SECRET_KEY = os.getenv("SECRET_KEY", "dixiyang-secret-key-1234567890abcdef12345678")
+DATABASE_URL = os.getenv("DATABASE_URL")
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
 
@@ -25,5 +25,5 @@ CHAT_MAX_FILE_SIZE = int(os.getenv("CHAT_MAX_FILE_SIZE", "102400"))
 # SMTP 邮件配置 (QQ SMTP)
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.qq.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USERNAME = os.getenv("SMTP_USERNAME", "3268845120@qq.com")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "yzhnzbwkaluncieh")
+SMTP_USERNAME = os.getenv("SMTP_USERNAME")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
