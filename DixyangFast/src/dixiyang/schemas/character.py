@@ -21,6 +21,17 @@ class CharacterCreate(BaseModel):
         return int(v)
 
 
+class ExtractSettingsRequest(BaseModel):
+    conversation: str
+
+
+class SaveSettingsRequest(BaseModel):
+    character_id: int = Field(alias="characterId")
+    settings: dict
+
+    model_config = {"populate_by_name": True}
+
+
 class CharacterUpdate(BaseModel):
     name: str | None = None
     gender: str | None = None

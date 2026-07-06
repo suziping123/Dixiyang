@@ -1,7 +1,7 @@
 import json
 from fastapi import APIRouter, Depends
 
-from ..schemas.character import CharacterCreate, CharacterUpdate
+from ..schemas.character import CharacterCreate, CharacterUpdate, ExtractSettingsRequest, SaveSettingsRequest
 from ..services.character_service import CharacterService
 from ..services.prompt_templates import build_character_extract_prompt
 from ..services.chat_service import call_llm
@@ -41,13 +41,13 @@ async def delete(char_id: int, svc: CharacterService = Depends()):
 
 
 @router.post("/extractSettings")
-async def extract_settings(body: dict):
+async def extract_settings(req: ExtractSettingsRequest):
     """
     从对话内容中提取角色设定
     输入: { "conversation": "对话文本" }
     返回: { "settings": { ... } }
     """
-    conversation = body.get("conversation", "")
+    conversation = req.conversation
     if not conversation.strip():
         return Result.error("对话内容不能为空")
 
@@ -71,13 +71,9 @@ async def extract_settings(body: dict):
 
 
 @router.post("/saveSettings")
-async def save_settings(body: dict, svc: CharacterService = Depends()):
+async def save_settings(req: SaveSettingsRequest, svc: CharacterService = Depends()):
     """
     保存角色设定到 extra 字段
     输入: { "characterId": 123, "settings": { ... } }
     """
-    char_id = body.get("characterId")
-    settings = body.get("settings")
-    if not char_id or settings is None:
-        return Result.error("参数不完整")
-    return svc.save_settings(char_id, settings)
+    return svc.save_settings(req.character_id, req.settings)

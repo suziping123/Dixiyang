@@ -29,7 +29,7 @@ STORAGE_DIR = os.getenv("STORAGE_DIR", os.path.join(UPLOAD_DIR, "storage"))
 
 CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
 
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", os.getenv("DS_API_KEY", ""))
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY") or os.getenv("DS_API_KEY", "")
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/")
 DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
 

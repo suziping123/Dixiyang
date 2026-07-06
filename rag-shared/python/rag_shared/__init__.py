@@ -9,7 +9,9 @@ from .config import (
     get_config,
     reset_config,
 )
-from .processor import RAGProcessor, DocumentChunk, FileStateTracker
+from .tracker import FileStateTracker
+from .loaders import DocumentChunk
+from .processor import RAGProcessor
 
 __version__ = "0.1.0"
 __all__ = [
@@ -19,7 +21,7 @@ __all__ = [
     "RAGConfig",
     "get_config",
     "reset_config",
-    "RAGProcessor",
-    "DocumentChunk",
     "FileStateTracker",
+    "DocumentChunk",
+    "RAGProcessor",
 ]

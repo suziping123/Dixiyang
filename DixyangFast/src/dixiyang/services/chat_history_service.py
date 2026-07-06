@@ -101,8 +101,9 @@ class ChatHistoryService:
 
     def batch_save(self, user_id: int, session_id: str, novel_id: int | None, messages: list) -> dict:
         chain_dir = self._ensure_dir(user_id, session_id)
-        save_chain_file(chain_dir, messages)
-        self._upsert_session(user_id, session_id, novel_id)
+        fname = save_chain_file(chain_dir, messages)
+        head_path = f"__file__:chat/{user_id}/{session_id}/{fname}"
+        self._upsert_session(user_id, session_id, novel_id, head_path)
         return Result.success("保存成功")
 
     def edit_message(self, user_id: int, session_id: str, message_index: int, role: str, content: str) -> dict:

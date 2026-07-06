@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import uuid
 from datetime import datetime
@@ -18,12 +19,36 @@ from ..services.chat_service import (
     save_chain_file,
     truncate_chain,
 )
-from ..services.knowledge_search_tool import KNOWLEDGE_SEARCH_TOOL, knowledge_search
+from ..services.knowledge_search_tool import knowledge_search
+from ..services.novel_tools import get_all_tools
 from ..services.prompt_templates import build_system_prompt, build_user_prompt
 from ..utils.auth_deps import get_current_user_id
 from ..utils.response import Result
 
 router = APIRouter(prefix="/chat", tags=["聊天模块"])
+
+logger = logging.getLogger(__name__)
+
+_rag_enabled: bool | None = None
+
+
+def is_rag_enabled() -> bool:
+    global _rag_enabled
+    if _rag_enabled is not None:
+        return _rag_enabled
+    try:
+        from langchain_chroma import Chroma
+        from ..services.embeddings import DixiyangEmbeddings
+        Chroma(
+            collection_name=os.getenv("CHROMA_COLLECTION_NAME", "dixiyang_knowledge"),
+            embedding_function=DixiyangEmbeddings(),
+            persist_directory=os.getenv("CHROMA_PERSIST_DIR", "./storage/vectordb_4060"),
+        )
+        _rag_enabled = True
+    except Exception as e:
+        logger.warning("RAG 不可用（Chroma 连接失败）: %s", e)
+        _rag_enabled = False
+    return _rag_enabled
 
 
 def _chain_dir(user_id: int, session_id: str) -> str:
@@ -168,19 +193,36 @@ async def _stream_llm(messages: list[dict], temperature: float = 0.7, max_tokens
     has_tool_calls = False
 
     async for chunk in llm.astream(messages):
-        if chunk.tool_call_chunks:
+        raw_calls = chunk.tool_call_chunks or chunk.additional_kwargs.get("tool_calls")
+        if raw_calls:
             has_tool_calls = True
-            for tc in chunk.tool_call_chunks:
-                idx = tc.index or 0
+            for tc in raw_calls:
+                if not isinstance(tc, dict):
+                    idx = tc.index or 0
+                    tid = tc.id or ""
+                    fname = tc.name or ""
+                    fargs = tc.args or ""
+                elif "function" in tc:
+                    idx = tc.get("index", 0) or 0
+                    tid = tc.get("id", "")
+                    function = tc.get("function", {}) or {}
+                    fname = function.get("name", "")
+                    fargs = function.get("arguments", "")
+                else:
+                    idx = tc.get("index", 0) or 0
+                    tid = tc.get("id", "")
+                    fname = tc.get("name", "")
+                    fargs = tc.get("args", "")
                 if idx not in tool_calls_map:
-                    tool_calls_map[idx] = {"id": tc.id or "", "name": "", "arguments": ""}
-                entry = tool_calls_map[idx]
-                if tc.id:
-                    entry["id"] = tc.id
-                if tc.name:
-                    entry["name"] = tc.name
-                if tc.args:
-                    entry["arguments"] += tc.args
+                    tool_calls_map[idx] = {"id": tid, "name": fname, "arguments": fargs}
+                else:
+                    entry = tool_calls_map[idx]
+                    if tid:
+                        entry["id"] = tid
+                    if fname:
+                        entry["name"] = fname
+                    if fargs:
+                        entry["arguments"] += fargs
 
         content = chunk.content or ""
         if not content:
@@ -225,16 +267,20 @@ async def _stream_llm(messages: list[dict], temperature: float = 0.7, max_tokens
         yield ("tool_calls", tool_calls_map)
 
 
-async def _stream_with_tool_loop(messages: list[dict], temperature: float, max_tokens: int):
-    """Agent 循环：LLM → 工具调用 → 执行工具 → 结果回传 → 再次 LLM → ..."""
+async def _stream_with_tool_loop(messages: list[dict], temperature: float, max_tokens: int, novel_id: int = 0):
+    """Agent 循环：LLM → 工具调用 → LangChain tool.invoke() → 结果回传 → 再次 LLM → ..."""
     current_messages = list(messages)
+
+    tools = get_all_tools(novel_id)
+    if is_rag_enabled():
+        tools.append(knowledge_search)
+    tool_map = {t.name: t for t in tools}
 
     for round_num in range(MAX_TOOL_ROUNDS + 1):
         tool_calls_map = None
         full_content = ""
 
-        async for type_, delta in _stream_llm(current_messages, temperature, max_tokens,
-                                               tools=[KNOWLEDGE_SEARCH_TOOL]):
+        async for type_, delta in _stream_llm(current_messages, temperature, max_tokens, tools=tools):
             if type_ == "tool_calls":
                 tool_calls_map = delta
             elif type_ in ("content", "thinking"):
@@ -242,9 +288,8 @@ async def _stream_with_tool_loop(messages: list[dict], temperature: float, max_t
                 yield (type_, delta)
 
         if tool_calls_map is None:
-            return  # 无工具调用，正常结束
+            return
 
-        # 有工具调用 → 追加 AI 消息 + 执行工具
         ai_tool_calls = []
         for idx in sorted(tool_calls_map.keys()):
             tc = tool_calls_map[idx]
@@ -257,22 +302,23 @@ async def _stream_with_tool_loop(messages: list[dict], temperature: float, max_t
         ai_msg: dict = {"role": "assistant", "content": full_content or None, "tool_calls": ai_tool_calls}
         current_messages.append(ai_msg)
 
-        # 执行每个工具调用
         for tc in ai_tool_calls:
             func_name = tc["function"]["name"]
+            raw = tc["function"]["arguments"] or "{}"
             try:
-                args = json.loads(tc["function"]["arguments"])
-            except (json.JSONDecodeError, KeyError):
+                args = json.loads(raw)
+            except (json.JSONDecodeError, KeyError, TypeError):
                 args = {}
 
             yield ("tool_start", func_name)
 
-            if func_name == "knowledge_search":
-                result = knowledge_search(
-                    query=args.get("query", ""),
-                    top_k=args.get("top_k", 5),
-                    doc_type=args.get("doc_type"),
-                )
+            result = ""
+            tool_fn = tool_map.get(func_name)
+            if tool_fn:
+                try:
+                    result = tool_fn.invoke(args)
+                except Exception as e:
+                    result = f"工具执行失败: {type(e).__name__}: {e}"
             else:
                 result = f"未知工具: {func_name}"
 
@@ -333,7 +379,7 @@ async def chat_stream(req: ChatRequest,
         full_content = ""
         saved = False
         try:
-            async for type_, delta in _stream_with_tool_loop(messages, temperature, max_tokens):
+            async for type_, delta in _stream_with_tool_loop(messages, temperature, max_tokens, novel_id=req.novel_id or 0):
                 if type_ in ("content", "thinking"):
                     full_content += delta
                 if type_ == "tool_start":
@@ -401,7 +447,7 @@ async def chat_regenerate(req: ChatRequest,
         full_content = ""
         saved = False
         try:
-            async for type_, delta in _stream_with_tool_loop(messages, temperature, max_tokens):
+            async for type_, delta in _stream_with_tool_loop(messages, temperature, max_tokens, novel_id=req.novel_id or 0):
                 if type_ in ("content", "thinking"):
                     full_content += delta
                 if type_ == "tool_start":
