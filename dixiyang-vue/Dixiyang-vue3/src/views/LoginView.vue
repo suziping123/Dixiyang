@@ -66,9 +66,6 @@
             <el-form-item prop="code" required>
               <div class="email-with-code">
                 <el-input v-model="loginForm.code" placeholder="验证码" :prefix-icon="Key">
-                  <template #prefix>
-                    <el-icon><Key /></el-icon>
-                  </template>
                 </el-input>
                 <el-button
                   class="send-code-btn"

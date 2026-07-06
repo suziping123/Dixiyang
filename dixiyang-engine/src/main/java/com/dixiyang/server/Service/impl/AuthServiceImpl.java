@@ -41,7 +41,7 @@ public class AuthServiceImpl implements AuthService {
     private static final long RATE_LIMIT_SECONDS = 60;
 
     @Override
-    public Result login(String username, String password) {
+    public Result<?> login(String username, String password) {
         LambdaQueryWrapper<AppUser> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(AppUser::getUsername, username);
         AppUser appUser = appUserMapper.selectOne(queryWrapper);
@@ -66,7 +66,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public Result register(AuthDTO reg) {
+    public Result<?> register(AuthDTO reg) {
         LambdaQueryWrapper<AppUser> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(AppUser::getUsername, reg.getUsername());
         if (appUserMapper.selectOne(queryWrapper) != null) {
@@ -83,7 +83,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public Result<Void> sendCode(String email, String purpose) {
+    public Result<?> sendCode(String email, String purpose) {
         if (email == null || email.isBlank()) {
             return Result.error("邮箱不能为空");
         }
@@ -140,7 +140,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public Result<Void> loginByCode(VerifyCodeDTO dto) {
+    public Result<?> loginByCode(VerifyCodeDTO dto) {
         if (dto.getEmail() == null || dto.getEmail().isBlank()) {
             return Result.error("邮箱不能为空");
         }
@@ -193,7 +193,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public Result<Void> registerByCode(AuthDTO reg, String code) {
+    public Result<?> registerByCode(AuthDTO reg, String code) {
         if (reg.getEmail() == null || reg.getEmail().isBlank()) {
             return Result.error("邮箱不能为空");
         }
