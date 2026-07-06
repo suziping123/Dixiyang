@@ -131,3 +131,4 @@ uv.lock
 # 数据文件
 datasets/
 my_books/
+chroma_data/
