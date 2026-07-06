@@ -24,7 +24,7 @@ public class EmailServiceImpl implements EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            helper.setFrom("suziping123@outlook.com");
+            helper.setFrom("3268845120@qq.com");
             helper.setTo(to);
             helper.setSubject("【DIXIYANG】邮箱验证码");
             helper.setText(buildEmailBody(code), true);

@@ -18,12 +18,12 @@ spring:
       max-file-size: 10MB
       max-request-size: 10MB
 
-  # 3. 邮件配置 (Outlook SMTP)
+  # 3. 邮件配置 (QQ SMTP)
   mail:
-    host: smtp.office365.com
+    host: smtp.qq.com
     port: 587
-    username: ${MAIL_USERNAME:suziping123@outlook.com}
-    password: ${MAIL_PASSWORD:}
+    username: ${MAIL_USERNAME:3268845120@qq.com}
+    password: ${MAIL_PASSWORD:yzhnzbwkaluncieh}
     properties:
       mail:
         smtp:

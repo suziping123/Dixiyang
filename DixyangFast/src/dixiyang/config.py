@@ -22,8 +22,8 @@ DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
 CHAT_STORAGE_PATH = os.getenv("CHAT_STORAGE_PATH", STORAGE_DIR)
 CHAT_MAX_FILE_SIZE = int(os.getenv("CHAT_MAX_FILE_SIZE", "102400"))
 
-# SMTP 邮件配置
-SMTP_HOST = os.getenv("SMTP_HOST", "smtp.office365.com")
+# SMTP 邮件配置 (QQ SMTP)
+SMTP_HOST = os.getenv("SMTP_HOST", "smtp.qq.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USERNAME = os.getenv("SMTP_USERNAME", "suziping123@outlook.com")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+SMTP_USERNAME = os.getenv("SMTP_USERNAME", "3268845120@qq.com")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "yzhnzbwkaluncieh")
