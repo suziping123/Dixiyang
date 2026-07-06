@@ -65,23 +65,3 @@ export function resolveNovelCover(coverUrl: string | undefined): string {
 }
 
 export { PRESET_COVERS, presetMap }
-
-export function resolveCoverUrl(coverUrl: string | undefined): string {
-  if (!coverUrl) return ''
-
-  if (coverUrl.startsWith('preset:')) {
-    const id = coverUrl.slice(7)
-    const preset = presetMap.get(id)
-    return preset ? preset.thumb : ''
-  }
-
-  if (coverUrl.startsWith('http://') || coverUrl.startsWith('https://')) {
-    return coverUrl
-  }
-
-  if (coverUrl.startsWith('/')) {
-    return coverUrl
-  }
-
-  return coverUrl
-}

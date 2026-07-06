@@ -1,10 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import http, { assertApiResponse } from '@/utils/http'
-import { getNovelById, type NovelVO } from '@/api/novelApi'
+import { getNovelById } from '@/api/novelApi'
+import type { Novel } from '@/api/types'
 
 export const useNovelStore = defineStore('novel', () => {
-  const currentNovel = ref<NovelVO | null>(null)
+  const currentNovel = ref<Novel | null>(null)
   const loading = ref(false)
 
   async function loadNovel(novelId: number | string) {

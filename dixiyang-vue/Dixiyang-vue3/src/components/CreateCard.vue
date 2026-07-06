@@ -68,7 +68,7 @@
               class="form-input"
               placeholder="请输入你的笔名"
               required
-            />
+            ></input>
           </div>
 
           <!-- 宇宙简介 -->
@@ -99,13 +99,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { createNovel, uploadNovelCover } from '@/api/novelApi'
+import { ref, onMounted, watch } from 'vue'
+import { createNovel, uploadNovelCover, getNovelList } from '@/api/novelApi'
 import defaultCover from '@/images/default-cover.png'
+import { useUserStore } from '@/stores/UserStore'
 
 const emit = defineEmits<{
   'create-success': []
 }>()
+
+const userStore = useUserStore()
+const defaultPenName = ref('')
 
 const showModal = ref(false)
 const coverPreview = ref('')
@@ -123,6 +127,30 @@ const form = ref<NovelDTO>({
   penName: '',
   description: '',
   coverUrl: ''
+})
+
+const fetchDefaultPenName = async () => {
+  try {
+    const res = await getNovelList(1, 1)
+    const novels = (res as any).data?.records || (res as any).data || []
+    if (novels.length > 0 && novels[0].pen_name) {
+      defaultPenName.value = novels[0].pen_name
+    } else {
+      defaultPenName.value = userStore.nickname || ''
+    }
+  } catch {
+    defaultPenName.value = userStore.nickname || ''
+  }
+}
+
+onMounted(() => {
+  fetchDefaultPenName()
+})
+
+watch(showModal, (val) => {
+  if (val) {
+    form.value.penName = defaultPenName.value || userStore.nickname || ''
+  }
 })
 
 const triggerUpload = (e?: Event) => {

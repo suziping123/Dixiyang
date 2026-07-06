@@ -21,22 +21,22 @@ export interface RegisterResponse {
   nickname: string
 }
 
-// 分页响应类型
-export interface PageResponse<T = unknown> {
+// 分页返回结果类型（对齐后端 MyBatis-Plus）
+export interface PageResult<T> {
   records: T[]
   total: number
-  page: number
-  pageSize: number
+  size: number
+  current: number
+  pages: number
 }
 
 // 小说相关类型（后端 NovelVO 使用 @JsonProperty 返回 snake_case）
 export interface Novel {
-  id?: number
+  id: number
   title: string
-  pen_name?: string
-  description?: string
-  cover_url?: string
-  userId?: number
+  pen_name: string
+  description: string
+  cover_url: string
   createTime?: string
   updateTime?: string
   char_count?: number
@@ -44,16 +44,38 @@ export interface Novel {
   relation_count?: number
 }
 
-// 角色相关类型
+// 小说创建 DTO
+export interface NovelDTO {
+  title: string
+  penName: string
+  description: string
+  coverUrl?: string
+}
+
+// 角色相关类型（对齐后端 CharacterVO）
 export interface Character {
-  id?: number
-  novelId?: number
+  id: number
+  novelId: number
   name: string
-  avatar?: string
-  description?: string
-  personality?: string
+  gender?: string
+  age?: number
+  appearance?: string
   background?: string
-  extra?: string | Record<string, unknown>
+  personality?: string
+  extra?: Record<string, unknown>
+  createTime?: string
+}
+
+// 角色创建 DTO
+export interface CharacterDTO {
+  novelId: number
+  name: string
+  gender?: string
+  age?: number
+  appearance?: string
+  background?: string
+  personality?: string
+  extra?: string
 }
 
 // 故事情节节点类型

@@ -177,7 +177,7 @@ import FloatingNav from '@/components/FloatingNav.vue'
 import NovelPageHeader from '@/components/NovelPageHeader.vue'
 import { useBackgroundConfig } from '@/composables/useBackgroundConfig'
 import { useTextColorCustomizer } from '@/composables/useTextColorCustomizer'
-import type { CharacterVO, CharacterDTO } from '@/api/characterApi'
+import type { Character, CharacterDTO } from '@/api/types'
 import { getCharacterList, createCharacter, updateCharacter, deleteCharacter as deleteCharacterApi } from '@/api/characterApi'
 import { useNovelStore } from '@/stores/novelStore'
 
@@ -190,11 +190,11 @@ const novelStore = useNovelStore()
 const isLoading = ref(true)
 const isSaving = ref(false)
 const isDeleting = ref(false)
-const characters = ref<CharacterVO[]>([])
+const characters = ref<Character[]>([])
 const showDialog = ref(false)
 const showDeleteDialog = ref(false)
 const isEditMode = ref(false)
-const deleteCandidate = ref<CharacterVO | null>(null)
+const deleteCandidate = ref<Character | null>(null)
 const editingId = ref<number | null>(null)
 const hoveredCard = ref<number | null>(null)
 
@@ -302,7 +302,7 @@ const openCreateDialog = () => {
   showDialog.value = true
 }
 
-const openEditDialog = (character: CharacterVO) => {
+const openEditDialog = (character: Character) => {
   isEditMode.value = true
   editingId.value = character.id
   form.novelId = character.novelId
@@ -349,7 +349,7 @@ const saveCharacter = async () => {
   }
 }
 
-const confirmDelete = (character: CharacterVO) => {
+const confirmDelete = (character: Character) => {
   deleteCandidate.value = character
   showDeleteDialog.value = true
 }

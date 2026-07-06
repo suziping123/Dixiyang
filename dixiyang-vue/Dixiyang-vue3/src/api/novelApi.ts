@@ -1,57 +1,18 @@
-/*
- * @Author: suziping123 yunzhiming123@gmail.com
- * @Date: 2026-03-21 15:30:13
- * @LastEditors: suziping123 yunzhiming123@gmail.com
- * @LastEditTime: 2026-03-24 13:25:10
- * @FilePath: \Dixiyang\dixiyang-vue\Dixiyang-vue3\src\api\novelApi.ts
- * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
- */
 import http, { assertApiResponse } from '@/utils/http';
-import type { ApiResponse } from '@/api/types';
-
-// 小说DTO类型定义
-export interface NovelDTO {
-  title: string;
-  penName: string;
-  description: string;
-  coverUrl?: string;
-}
-
-// 小说VO类型定义（后端 NovelVO 使用 @JsonProperty 返回 snake_case）
-export interface NovelVO {
-  id: string | number;
-  title: string;
-  pen_name: string;
-  description: string;
-  cover_url: string;
-  createTime?: string;
-  updateTime?: string;
-  char_count?: number;
-  node_count?: number;
-  relation_count?: number;
-}
-
-// 分页返回结果类型
-export interface PageResult<T> {
-  records: T[];
-  total: number;
-  size: number;
-  current: number;
-  pages: number;
-}
+import type { ApiResponse, Novel, NovelDTO, PageResult } from '@/api/types';
 
 // 获取小说列表
 export const getNovelList = async (page = 1, pageSize = 10) => {
   const res = await http.get('/novel/listall', {
     params: { page, pageSize }
   });
-  return assertApiResponse<PageResult<NovelVO>>(res);
+  return assertApiResponse<PageResult<Novel>>(res);
 };
 
 // 创建小说
 export const createNovel = async (novelDTO: NovelDTO) => {
   const res = await http.post('/novel/create', novelDTO);
-  return assertApiResponse<NovelVO>(res);
+  return assertApiResponse<Novel>(res);
 };
 
 // 上传小说封面
@@ -96,5 +57,5 @@ export const deleteNovel = (novelId: string | number) => {
 // 根据ID获取单本小说详情（子页面用来显示小说名称和封面）
 export const getNovelById = async (novelId: string | number) => {
   const res = await http.get(`/novel/${novelId}`);
-  return assertApiResponse<NovelVO>(res);
+  return assertApiResponse<Novel>(res);
 };

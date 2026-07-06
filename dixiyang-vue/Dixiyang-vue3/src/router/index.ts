@@ -40,15 +40,7 @@ const router = createRouter({
       component: SettingsView,
       meta: { requiresAuth: true } // 需要认证
     },
-    {
-      path: '/about',
-      name: 'about',
-      // route level code-splitting
-      // this generates a separate chunk (About.[hash].js) for this route
-      // which is lazy-loaded when the route is visited.
-      component: () => import('../views/AboutView.vue'),
-      meta: { requiresAuth: true } // 只有标记了这个的才需要检查
-    },
+
     {
       path: '/novel-editor/:id',
       name: 'novel-editor',
