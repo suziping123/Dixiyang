@@ -10,6 +10,7 @@
     </header>
 
     <main class="auth-box" :class="{ 'right-panel-active': isSignUp }">
+      <!-- 注册面板 -->
       <section class="form-container sign-up-container">
         <el-form :model="registerForm" :rules="rules" label-position="top">
           <h2 class="text-2xl font-bold mb-6">创建账号</h2>
@@ -19,8 +20,21 @@
           <el-form-item prop="username" required>
             <el-input v-model="registerForm.username" placeholder="姓名" :prefix-icon="User" />
           </el-form-item>
-          <el-form-item prop="email">
-            <el-input v-model="registerForm.email" placeholder="邮箱" :prefix-icon="Message" />
+          <el-form-item prop="email" required>
+            <div class="email-with-code">
+              <el-input v-model="registerForm.email" placeholder="邮箱" :prefix-icon="Message" />
+              <el-button
+                class="send-code-btn"
+                :disabled="codeCooldown > 0"
+                @click="sendCode(registerForm.email, 'REGISTER')"
+              >
+                {{ codeCooldown > 0 ? `${codeCooldown}s` : '发送验证码' }}
+              </el-button>
+            </div>
+          </el-form-item>
+          <el-form-item prop="code" required>
+            <el-input v-model="registerForm.code" placeholder="请输入验证码" :prefix-icon="Key">
+            </el-input>
           </el-form-item>
           <el-form-item prop="password" required>
             <el-input v-model="registerForm.password" type="password" placeholder="密码" :prefix-icon="Lock" show-password />
@@ -29,16 +43,49 @@
         </el-form>
       </section>
 
+      <!-- 登录面板 -->
       <section class="form-container sign-in-container">
         <el-form :model="loginForm" :rules="rules" label-position="top" @keyup.enter="handleLogin">
           <h2 class="text-2xl font-bold mb-6">欢迎回来</h2>
-          <el-form-item prop="username" required>
-            <el-input v-model="loginForm.username" placeholder="用户名" :prefix-icon="User" />
-          </el-form-item>
-          <el-form-item prop="password" required>
-            <el-input v-model="loginForm.password" type="password" placeholder="密码" :prefix-icon="Lock" show-password />
-          </el-form-item>
-          <a href="#" class="forgot-link">忘记密码？</a>
+
+          <!-- 密码登录 -->
+          <template v-if="loginMode === 'password'">
+            <el-form-item prop="username" required>
+              <el-input v-model="loginForm.username" placeholder="用户名" :prefix-icon="User" />
+            </el-form-item>
+            <el-form-item prop="password" required>
+              <el-input v-model="loginForm.password" type="password" placeholder="密码" :prefix-icon="Lock" show-password />
+            </el-form-item>
+          </template>
+
+          <!-- 验证码登录 -->
+          <template v-else>
+            <el-form-item prop="email" required>
+              <el-input v-model="loginForm.email" placeholder="邮箱" :prefix-icon="Message" />
+            </el-form-item>
+            <el-form-item prop="code" required>
+              <div class="email-with-code">
+                <el-input v-model="loginForm.code" placeholder="验证码" :prefix-icon="Key">
+                  <template #prefix>
+                    <el-icon><Key /></el-icon>
+                  </template>
+                </el-input>
+                <el-button
+                  class="send-code-btn"
+                  :disabled="codeCooldown > 0"
+                  @click="sendCode(loginForm.email, 'LOGIN')"
+                >
+                  {{ codeCooldown > 0 ? `${codeCooldown}s` : '发送验证码' }}
+                </el-button>
+              </div>
+            </el-form-item>
+          </template>
+
+          <div class="login-mode-switch">
+            <a href="#" @click.prevent="toggleLoginMode">
+              {{ loginMode === 'password' ? '验证码登录' : '密码登录' }}
+            </a>
+          </div>
           <el-button type="primary" class="auth-btn" @click="handleLogin">登录</el-button>
         </el-form>
       </section>
@@ -62,23 +109,24 @@
 </template>
 
 <script setup lang="ts">
-import { Lock, Message, User, UserFilled } from '@element-plus/icons-vue'
+import { Lock, Message, User, UserFilled, Key } from '@element-plus/icons-vue'
 import { gsap } from 'gsap'
 import { onMounted } from 'vue'
 import { useAuth } from '../composables/useAuth'
 
-// 导入逻辑层
-const { rules, isSignUp, loginForm, registerForm, togglePanel, handleLogin, handleRegister } = useAuth()
+const {
+  rules, isSignUp, loginMode, loginForm, registerForm,
+  togglePanel, toggleLoginMode, handleLogin, handleRegister,
+  sendCode, codeCooldown
+} = useAuth()
 
 onMounted(() => {
-  // GSAP 动画保持在表现层
   gsap.from(".system-title", { y: -100, opacity: 0, duration: 1.2, ease: "elastic.out(1, 0.5)" })
   gsap.from(".auth-box", { scale: 0.8, opacity: 0, duration: 1, delay: 0.5, ease: "power2.out" })
 })
 </script>
 
 <style scoped>
-/* 核心容器 */
 .auth-container {
   position: relative;
   display: flex;
@@ -119,7 +167,6 @@ onMounted(() => {
 
 .loginFooter { color: #ccc; letter-spacing: 2px; }
 
-/* 登录盒模型 */
 .auth-box {
   position: relative;
   z-index: 10;
@@ -146,7 +193,6 @@ onMounted(() => {
 .sign-in-container { left: 0; z-index: 2; }
 .sign-up-container { left: 0; opacity: 0; z-index: 1; }
 
-/* 切换动画逻辑 */
 .auth-box.right-panel-active .sign-in-container { transform: translateX(100%); opacity: 0; }
 .auth-box.right-panel-active .sign-up-container { transform: translateX(100%); opacity: 1; z-index: 5; animation: show 0.6s; }
 
@@ -185,7 +231,6 @@ onMounted(() => {
 .overlay-left { transform: translateX(-20%); }
 .auth-box.right-panel-active .overlay-left { transform: translateX(0); }
 
-/* 按钮样式 */
 .auth-btn {
   margin-top: 10px;
   background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
@@ -212,5 +257,32 @@ onMounted(() => {
   50%, 100% { opacity: 1; z-index: 5; }
 }
 
-.forgot { font-size: 12px; color: #666; margin: 15px 0; text-decoration: none; }
+/* 验证码相关样式 */
+.email-with-code {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+.email-with-code .el-input {
+  flex: 1;
+}
+.send-code-btn {
+  flex-shrink: 0;
+  height: 32px;
+  font-size: 13px;
+  border-radius: 6px;
+}
+
+.login-mode-switch {
+  text-align: right;
+  margin-bottom: 8px;
+}
+.login-mode-switch a {
+  color: #6366f1;
+  text-decoration: none;
+  font-size: 13px;
+}
+.login-mode-switch a:hover {
+  text-decoration: underline;
+}
 </style>

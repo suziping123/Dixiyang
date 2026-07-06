@@ -6,12 +6,14 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.context.annotation.Bean;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.scheduling.annotation.EnableAsync;
 
 @SpringBootApplication(exclude = {
     org.springframework.ai.autoconfigure.vectorstore.qdrant.QdrantVectorStoreAutoConfiguration.class
 })
 @ConfigurationPropertiesScan
 @MapperScan("com.dixiyang.server.Mapper")
+@EnableAsync
 
 public class DixiyangEngineApplication {
 

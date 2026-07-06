@@ -18,6 +18,21 @@ spring:
       max-file-size: 10MB
       max-request-size: 10MB
 
+  # 3. 邮件配置 (Outlook SMTP)
+  mail:
+    host: smtp.office365.com
+    port: 587
+    username: ${MAIL_USERNAME:suziping123@outlook.com}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connectiontimeout: 5000
+          timeout: 5000
+
   # 3. Spring AI 混合配置
   ai:
     # Ollama 本地模型 - 暂时禁用
