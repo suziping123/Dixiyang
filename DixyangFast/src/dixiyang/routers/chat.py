@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import uuid
 from datetime import datetime
 
@@ -19,7 +20,7 @@ from ..services.chat_service import (
     save_chain_file,
     truncate_chain,
 )
-from ..services.knowledge_search_tool import knowledge_search
+from ..services.knowledge_search_tool import knowledge_search, knowledge_search_structured
 from ..services.novel_tools import get_all_tools
 from ..services.prompt_templates import build_system_prompt, build_user_prompt
 from ..utils.auth_deps import get_current_user_id
@@ -60,8 +61,18 @@ def _sse(type_: str, data: dict) -> str:
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
-def _sse_done() -> str:
-    return _sse("done", {})
+def _sse_done(session_id: str | None = None) -> str:
+    payload: dict = {"type": "done"}
+    if session_id:
+        payload["sessionId"] = session_id
+    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+_SESSION_ID_RE = re.compile(r"^[a-f0-9\-]{8,64}$")
+
+
+def _is_valid_session_id(sid: str) -> bool:
+    return bool(_SESSION_ID_RE.match(sid))
 
 
 def _maybe_summarize(user_id: int, session_id: str):
@@ -120,10 +131,15 @@ async def chat_get(message: str, use_rag: bool = True,
     if not DEEPSEEK_API_KEY:
         return Result.error("未配置 DeepSeek API Key")
     system = build_system_prompt(get_mode("WRITE"))
-    from langchain_core.messages import SystemMessage, HumanMessage
+    from langchain_core.prompts import ChatPromptTemplate
+    from langchain_core.output_parsers import StrOutputParser
     llm = get_chat_model()
-    resp = llm.invoke([SystemMessage(content=system), HumanMessage(content=message)])
-    return Result.success("成功", resp.content)
+    chain = ChatPromptTemplate.from_messages([
+        ("system", system),
+        ("human", "{input}"),
+    ]) | llm | StrOutputParser()
+    resp = await chain.ainvoke({"input": message})
+    return Result.success("成功", resp)
 
 
 @router.post("")
@@ -138,13 +154,18 @@ async def chat_post(req: ChatRequest,
     ) if req.use_rag else ""
     system = build_system_prompt(mode, req.custom_system_prompt)
     user_prompt = build_user_prompt(fixed_ctx, "", "", req.message)
-    from langchain_core.messages import SystemMessage, HumanMessage
+    from langchain_core.prompts import ChatPromptTemplate
+    from langchain_core.output_parsers import StrOutputParser
     llm = get_chat_model(
         temperature=req.temperature or 0.7,
         max_tokens=req.max_tokens or MODE_META[mode]["max_tokens"],
     )
-    resp = llm.invoke([SystemMessage(content=system), HumanMessage(content=user_prompt)])
-    return Result.success("成功", resp.content)
+    chain = ChatPromptTemplate.from_messages([
+        ("system", system),
+        ("human", "{input}"),
+    ]) | llm | StrOutputParser()
+    resp = await chain.ainvoke({"input": user_prompt})
+    return Result.success("成功", resp)
 
 
 # ==================== 流式聊天 ====================
@@ -324,6 +345,19 @@ async def _stream_with_tool_loop(messages: list[dict], temperature: float, max_t
 
             yield ("tool_result", {"name": func_name, "result": result[:200] + "..." if len(result) > 200 else result})
 
+            # 如果是 knowledge_search，额外推送结构化引用数据
+            if func_name == "knowledge_search":
+                try:
+                    refs = knowledge_search_structured(
+                        query=args.get("query", ""),
+                        top_k=args.get("top_k", 5),
+                        doc_type=args.get("doc_type"),
+                    )
+                    if refs:
+                        yield ("rag_references", {"name": func_name, "references": refs})
+                except Exception as e:
+                    logger.warning("knowledge_search_structured 失败: %s", e)
+
             current_messages.append({
                 "role": "tool",
                 "tool_call_id": tc["id"],
@@ -369,6 +403,8 @@ async def chat_stream(req: ChatRequest,
 
         mode = get_mode(req.conversation_mode)
         session_id = req.session_id or uuid.uuid4().hex
+        if not _is_valid_session_id(session_id):
+            session_id = uuid.uuid4().hex
         chain_dir = _chain_dir(user_id, session_id)
         os.makedirs(chain_dir, exist_ok=True)
 
@@ -377,6 +413,7 @@ async def chat_stream(req: ChatRequest,
         temperature = req.temperature or 0.7
 
         full_content = ""
+        references: list[dict] = []
         saved = False
         try:
             async for type_, delta in _stream_with_tool_loop(messages, temperature, max_tokens, novel_id=req.novel_id or 0):
@@ -386,23 +423,30 @@ async def chat_stream(req: ChatRequest,
                     yield _sse("tool_start", {"tool": delta})
                 elif type_ == "tool_result":
                     yield _sse("tool_result", delta)
+                elif type_ == "rag_references":
+                    refs = delta.get("references", [])
+                    references.extend(refs)
+                    yield _sse("rag_references", delta)
                 elif type_ in ("content", "thinking"):
                     yield _sse(type_, {"delta": delta})
-            if full_content:
-                now = datetime.now().isoformat()
-                user_msg = {"role": "user", "content": req.message, "createTime": now}
-                asst_msg = {"role": "assistant", "content": full_content, "createTime": now}
-                fname = save_chain_file(chain_dir, [user_msg, asst_msg])
-                hp = f"__file__:chat/{user_id}/{session_id}/{fname}"
-                _upsert_session(user_id, session_id, req.novel_id, hp)
-                saved = True
+            now = datetime.now().isoformat()
+            user_msg = {"role": "user", "content": req.message, "createTime": now}
+            asst_msg = {"role": "assistant", "content": full_content, "createTime": now}
+            if references:
+                asst_msg["references"] = references
+            fname = save_chain_file(chain_dir, [user_msg, asst_msg])
+            hp = f"__file__:chat/{user_id}/{session_id}/{fname}"
+            _upsert_session(user_id, session_id, req.novel_id, hp)
+            saved = True
         except Exception as e:
             yield _sse("error", {"message": f"{type(e).__name__}: {e}"})
-            if full_content and not saved:
+            if not saved:
                 try:
                     now = datetime.now().isoformat()
                     user_msg = {"role": "user", "content": req.message, "createTime": now}
                     asst_msg = {"role": "assistant", "content": full_content, "createTime": now}
+                    if references:
+                        asst_msg["references"] = references
                     fname = save_chain_file(chain_dir, [user_msg, asst_msg])
                     hp = f"__file__:chat/{user_id}/{session_id}/{fname}"
                     _upsert_session(user_id, session_id, req.novel_id, hp)
@@ -411,7 +455,7 @@ async def chat_stream(req: ChatRequest,
                     yield _sse("error", {"message": f"save after error failed: {e2}"})
         if saved:
             _maybe_summarize(user_id, session_id)
-        yield _sse_done()
+        yield _sse_done(session_id)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
@@ -445,6 +489,7 @@ async def chat_regenerate(req: ChatRequest,
         temperature = req.temperature or 0.7
 
         full_content = ""
+        references: list[dict] = []
         saved = False
         try:
             async for type_, delta in _stream_with_tool_loop(messages, temperature, max_tokens, novel_id=req.novel_id or 0):
@@ -454,21 +499,28 @@ async def chat_regenerate(req: ChatRequest,
                     yield _sse("tool_start", {"tool": delta})
                 elif type_ == "tool_result":
                     yield _sse("tool_result", delta)
+                elif type_ == "rag_references":
+                    refs = delta.get("references", []) if isinstance(delta, dict) else []
+                    references.extend(refs)
+                    yield _sse("rag_references", delta)
                 elif type_ in ("content", "thinking"):
                     yield _sse(type_, {"delta": delta})
-            if full_content:
-                now = datetime.now().isoformat()
-                asst_msg = {"role": "assistant", "content": full_content, "createTime": now}
-                fname = save_chain_file(chain_dir, [asst_msg])
-                hp = f"__file__:chat/{user_id}/{req.session_id}/{fname}"
-                _upsert_session(user_id, req.session_id, req.novel_id, hp)
-                saved = True
+            now = datetime.now().isoformat()
+            asst_msg = {"role": "assistant", "content": full_content, "createTime": now}
+            if references:
+                asst_msg["references"] = references
+            fname = save_chain_file(chain_dir, [asst_msg])
+            hp = f"__file__:chat/{user_id}/{req.session_id}/{fname}"
+            _upsert_session(user_id, req.session_id, req.novel_id, hp)
+            saved = True
         except Exception as e:
             yield _sse("error", {"message": f"{type(e).__name__}: {e}"})
-            if full_content and not saved:
+            if not saved:
                 try:
                     now = datetime.now().isoformat()
                     asst_msg = {"role": "assistant", "content": full_content, "createTime": now}
+                    if references:
+                        asst_msg["references"] = references
                     fname = save_chain_file(chain_dir, [asst_msg])
                     hp = f"__file__:chat/{user_id}/{req.session_id}/{fname}"
                     _upsert_session(user_id, req.session_id, req.novel_id, hp)
@@ -477,6 +529,6 @@ async def chat_regenerate(req: ChatRequest,
                     yield _sse("error", {"message": f"save after error failed: {e2}"})
         if saved:
             _maybe_summarize(user_id, req.session_id)
-        yield _sse_done()
+        yield _sse_done(req.session_id)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

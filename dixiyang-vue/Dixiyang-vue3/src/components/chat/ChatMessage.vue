@@ -9,7 +9,7 @@
         <div v-if="message.thinking || streamingThinking" class="thinking-block">
           <details :open="isStreaming && !!streamingThinking">
             <summary class="thinking-toggle">
-              <span class="thinking-icon">💭</span>
+              <span class="thinking-icon"><el-icon><Loading /></el-icon></span>
               <span class="thinking-label">思考过程</span>
               <span class="thinking-badge">{{ message.thinking?.length || streamingThinking?.length || 0 }} 字符</span>
             </summary>
@@ -25,6 +25,19 @@
           placeholder="输入要修改的内容..."
         ></textarea>
         <div v-if="message.edited" class="edited-badge">已编辑</div>
+      </div>
+      <div v-if="displayReferences.length > 0" class="references-block">
+        <div class="references-title">
+          <el-icon><Collection /></el-icon>
+          参考来源</div>
+        <div class="references-list">
+          <div v-for="(ref, ri) in displayReferences.slice(0, 5)" :key="ri" class="reference-item" @click="openSource(ref)">
+            <span class="ref-source">{{ ref.source }}</span>
+            <span class="ref-title">{{ ref.title }}</span>
+            <span class="ref-score">{{ (ref.score * 100).toFixed(1) }}%</span>
+          </div>
+          <div v-if="displayReferences.length > 5" class="ref-more">还有 {{ displayReferences.length - 5 }} 个参考来源...</div>
+        </div>
       </div>
       <div class="message-meta">
         <span class="message-time">{{ formatTime(message.timestamp) }}</span>
@@ -57,12 +70,14 @@
 
 <script setup lang="ts">
 import { renderMarkdown } from '@/utils/markdown'
+import { Collection } from '@element-plus/icons-vue'
 
 interface Props {
   message: {
     role: 'user' | 'assistant'
     content: string
     thinking?: string
+    references?: { source: string; title: string; content: string; score: number }[]
     timestamp: Date
     edited?: boolean
     version?: number
@@ -70,12 +85,13 @@ interface Props {
   index?: number
   streamingContent?: string
   streamingThinking?: string
+  streamingReferences?: { source: string; title: string; content: string; score: number }[]
   isStreaming?: boolean
   isEditing?: boolean
   onEdit?: (index: number) => void
 }
 
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 
 const props = defineProps<Props>()
 const emit = defineEmits<{
@@ -89,6 +105,12 @@ const emit = defineEmits<{
 
 const editDraft = ref('')
 
+const displayReferences = computed(() => {
+  return props.streamingReferences && props.streamingReferences.length > 0
+    ? props.streamingReferences
+    : (props.message.references ?? [])
+})
+
 watch(() => props.isEditing, (val) => {
   if (val) editDraft.value = props.message.content
 })
@@ -101,6 +123,12 @@ const handleEdit = () => {
   if (props.index !== undefined && props.onEdit) {
     props.onEdit(props.index)
   }
+}
+
+const openSource = (ref: { source: string; title: string; content: string; score: number }) => {
+  // 点击参考气泡时复制来源信息到剪贴板，方便用户查阅
+  const text = `来源: ${ref.source}\n标题: ${ref.title}\n内容: ${ref.content}`
+  navigator.clipboard?.writeText(text).catch(() => {})
 }
 
 </script>
@@ -282,6 +310,72 @@ details[open] > .thinking-toggle::before { transform: rotate(90deg); }
   display: inline-block; font-size: 0.75rem; color: var(--neon-cyan, #28c4d4);
   margin-top: 8px; padding: 2px 8px;
   background: rgba(40, 196, 212, 0.1); border-radius: 8px;
+}
+
+.references-block {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.references-title {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.references-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reference-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.06);
+  border: 1px solid rgba(59, 130, 246, 0.12);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.85rem;
+}
+
+.reference-item:hover {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.25);
+}
+
+.ref-source {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--neon-cyan, #28c4d4);
+  flex-shrink: 0;
+}
+
+.ref-title {
+  flex: 1;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ref-score {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.ref-more {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 4px 0;
 }
 
 .message-meta {

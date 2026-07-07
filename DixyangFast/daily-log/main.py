@@ -1,15 +1,13 @@
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 import uvicorn
-from chat.ai import LoadModel
+from app.chat.ai import LoadModel
 from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:63342",
-    ],
+    allow_origins=["http://localhost:63342"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -30,7 +28,8 @@ def chat_stream(question:str):
 
 if __name__ == "__main__":
     uvicorn.run(
-        "main:app",
+        "app.main:app",
         host="127.0.0.1",
         port=8000,
+        reload=True,
     )

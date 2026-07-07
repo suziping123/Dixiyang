@@ -180,9 +180,10 @@
               <ChatMessage
                 v-if="currentContent || currentThinking"
                 :message="{ role: 'assistant', content: '', timestamp: new Date() }"
-                :streaming-content="currentContent"
-                :streaming-thinking="currentThinking"
-                :is-streaming="true"
+    :streaming-content="currentContent"
+    :streaming-thinking="currentThinking"
+    :streaming-references="currentReferences"
+    :is-streaming="true"
               />
               <div v-else class="message-item assistant">
                 <div class="message-avatar">🤖</div>
@@ -260,7 +261,7 @@ const userId = userStore.userId || (() => {
 })()
 
 const {
-  messages, currentContent, currentThinking, isStreaming,
+  messages, currentContent, currentThinking, currentReferences, isStreaming,
   currentSessionId, sessions,
   sendMessage, cancelStream, loadSessions, loadSessionMessages,
   newSession, deleteSession, regenerateMessage,

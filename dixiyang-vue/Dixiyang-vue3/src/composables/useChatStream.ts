@@ -1,10 +1,18 @@
 import { ref, readonly } from 'vue'
 import http from '@/utils/http'
 
+export interface RagReference {
+  source: string
+  title: string
+  content: string
+  score: number
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   thinking?: string
+  references?: RagReference[]
   timestamp: Date
   edited?: boolean
   version?: number
@@ -27,6 +35,7 @@ export function useChatStream(userId?: number) {
   const messages = ref<ChatMessage[]>([])
   const currentContent = ref('')
   const currentThinking = ref('')
+  const currentReferences = ref<RagReference[]>([])
   const isStreaming = ref(false)
   const currentSessionId = ref('')
   const sessions = ref<ChatSession[]>([])
@@ -42,6 +51,7 @@ export function useChatStream(userId?: number) {
           role: m.role,
           content: m.content,
           thinking: m.thinking ?? null,
+          references: m.references ?? null,
           createTime: m.timestamp.toISOString()
         }))
       })
@@ -74,10 +84,11 @@ export function useChatStream(userId?: number) {
     currentSessionId.value = sessionId
     try {
       const res = await http.get(`/chatHistory/session/${sessionId}`)
-      messages.value = (res.data ?? []).map((m: { role: string; content: string; thinking?: string; createTime?: string; edited?: boolean; version?: number }) => ({
+      messages.value = (res.data ?? []).map((m: { role: string; content: string; thinking?: string; references?: RagReference[]; createTime?: string; edited?: boolean; version?: number }) => ({
         role: m.role,
         content: m.content,
         thinking: m.thinking ?? undefined,
+        references: m.references ?? undefined,
         timestamp: m.createTime ? new Date(m.createTime) : new Date(),
         edited: m.edited ?? undefined,
         version: m.version ?? undefined
@@ -134,6 +145,7 @@ export function useChatStream(userId?: number) {
     isStreaming.value = true
     currentContent.value = ''
     currentThinking.value = ''
+    currentReferences.value = []
 
     const controller = new AbortController()
     abortController = controller
@@ -181,6 +193,13 @@ export function useChatStream(userId?: number) {
             const data = JSON.parse(jsonStr)
             if (data.type === 'content') currentContent.value += data.delta || ''
             else if (data.type === 'thinking') currentThinking.value += data.delta || ''
+            else if (data.type === 'rag_references') {
+              const refs = data.references ?? []
+              currentReferences.value.push(...refs)
+            }
+            else if (data.type === 'done') {
+              if (data.sessionId) currentSessionId.value = data.sessionId
+            }
             else if (data.type === 'error') throw new Error(data.message || '未知错误')
           } catch (e) {
             if (e instanceof SyntaxError) continue
@@ -193,11 +212,13 @@ export function useChatStream(userId?: number) {
         role: 'assistant',
         content: currentContent.value,
         thinking: currentThinking.value || undefined,
+        references: currentReferences.value.length > 0 ? currentReferences.value : undefined,
         timestamp: new Date()
       }
       messages.value.push(assistantMsg)
       currentContent.value = ''
       currentThinking.value = ''
+      currentReferences.value = []
 
       const isFirstExchange = messages.value.filter(m => m.role === 'assistant').length === 1
       await saveToBackend([userMsg, assistantMsg], context.novelId)
@@ -213,6 +234,7 @@ export function useChatStream(userId?: number) {
             role: 'assistant',
             content: currentContent.value,
             thinking: currentThinking.value || undefined,
+            references: currentReferences.value.length > 0 ? currentReferences.value : undefined,
             timestamp: new Date()
           })
         }
@@ -226,6 +248,7 @@ export function useChatStream(userId?: number) {
     } finally {
       isStreaming.value = false
       abortController = null
+      currentReferences.value = []
     }
   }
 
@@ -239,6 +262,7 @@ export function useChatStream(userId?: number) {
     messages.value = []
     currentContent.value = ''
     currentThinking.value = ''
+    currentReferences.value = []
     currentSessionId.value = ''
     isStreaming.value = false
   }
@@ -263,6 +287,7 @@ export function useChatStream(userId?: number) {
     isStreaming.value = true
     currentContent.value = ''
     currentThinking.value = ''
+    currentReferences.value = []
 
     const controller = new AbortController()
     abortController = controller
@@ -310,6 +335,13 @@ export function useChatStream(userId?: number) {
           const data = JSON.parse(jsonStr)
           if (data.type === 'content') currentContent.value += data.delta || ''
           else if (data.type === 'thinking') currentThinking.value += data.delta || ''
+          else if (data.type === 'rag_references') {
+            const refs = data.references ?? []
+            currentReferences.value.push(...refs)
+          }
+          else if (data.type === 'done') {
+            if (data.sessionId) currentSessionId.value = data.sessionId
+          }
           else if (data.type === 'error') throw new Error(data.message || '未知错误')
         }
       }
@@ -318,11 +350,13 @@ export function useChatStream(userId?: number) {
         role: 'assistant',
         content: currentContent.value,
         thinking: currentThinking.value || undefined,
+        references: currentReferences.value.length > 0 ? currentReferences.value : undefined,
         timestamp: new Date()
       }
       messages.value.push(assistantMsg)
       currentContent.value = ''
       currentThinking.value = ''
+      currentReferences.value = []
 
       saveToBackend([assistantMsg], context.novelId)
     } catch (error) {
@@ -336,6 +370,7 @@ export function useChatStream(userId?: number) {
     } finally {
       isStreaming.value = false
       abortController = null
+      currentReferences.value = []
     }
   }
 
@@ -399,6 +434,7 @@ export function useChatStream(userId?: number) {
     messages: readonly(messages),
     currentContent: readonly(currentContent),
     currentThinking: readonly(currentThinking),
+    currentReferences: readonly(currentReferences),
     isStreaming: readonly(isStreaming),
     currentSessionId: readonly(currentSessionId),
     sessions: readonly(sessions),

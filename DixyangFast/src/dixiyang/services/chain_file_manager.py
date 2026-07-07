@@ -133,16 +133,28 @@ def truncate_chain(chain_dir: str, keep_count: int) -> str | None:
         fpath = os.path.join(chain_dir, fname)
         msgs, _ = _parse_chain_file(fpath)
         all_msgs.extend(msgs)
-        os.remove(fpath)
 
     kept = all_msgs[:keep_count]
-    if kept:
-        fname = _make_filename()
-        data = {"title": "", "messages": kept, "next": None}
-        with open(os.path.join(chain_dir, fname), "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        return fname
-    return None
+    if not kept:
+        return None
+
+    # 原子写入：先写 tmp 文件，确保成功后删除旧文件再 rename
+    fname = _make_filename()
+    tmp_name = fname + ".tmp"
+    tmp_path = os.path.join(chain_dir, tmp_name)
+    data = {"title": "", "messages": kept, "next": None}
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+    # 删除旧文件
+    for fn in json_files:
+        try:
+            os.remove(os.path.join(chain_dir, fn))
+        except Exception:
+            pass
+
+    os.rename(tmp_path, os.path.join(chain_dir, fname))
+    return fname
 
 
 def replace_message(chain_dir: str, index: int, role: str, content: str) -> tuple[str, str]:
@@ -166,10 +178,22 @@ def replace_message(chain_dir: str, index: int, role: str, content: str) -> tupl
         f for f in os.listdir(chain_dir)
         if f.endswith(".json") and f not in ("edits.json", "summary.json")
     ]
-    for fname in json_files:
-        os.remove(os.path.join(chain_dir, fname))
 
-    write_chain_file(chain_dir, messages)
+    fname = _make_filename()
+    tmp_name = fname + ".tmp"
+    tmp_path = os.path.join(chain_dir, tmp_name)
+    data = {"title": "", "messages": messages, "next": None}
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+    for fn in json_files:
+        try:
+            os.remove(os.path.join(chain_dir, fn))
+        except Exception:
+            pass
+
+    final_path = os.path.join(chain_dir, fname)
+    os.rename(tmp_path, final_path)
     return original, content
 
 

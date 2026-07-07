@@ -30,10 +30,10 @@ def create_law_base():
     # 向量化入库
     Chroma.from_documents(
         documents=documents,
-        embedding_function=embedding_model,
+        embedding=embedding_model,
         persist_directory=CHROMA_DB_PATH,
         collection_name=COLLECTION_NAME,
-        metadata={"hnsw:space": "cosine"},# 元数据的配置，指定向量空间为余弦相似度
+        collection_metadata={"hnsw:space": "cosine"},# 元数据的配置，指定向量空间为余弦相似度
     )
     print("法律知识库构建完成")
 

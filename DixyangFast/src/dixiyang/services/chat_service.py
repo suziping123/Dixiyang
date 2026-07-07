@@ -39,21 +39,18 @@ def get_chat_model(
 
 
 def call_llm(messages: list[dict], temperature: float = 0.7, max_tokens: int = 8192) -> str:
-    """同步调用 LLM，返回文本"""
+    """同步调用 LLM（LCEL 管道）"""
     llm = get_chat_model(temperature, max_tokens)
+    from langchain_core.runnables import RunnableLambda
+    from langchain_core.output_parsers import StrOutputParser
     from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
-    lc_msgs = []
-    for m in messages:
-        role = m.get("role", "user")
-        content = m.get("content", "")
-        if role == "system":
-            lc_msgs.append(SystemMessage(content=content))
-        elif role == "assistant":
-            lc_msgs.append(AIMessage(content=content))
-        else:
-            lc_msgs.append(HumanMessage(content=content))
-    resp = llm.invoke(lc_msgs)
-    return resp.content
+    _ROLE_CLS = {"system": SystemMessage, "assistant": AIMessage, "user": HumanMessage, "human": HumanMessage}
+    chain = (
+        RunnableLambda(lambda msgs: [_ROLE_CLS.get(m.get("role", "user"), HumanMessage)(content=m.get("content", "")) for m in msgs])
+        | llm
+        | StrOutputParser()
+    )
+    return chain.invoke(messages)
 
 
 # ==================== 上下文构建 ====================

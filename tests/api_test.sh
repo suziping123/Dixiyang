@@ -270,11 +270,20 @@ echo "--- GET /api/rag/documents ---"
 R=$(curl -s -H "Authorization: Bearer $TOKEN" "$BASE/api/rag/documents?page=1&page_size=10")
 assert "文档列表" '"code":200' "$R"
 
-echo "--- POST /api/rag/search ---"
-R=$(curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  "$BASE/api/rag/search" \
-  -d '{"query":"测试","topK":3}')
+echo "--- POST /api/rag/search?query=测试&topK=3 ---"
+R=$(curl -s -X POST -H "Authorization: Bearer $TOKEN" \
+  "$BASE/api/rag/search?query=%E6%B5%8B%E8%AF%95&topK=3")
 assert "搜索" '"code":200' "$R"
+
+echo "--- POST /api/rag/search?source_filter=book ---"
+R=$(curl -s -X POST -H "Authorization: Bearer $TOKEN" \
+  "$BASE/api/rag/search?query=%E6%B5%8B%E8%AF%95&topK=3&source_filter=book")
+assert "搜索(来源筛选)" '"code":200' "$R"
+
+echo "--- GET /api/rag/documents?source=book ---"
+R=$(curl -s -H "Authorization: Bearer $TOKEN" \
+  "$BASE/api/rag/documents?page=1&page_size=5&source=book")
+assert "文档列表(来源筛选)" '"code":200' "$R"
 
 echo "--- POST /api/rag/embed ---"
 R=$(curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
