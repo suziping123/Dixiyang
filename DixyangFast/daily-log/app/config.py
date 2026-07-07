@@ -23,5 +23,7 @@ class Settings:
     PORT: int = int(os.getenv("PORT", "8000"))
     STATIC_DIR: Path = BASE_DIR/ "app" / "static"
     TEMPLATES_DIR: Path = BASE_DIR / "app" / "templates"
+    EMAIL_FROM: str = os.getenv("EMAIL_FROM", "3268845120@qq.com")
+    EMAIL_HOST: str = os.getenv("EMAIL_HOST", "smtp.qq.com")
 
 settings = Settings()

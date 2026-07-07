@@ -140,6 +140,19 @@ storage/
 *.lock
 uv.lock
 
+# Java 模块（已移除）
+dixiyang-engine/
+
+# 元素库/模型
+DixyangFast/daily-log/app/static/element-ui/
+
+# 清理脚本
+clean-sensitive.sh
+sensitive.sed
+
+# 模型文件（全路径，避免深度匹配歧义）
+DixyangFast/models/
+
 # 数据文件
 datasets/
 my_books/
