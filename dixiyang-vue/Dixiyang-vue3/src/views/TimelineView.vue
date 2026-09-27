@@ -115,7 +115,7 @@
 
           <div v-if="creatingNode" class="timeline-node">
             <div class="node-dot default"></div>
-            <div class="node-card glass-card creating-card">
+            <div class="node-card glass-card creating-card" @keyup.enter="enterSubmit(saveNewNode, $event)">
               <div class="node-header">
                 <input class="inline-input date-input" v-model="newNode.eventDate" placeholder="时间，如：木叶1年" ref="newDateRef" />
                 <select class="inline-select" v-model="newNode.eventType">
@@ -157,7 +157,7 @@
     </main>
 
     <el-dialog v-model="showCreateTimeline" title="新建时间线" width="420px">
-      <el-form label-position="top">
+      <el-form label-position="top" @submit.prevent @keyup.enter="enterSubmit(createNewTimeline, $event)">
         <el-form-item label="时间线名称" required>
           <el-input v-model="newTimelineName" placeholder="如：木叶纪年" />
         </el-form-item>
@@ -203,6 +203,7 @@ import {
 } from '@/api/timelineApi'
 import type { Timeline, TimelineNode } from '@/api/types'
 import { EVENT_TYPES, eventTypeLabel } from '@/utils/storyMappings'
+import { enterSubmit } from '@/utils/enterSubmit'
 
 const router = useRouter()
 const route = useRoute()

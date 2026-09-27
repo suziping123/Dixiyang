@@ -38,7 +38,7 @@ def get_chat_model(
     return _llm_cache[key]
 
 
-def call_llm(messages: list[dict], temperature: float = 0.7, max_tokens: int = 8192) -> str:
+def call_llm(messages: list[dict], temperature: float = 0.5, max_tokens: int = 8192) -> str:
     """同步调用 LLM（LCEL 管道）"""
     llm = get_chat_model(temperature, max_tokens)
     from langchain_core.runnables import RunnableLambda

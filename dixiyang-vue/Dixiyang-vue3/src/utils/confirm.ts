@@ -17,6 +17,7 @@ export function confirmDelete(message: string = "确定删除吗？"): Promise<b
   return ElMessageBox.confirm(message, '警告', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
-    type: 'warning'
+    type: 'warning',
+    autofocus: false // 危险操作：不自动聚焦确认按钮，避免回车直接触发删除
   }).then(() => true).catch(() => false)
 }

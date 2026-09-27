@@ -15,6 +15,7 @@ import CharacterManagerView from '../views/CharacterManagerView.vue'
 import RagAssistantView from '../views/RagAssistantView.vue'
 import RagKnowledgeView from '../views/RagKnowledgeView.vue'
 import { useUserStore } from '../stores/UserStore'
+import { isTokenValid, clearAuth } from '@/utils/auth'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -27,6 +28,7 @@ const router = createRouter({
       path: '/home',
       name: 'home',
       component: HomeView,
+      meta: { requiresAuth: true } // 需要认证
     },
     {
       path: '/login',
@@ -76,16 +78,18 @@ const router = createRouter({
 
 // 路由守卫：每次切换页面前都会执行
 router.beforeEach((to, from, next) => {
-  // 直接从本地存储拿，最稳妥
   const token = localStorage.getItem('token')
+  // 校验 token 存在且未过期（本地解 JWT exp），无效则清理
+  const valid = isTokenValid(token)
+  if (!valid && token) clearAuth()
 
   if (to.path === '/login') {
-    if (token) return next('/home')
+    if (valid) return next('/home')
     return next()
   }
 
-  // 如果没有 token，且不是去登录页
-  if (!token) {
+  // 未登录或 token 无效/过期 → 跳登录页
+  if (!valid) {
     return next('/login')
   }
 

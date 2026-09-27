@@ -6,6 +6,9 @@
       <header class="stage-header">
         <div class="header-top">
           <div class="logo-wrapper">
+            <div id="div1" @drop="drop" @dragover.prevent></div>
+            <br>
+            <img src="../assets/logoByGpt.png" alt="Dixiyang Logo" sizes="" srcset="" class="logo-img" draggable="true" @dragstart="drag">
             <h1 class="logo-text">DIXIYANG <span class="engine-span">ENGINE</span></h1>
             <div class="glow-line"></div>
           </div>
@@ -161,7 +164,7 @@ import FloatingNav from '@/components/FloatingNav.vue'
 // 工具/状态导入
 import { useUserStore } from '@/stores/UserStore'
 import { useTextColorCustomizer } from '@/composables/useTextColorCustomizer'
-import http from '@/utils/http'
+import http, { assertApiResponse } from '@/utils/http'
 import { confirmDelete } from '@/utils/confirm'
 // 资源导入
 import defaultCover from '@/images/default-cover.png'
@@ -208,6 +211,23 @@ const toggleCardFlip = (novelId: string | number, event: Event) => {
     ? flippedCards.value.delete(novelId)
     : flippedCards.value.add(novelId)
 }
+
+function allowDrop(ev: DragEvent)
+{
+	ev.preventDefault();
+}
+
+function drag(ev: DragEvent) {
+  ev.dataTransfer!.setData("text/plain", (ev.target as HTMLElement).id)
+}
+function drop(ev: DragEvent) {
+  ev.preventDefault()
+  const id = ev.dataTransfer!.getData("text/plain")
+  const el = document.getElementById(id)
+  if (el && ev.currentTarget) (ev.currentTarget as HTMLElement).appendChild(el)
+}
+
+
 
 // 事件处理：卡片点击（单击/双击区分）
 const handleCardClick = (novel: Novel, event: Event) => {
@@ -291,8 +311,11 @@ const fetchNovels = async () => {
   try {
     isLoading.value = true;
     const res = await http.get('/novel/listall', { params: { page: 1, pageSize: 10 } });
-    // 原有数据处理逻辑...
-    novels.value = res.data.records || res.data;
+    // 401 已由拦截器统一跳登录；其它业务失败直接返回，避免读空 data
+    const apiRes = assertApiResponse<{ records?: Novel[] } | Novel[] | null>(res)
+    if (apiRes.code !== 200 || !apiRes.data) return;
+    const data = apiRes.data
+    novels.value = Array.isArray(data) ? data : (data.records || []);
 
     // 判断是否有新卡片增加
     const hasNewCards = novels.value.length > prevNovelCount.value
@@ -315,7 +338,7 @@ const fetchNovels = async () => {
       }
     });
   } catch {
-    // 获取小说列表失败
+    // 获取小说列表失败（401 已由拦截器跳转登录）
   } finally {
     isLoading.value = false;
   }
@@ -449,15 +472,21 @@ onBeforeUnmount(() => {
 .stage-header { margin-bottom: 60px; }
 
 .header-top {
-  display: flex;
+  display: grid;
   justify-content: space-between;
   align-items: flex-start;
   gap: 30px;
   margin-bottom: 20px;
-  flex-wrap: wrap;
+  
+
 }
 
-.logo-wrapper { position: relative; flex: 1; min-width: 300px; }
+.logo-img {
+  
+  max-height: 100px;
+  min-width: 100px;
+}
+.logo-wrapper { position: relative; min-width: 300px; }
 
 .logo-text {
   font-size: 3.5rem;

@@ -219,18 +219,29 @@ http.interceptors.response.use(
 
 ## 开发规范
 
+### 文档（必须）
+每次实现/修复后，必须在 `docs/`（优先 `../docs/`，前端专项可写本目录 `docs/`）新增或更新 MD：
+- 需求、方案、改动文件、已知问题、验证方式
+- 若有 `../docs/README.md` 索引，须同步登记
+- **无文档视为任务未完成**
+
 ### 代码风格
 - 使用 TypeScript 提供类型安全
 - 遵循 Vue 3 组合式 API 最佳实践
 - 使用 ESLint 和 Prettier 保证代码质量
 
+### 表单回车约定
+- 统一：`@keyup.enter="enterSubmit(提交函数, $event)"`（必须传 `$event`，否则只创建包装函数不执行）
+- 实现见 `Dixiyang-vue3/src/utils/enterSubmit.ts`：非末框跳下一输入框，末框提交；textarea/按钮/下拉不触发
+- 危险删除：`confirm.ts` 已设 `autofocus: false`，禁止回车确认
+
 ### 命名规范
 - 组件名使用 PascalCase
 - 文件名使用 kebab-case
-- 变量和函数使用 camelCase
+- 函数和变量使用 camelCase
 
 ### 注释规范
-- 关键逻辑添加注释说明
+- 关键逻辑添加注释
 - 复杂算法提供详细说明
 - 公共 API 提供 JSDoc 注释
 
@@ -392,5 +403,5 @@ bg.setBgImage(undefined)           // 清除背景图
 ```
 
 ---
-*文档版本: v1.3*
-*最后更新: 2026-05-31*
+*文档版本: v1.4*
+*最后更新: 2026-09-24*

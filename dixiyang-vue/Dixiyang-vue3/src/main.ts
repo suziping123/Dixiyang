@@ -8,15 +8,15 @@ import 'element-plus/dist/index.css'
 import App from './App.vue'
 import router from './router'
 import { initTheme } from '@/composables/useBackgroundConfig'
+import { isTokenValid, clearAuth } from '@/utils/auth'
 
-// 修复旧版 localStorage 中 "undefined" 字符串导致的 userId 问题
+// 清理脏 token（"undefined"/"null" 字符串）及过期 token
+const storedToken = localStorage.getItem('token')
 const uid = localStorage.getItem('userId')
 if (uid && (uid === 'undefined' || uid === 'null' || isNaN(Number(uid)))) {
-  localStorage.removeItem('userId')
-  localStorage.removeItem('token')
-  localStorage.removeItem('username')
-  localStorage.removeItem('nickname')
-  localStorage.removeItem('email')
+  clearAuth()
+} else if (storedToken && !isTokenValid(storedToken)) {
+  clearAuth()
 }
 
 initTheme()

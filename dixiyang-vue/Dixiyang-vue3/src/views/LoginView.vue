@@ -12,7 +12,7 @@
     <main class="auth-box" :class="{ 'right-panel-active': isSignUp }">
       <!-- 注册面板 -->
       <section class="form-container sign-up-container">
-        <el-form :model="registerForm" :rules="rules" label-position="top">
+        <el-form :model="registerForm" :rules="rules" label-position="top" @submit.prevent @keyup.enter="enterSubmit(handleRegister, $event)">
           <h2 class="text-2xl font-bold mb-6">创建账号</h2>
           <el-form-item prop="nickname" required>
             <el-input v-model="registerForm.nickname" placeholder="昵称" :prefix-icon="UserFilled" />
@@ -45,7 +45,7 @@
 
       <!-- 登录面板 -->
       <section class="form-container sign-in-container">
-        <el-form :model="loginForm" :rules="rules" label-position="top" @keyup.enter="handleLogin">
+        <el-form :model="loginForm" :rules="rules" label-position="top" @submit.prevent @keyup.enter="enterSubmit(handleLogin, $event)">
           <h2 class="text-2xl font-bold mb-6">欢迎回来</h2>
 
           <!-- 密码登录 -->
@@ -110,6 +110,7 @@ import { Lock, Message, User, UserFilled, Key } from '@element-plus/icons-vue'
 import { gsap } from 'gsap'
 import { onMounted } from 'vue'
 import { useAuth } from '../composables/useAuth'
+import { enterSubmit } from '../utils/enterSubmit'
 
 const {
   rules, isSignUp, loginMode, loginForm, registerForm,

@@ -96,7 +96,7 @@
       class="character-dialog"
       @close="resetForm"
     >
-      <el-form :model="form" label-position="top" class="character-form">
+      <el-form :model="form" label-position="top" class="character-form" @submit.prevent @keyup.enter="enterSubmit(saveCharacter, $event)">
         <el-form-item label="角色名称" required>
           <el-input v-model="form.name" placeholder="请输入角色名称" />
         </el-form-item>
@@ -180,6 +180,7 @@ import { useTextColorCustomizer } from '@/composables/useTextColorCustomizer'
 import type { Character, CharacterDTO } from '@/api/types'
 import { getCharacterList, createCharacter, updateCharacter, deleteCharacter as deleteCharacterApi } from '@/api/characterApi'
 import { useNovelStore } from '@/stores/novelStore'
+import { enterSubmit } from '@/utils/enterSubmit'
 
 const router = useRouter()
 const route = useRoute()

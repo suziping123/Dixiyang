@@ -38,7 +38,7 @@
         </div>
       </el-tab-pane>
       <el-tab-pane label="输入URL" name="url">
-        <el-input v-model="coverUrlInput" placeholder="https://example.com/cover.jpg" clearable />
+        <el-input v-model="coverUrlInput" placeholder="https://example.com/cover.jpg" clearable @keyup.enter="enterSubmit(saveCover, $event)" />
       </el-tab-pane>
     </el-tabs>
     <template #footer>
@@ -55,6 +55,7 @@ import BackgroundControl from '@/components/BackgroundControl.vue'
 import { useNovelStore } from '@/stores/novelStore'
 import { uploadNovelCover, deleteNovelCover } from '@/api/novelApi'
 import { confirmDelete } from '@/utils/confirm'
+import { enterSubmit } from '@/utils/enterSubmit'
 import { resolveNovelCover } from '@/utils/localImages'
 import defaultCoverImg from '@/images/default-cover.png'
 

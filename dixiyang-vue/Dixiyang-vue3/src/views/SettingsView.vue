@@ -39,33 +39,35 @@
 <!-- Account Section -->
       <div v-if="activeCategory === 'account'" class="section-wrapper">
         <SettingsSection title="个人账户" description="管理你的账户信息和安全设置">
-          <div class="form-group">
-            <label class="form-label">昵称</label>
-            <div class="input-wrapper">
-              <input
-                v-model="accountForm.nickname"
-                type="text"
-                class="form-input"
-                placeholder="输入昵称"
-                @blur="saveAccountInfo"
-              />
-              <span class="input-hint">你在系统中显示的名字</span>
+          <form class="account-form" @submit.prevent @keyup.enter="enterSubmit(saveAccountInfo, $event)">
+            <div class="form-group">
+              <label class="form-label">昵称</label>
+              <div class="input-wrapper">
+                <input
+                  v-model="accountForm.nickname"
+                  type="text"
+                  class="form-input"
+                  placeholder="输入昵称"
+                  @blur="saveAccountInfo"
+                />
+                <span class="input-hint">你在系统中显示的名字</span>
+              </div>
             </div>
-          </div>
 
-          <div class="form-group">
-            <label class="form-label">邮箱</label>
-            <div class="input-wrapper">
-              <input
-                v-model="accountForm.email"
-                type="email"
-                class="form-input"
-                placeholder="输入邮箱地址"
-                @blur="saveAccountInfo"
-              />
-              <span class="input-hint">用于账户恢复和通知</span>
+            <div class="form-group">
+              <label class="form-label">邮箱</label>
+              <div class="input-wrapper">
+                <input
+                  v-model="accountForm.email"
+                  type="email"
+                  class="form-input"
+                  placeholder="输入邮箱地址"
+                  @blur="saveAccountInfo"
+                />
+                <span class="input-hint">用于账户恢复和通知</span>
+              </div>
             </div>
-          </div>
+          </form>
 
           <!-- TODO: [Account] 未来添加 - 修改密码表单 -->
           <!-- TODO: [Account] 未来添加 - 三方账户绑定（GitHub/Google等） -->
@@ -284,6 +286,7 @@ import BackgroundControl from '@/components/BackgroundControl.vue'
 import FontControl from '@/components/FontControl.vue'
 import FloatingNav from '@/components/FloatingNav.vue'
 import { useUser } from '@/composables/useUser'
+import { enterSubmit } from '@/utils/enterSubmit'
 
 const router = useRouter()
 const userStore = useUserStore()
