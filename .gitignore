@@ -72,9 +72,7 @@ SHOW
 docker-compose.override.yml
 
 # 前端相关
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
+# lock 文件纳入版本管理，保证依赖版本一致（不忽略）
 
 # 用户上传文件
 uploads/
