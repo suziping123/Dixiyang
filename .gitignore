@@ -138,8 +138,7 @@ storage/
 *.lock
 uv.lock
 
-# Java 模块（已移除）
-dixiyang-engine/
+# Java 模块（恢复跟踪，构建产物/IDE 文件仍按通用规则忽略）
 
 # 元素库/模型
 DixyangFast/daily-log/app/static/element-ui/
