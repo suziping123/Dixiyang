@@ -40,7 +40,8 @@ export const uploadBgImage = async (file: File) => {
       'Content-Type': 'multipart/form-data'
     }
   });
-  return assertApiResponse<{ bgUrl: string }>(res);
+  // 后端 FileController.uploadBackground 返回 Result<String>（data 即背景 URL）
+  return assertApiResponse<string>(res);
 };
 
 // 删除背景图（物理文件 + 清数据库索引）

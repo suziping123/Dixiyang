@@ -12,7 +12,7 @@
 
     <div class="block">
       <h3 class="block-title">字体</h3>
-      <FontControl mode="full" />
+      <FontControl />
     </div>
   </SettingsSection>
 </template>

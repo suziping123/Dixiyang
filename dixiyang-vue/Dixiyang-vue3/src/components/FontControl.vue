@@ -1,404 +1,208 @@
 <template>
-  <div class="font-control" :class="{ compact: mode === 'compact', full: mode === 'full' }">
-    <!-- ========== COMPACT 模式 ========== -->
-    <template v-if="mode === 'compact'">
-      <div class="compact-toolbar">
-        <!-- 字体族选择（下拉框）-->
-        <div class="compact-group">
-          <label class="compact-label">字体</label>
-          <select v-model="fontConfig.family" class="compact-select">
-            <option value="inter">Inter</option>
-            <option value="serif">Serif</option>
-            <option value="monospace">Monospace</option>
-            <option value="system">System</option>
-          </select>
+  <div class="font-control">
+    <!-- 字体族 -->
+    <div class="control-block">
+      <h4 class="control-title">字体族</h4>
+      <p class="control-desc">影响全站正文与标题的字体</p>
+      <div class="font-family-grid">
+        <div
+          v-for="font in fontOptions"
+          :key="font.value"
+          class="font-card"
+          :class="{ active: fontConfig.family.value === font.value }"
+          role="radio"
+          :tabindex="fontConfig.family.value === font.value ? 0 : -1"
+          :aria-checked="fontConfig.family.value === font.value"
+          @click="fontConfig.setFontFamily(font.value)"
+          @keydown.enter="fontConfig.setFontFamily(font.value)"
+          @keydown.space.prevent="fontConfig.setFontFamily(font.value)"
+        >
+          <div class="font-preview" :style="{ fontFamily: getFontFamilyCSS(font.value) }">
+            {{ font.preview }}
+          </div>
+          <div class="font-label">{{ font.label }}</div>
+          <div class="font-desc">{{ font.desc }}</div>
         </div>
+      </div>
+    </div>
 
-        <!-- 字体大小滑块 -->
-        <div class="compact-group">
-          <label class="compact-label">大小</label>
+    <!-- 正文字号 -->
+    <div class="control-block">
+      <h4 class="control-title">正文字号</h4>
+      <p class="control-desc">当前 {{ fontConfig.size }}px，段落与列表按此显示</p>
+      <div class="slider-row">
+        <input
+          type="range"
+          :value="fontConfig.size"
+          min="12"
+          max="24"
+          step="1"
+          aria-label="正文字号"
+          class="range"
+          @input="(e) => fontConfig.setFontSize(Number((e.target as HTMLInputElement).value))"
+        />
+        <div class="number-wrap">
           <input
-            type="range"
+            type="number"
             :value="fontConfig.size"
             min="12"
             max="24"
-            @input="(e) => fontConfig.setFontSize(Number((e.target as HTMLInputElement).value))"
-            class="compact-range"
+            aria-label="正文字号（像素）"
+            class="number-input"
+            @change="(e) => fontConfig.setFontSize(Number((e.target as HTMLInputElement).value))"
           />
+          <span class="number-unit">px</span>
         </div>
       </div>
-    </template>
-
-    <!-- ========== FULL 模式 ========== -->
-    <template v-else>
-      <!-- 字体族选择 -->
-      <div class="font-family-section">
-        <h4 class="section-title">字体族</h4>
-        <p class="section-desc">选择适合你的字体样式</p>
-        <div class="font-family-grid">
-          <div
-            v-for="font in fontOptions"
-            :key="font.value"
-            class="font-card"
-            :class="{ active: fontConfig.family.value === font.value }"
-            @click="fontConfig.setFontFamily(font.value as any)"
-          >
-            <div class="font-preview" :style="{ fontFamily: getFontFamilyCSS(font.value) }">
-              {{ font.preview }}
-            </div>
-            <div class="font-label">{{ font.label }}</div>
-            <div class="font-desc">{{ font.desc }}</div>
-          </div>
-        </div>
+      <div class="preview-box">
+        <p class="preview-text">清晨的港口还浸在雾里，第一班渡轮拉响了汽笛。</p>
       </div>
+    </div>
 
-      <!-- 字体大小调整 -->
-      <div class="font-size-section">
-        <h4 class="section-title">基础字体大小</h4>
-        <div class="size-controls">
-          <input
-            type="range"
-            :value="fontConfig.size"
-            min="12"
-            max="24"
-            step="1"
-            @input="(e) => fontConfig.setFontSize(Number((e.target as HTMLInputElement).value))"
-            class="size-slider"
-          />
-          <div class="size-display">
-            <input
-              type="number"
-              :value="fontConfig.size"
-              min="12"
-              max="24"
-              @change="(e) => fontConfig.setFontSize(Number((e.target as HTMLInputElement).value))"
-              class="size-input"
-            />
-            <span class="size-unit">px</span>
-          </div>
-        </div>
-        <div class="size-preview">
-          <span class="preview-label">预览</span>
-          <p class="preview-text">这是你的基础文字显示效果</p>
-        </div>
-      </div>
-
-      <!-- 全局缩放因子 -->
-      <div class="font-scale-section">
-        <h4 class="section-title">全局字体缩放</h4>
-        <p class="section-desc">同时缩放标题和正文大小（{{ scalePercent }}%）</p>
-        <div class="scale-controls">
-          <button
-            class="scale-btn"
-            v-for="scaleValue in [0.85, 0.9, 1.0, 1.1, 1.2]"
-            :key="scaleValue"
-            :class="{ active: isScaleActive(scaleValue) }"
-            @click="fontConfig.setFontScale(scaleValue)"
-          >
-            {{ Math.round(scaleValue * 100) }}%
-          </button>
-        </div>
-
-        <!-- 自定义滑块 -->
-        <div class="scale-slider-wrap">
-          <input
-            type="range"
-            :value="fontConfig.scale"
-            min="0.5"
-            max="1.5"
-            step="0.05"
-            @input="handleScaleInput"
-            class="scale-slider"
-          />
-          <div class="scale-value">{{ scalePercent }}%</div>
-        </div>
-
-        <!-- 缩放预览 -->
-        <div class="scale-preview">
-          <div class="preview-title">标题示例</div>
-          <div class="preview-paragraph">这是缩放后的文字。你可以在此看到不同缩放比例下的效果。</div>
-        </div>
-      </div>
-
-      <!-- 高级选项 -->
-      <div class="advanced-section">
-        <h4 class="section-title">高级选项</h4>
-        <div class="advanced-options">
-          <label class="advanced-item">
-            <input
-              type="checkbox"
-              v-model="showAdvancedInfo"
-              class="advanced-checkbox"
-            />
-            <span class="advanced-label">显示字体信息</span>
-          </label>
-        </div>
-
-        <!-- 当前字体信息 -->
-        <div v-if="showAdvancedInfo" class="font-info">
-          <div class="info-item">
-            <span class="info-label">当前字体族：</span>
-            <code class="info-value">{{ fontConfig.family }}</code>
-          </div>
-          <div class="info-item">
-            <span class="info-label">基础大小：</span>
-            <code class="info-value">{{ fontConfig.size }}px</code>
-          </div>
-          <div class="info-item">
-            <span class="info-label">缩放因子：</span>
-            <code class="info-value">{{ fontConfig.scale }}</code>
-          </div>
-          <div class="info-item">
-            <span class="info-label">有效大小：</span>
-            <code class="info-value">{{ fontConfig.getEffectiveFontSize().toFixed(1) }}px</code>
-          </div>
-        </div>
-      </div>
-
-      <!-- 重置按钮 -->
-      <div class="reset-section">
-        <button class="btn-reset-all" @click="handleResetAll">
-          ↻ 重置所有字体设置
+    <!-- 全局缩放 -->
+    <div class="control-block">
+      <h4 class="control-title">全局缩放</h4>
+      <p class="control-desc">标题、导航等大号文字的整体缩放，当前 {{ scalePercent }}%</p>
+      <div class="scale-presets">
+        <button
+          v-for="scaleValue in SCALE_PRESETS"
+          :key="scaleValue"
+          type="button"
+          class="preset-btn"
+          :class="{ active: isScaleActive(scaleValue) }"
+          :aria-pressed="isScaleActive(scaleValue)"
+          @click="fontConfig.setFontScale(scaleValue)"
+        >
+          {{ Math.round(scaleValue * 100) }}%
         </button>
       </div>
-    </template>
+    </div>
+
+    <!-- 重置 -->
+    <div class="reset-row">
+      <button class="btn btn-danger" type="button" @click="handleResetAll">
+        <RefreshLeft /> 重置字体设置
+      </button>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useFontConfig } from '@/composables/useFontConfig'
-
-interface Props {
-  mode?: 'compact' | 'full'
-}
-
-withDefaults(defineProps<Props>(), {
-  mode: 'full',
-})
+import { computed, ref } from 'vue'
+import { RefreshLeft } from '@element-plus/icons-vue'
+import { useFontConfig, type FontFamily } from '@/composables/useFontConfig'
+import { confirmDelete } from '@/utils/confirm'
 
 const fontConfig = useFontConfig()
 
-// 计算属性：解决模板中 Ref 类型问题
+/** 缩放预设档位 */
+const SCALE_PRESETS = [0.85, 0.9, 1.0, 1.1, 1.2]
+
 const scalePercent = computed(() => Math.round(fontConfig.scale.value * 100))
 const isScaleActive = (value: number) => Math.abs(fontConfig.scale.value - value) < 0.001
-const handleScaleInput = (event: Event) => {
-  const target = event.target as HTMLInputElement
-  if (target && target.value) {
-    fontConfig.setFontScale(Number(target.value))
-  }
-}
-const showAdvancedInfo = ref(false)
 
-// 字体选项
-const fontOptions = ref([
-  {
-    value: 'inter',
-    label: 'Inter',
-    desc: '现代无衬线',
-    preview: 'Aa',
-  },
-  {
-    value: 'serif',
-    label: 'Serif',
-    desc: '经典衬线',
-    preview: 'Aa',
-  },
-  {
-    value: 'monospace',
-    label: 'Monospace',
-    desc: '编程字体',
-    preview: 'Aa',
-  },
-  {
-    value: 'system',
-    label: 'System',
-    desc: '系统字体',
-    preview: 'Aa',
-  },
-])
+const fontOptions: { value: FontFamily; label: string; desc: string; preview: string }[] = [
+  { value: 'inter', label: 'Inter', desc: '现代无衬线', preview: 'Aa' },
+  { value: 'serif', label: 'Serif', desc: '经典衬线', preview: 'Aa' },
+  { value: 'monospace', label: 'Mono', desc: '等宽字体', preview: 'Aa' },
+  { value: 'system', label: 'System', desc: '跟随系统', preview: 'Aa' },
+]
 
-/**
- * 根据字体族返回CSS字体族字符串
- */
-const getFontFamilyCSS = (family: string): string => {
-  const families: Record<string, string> = {
+/** 字体族 → CSS 字体栈 */
+const getFontFamilyCSS = (family: FontFamily): string => {
+  const families: Record<FontFamily, string> = {
     inter: "'Inter', -apple-system, 'Segoe UI', sans-serif",
     serif: "'Georgia', 'Garamond', serif",
     monospace: "'Courier New', 'Monaco', monospace",
     system: "system-ui, -apple-system, 'Segoe UI', sans-serif",
   }
-  return families[family] || (families['inter'] ?? "'Inter'")
+  return families[family]
 }
 
-/**
- * 处理重置（compact模式）
- */
-const handleReset = () => {
-  if (confirm('确认重置字体设置为默认值？')) {
-    fontConfig.resetToDefault()
-  }
-}
-
-/**
- * 处理重置全部（full模式）
- */
-const handleResetAll = () => {
-  if (confirm('确认重置所有字体设置为默认值？')) {
-    fontConfig.resetToDefault()
-    showAdvancedInfo.value = false
-  }
+const handleResetAll = async () => {
+  const ok = await confirmDelete('重置字体族、字号与缩放为默认值？')
+  if (!ok) return
+  fontConfig.resetToDefault()
 }
 </script>
 
 <style scoped>
 .font-control {
   width: 100%;
-}
-
-/* ============= COMPACT 模式 ============= */
-.font-control.compact .compact-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.compact-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.compact-label {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  white-space: nowrap;
-}
-
-.compact-select {
-  padding: 6px 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--glass-border);
-  border-radius: 6px;
-  color: var(--text-primary);
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.compact-select:hover {
-  border-color: var(--neon-primary);
-  background: rgba(59, 130, 246, 0.05);
-}
-
-.compact-select:focus {
-  outline: none;
-  border-color: var(--neon-primary);
-  box-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
-}
-
-.compact-slider {
-  width: 80px;
-  height: 6px;
-  cursor: pointer;
-  accent-color: var(--neon-primary);
-}
-
-.size-value {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  min-width: 35px;
-}
-
-.compact-reset-btn {
-  padding: 6px 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--glass-border);
-  border-radius: 6px;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.3s;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.compact-reset-btn:hover:not(:disabled) {
-  color: var(--neon-cyan);
-  border-color: var(--neon-cyan);
-  background: rgba(6, 182, 212, 0.05);
-}
-
-.compact-reset-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* ============= FULL 模式 ============= */
-.font-control.full {
   display: flex;
   flex-direction: column;
   gap: 24px;
 }
 
-.section-title {
-  font-size: 1rem;
-  font-weight: 700;
-  margin: 0 0 12px 0;
-  color: var(--neon-primary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+.control-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.section-desc {
-  font-size: 0.85rem;
+.control-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.control-desc {
+  font-size: 0.8125rem;
   color: var(--text-muted);
-  margin: 0 0 12px 0;
+  margin: 0;
 }
 
-/* 字体族网格 */
+/* 字体族卡片 */
 .font-family-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px;
 }
 
 .font-card {
-  padding: 16px 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--glass-border);
-  border-radius: 12px;
+  padding: 14px 10px;
+  background: var(--surface-input);
+  border: 1px solid var(--surface-glass-border);
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all 0.3s;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .font-card:hover {
-  background: rgba(59, 130, 246, 0.05);
-  border-color: var(--glass-border-hover);
+  border-color: var(--surface-glass-border-hover);
+  background: var(--accent-soft);
+}
+
+.font-card:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
 }
 
 .font-card.active {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: var(--neon-primary);
-  box-shadow: inset 0 0 8px rgba(59, 130, 246, 0.1);
+  border-color: var(--accent-primary);
+  background: var(--accent-soft-strong);
 }
 
 .font-preview {
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: var(--neon-primary);
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.font-card.active .font-preview {
+  color: var(--accent-primary);
 }
 
 .font-label {
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -408,256 +212,133 @@ const handleResetAll = () => {
   color: var(--text-muted);
 }
 
-/* 字体大小控制 */
-.size-controls {
+/* 滑块 */
+.slider-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 14px;
 }
 
-.size-slider {
+.range {
   flex: 1;
-  height: 6px;
+  accent-color: var(--accent-primary);
   cursor: pointer;
-  accent-color: var(--neon-primary);
+  min-width: 0;
 }
 
-.size-display {
+.range:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 4px;
+}
+
+.number-wrap {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
-.size-input {
-  width: 50px;
-  padding: 6px 8px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--glass-border);
-  border-radius: 6px;
+.number-input {
+  width: 64px;
+  padding: 8px 10px;
+  background: var(--surface-input);
+  border: 1px solid var(--surface-glass-border);
+  border-radius: var(--radius-sm);
   color: var(--text-primary);
   text-align: center;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
+  font-family: inherit;
+  transition: border-color var(--dur-fast) var(--ease-out);
 }
 
-.size-input:focus {
+.number-input:hover {
+  border-color: var(--surface-glass-border-hover);
+}
+
+.number-input:focus {
   outline: none;
-  border-color: var(--neon-primary);
+  border-color: var(--accent-primary);
 }
 
-.size-unit {
-  font-size: 0.85rem;
+.number-input:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
+.number-unit {
+  font-size: 0.8125rem;
   color: var(--text-muted);
 }
 
-.size-preview {
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--glass-border);
-  border-radius: 8px;
-  font-size: var(--font-size-base, 16px);
-}
-
-.preview-label {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  display: block;
-  margin-bottom: 8px;
+.preview-box {
+  padding: 14px 16px;
+  background: var(--surface-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
 }
 
 .preview-text {
-  color: var(--text-primary);
   margin: 0;
-  line-height: 1.6;
+  color: var(--text-secondary);
+  line-height: 1.7;
 }
 
-/* 全局缩放 */
-.scale-controls {
+/* 缩放预设 */
+.scale-presets {
   display: flex;
   gap: 8px;
-  margin-bottom: 16px;
   flex-wrap: wrap;
 }
 
-.scale-btn {
-  padding: 8px 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--glass-border);
-  border-radius: 6px;
-  color: var(--text-muted);
+.preset-btn {
+  padding: 8px 16px;
+  background: var(--surface-input);
+  border: 1px solid var(--surface-glass-border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.3s;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   font-weight: 600;
+  font-family: inherit;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 
-.scale-btn:hover {
-  border-color: var(--neon-primary);
-  background: rgba(59, 130, 246, 0.05);
-  color: var(--neon-primary);
-}
-
-.scale-btn.active {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: var(--neon-primary);
-  color: var(--neon-primary);
-}
-
-.scale-slider-wrap {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.scale-slider {
-  flex: 1;
-  height: 6px;
-  cursor: pointer;
-  accent-color: var(--neon-primary);
-}
-
-.scale-value {
-  min-width: 50px;
-  text-align: center;
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-
-.scale-preview {
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--glass-border);
-  border-radius: 8px;
-}
-
-.preview-title {
-  font-size: calc(var(--font-size-base, 16px) * var(--font-scale, 1) * 1.5);
-  font-weight: 700;
-  margin-bottom: 8px;
+.preset-btn:hover {
+  border-color: var(--surface-glass-border-hover);
   color: var(--text-primary);
 }
 
-.preview-paragraph {
-  font-size: calc(var(--font-size-base, 16px) * var(--font-scale, 1));
-  line-height: 1.6;
-  color: var(--text-muted);
-  margin: 0;
+.preset-btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
 }
 
-/* 高级选项 */
-.advanced-section {
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--glass-border);
-  border-radius: 12px;
+.preset-btn.active {
+  background: var(--accent-soft-strong);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
 }
 
-.advanced-options {
-  margin-bottom: 16px;
-}
-
-.advanced-item {
+/* 重置 */
+.reset-row {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 6px;
-  transition: all 0.3s;
+  justify-content: flex-start;
+  padding-top: 4px;
 }
 
-.advanced-item:hover {
-  background: rgba(59, 130, 246, 0.05);
-}
-
-.advanced-checkbox {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-  accent-color: var(--neon-primary);
-}
-
-.advanced-label {
-  font-size: 0.9rem;
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-.font-info {
-  background: rgba(59, 130, 246, 0.05);
-  border: 1px solid rgba(59, 130, 246, 0.15);
-  border-radius: 8px;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.info-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 0.85rem;
-}
-
-.info-label {
-  color: var(--text-muted);
-  min-width: 100px;
-}
-
-.info-value {
-  background: rgba(255, 255, 255, 0.05);
-  padding: 4px 8px;
-  border-radius: 4px;
-  color: var(--neon-cyan);
-  font-family: 'Courier New', monospace;
-  font-size: 0.8rem;
-}
-
-/* 重置按钮 */
-.reset-section {
-  display: flex;
-  justify-content: center;
-}
-
-.btn-reset-all {
-  padding: 12px 24px;
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.5);
-  border-radius: 10px;
-  color: #ef4444;
-  cursor: pointer;
-  transition: all 0.3s;
-  font-weight: 600;
-}
-
-.btn-reset-all:hover {
-  background: rgba(239, 68, 68, 0.25);
-  border-color: #ef4444;
-  box-shadow: 0 0 12px rgba(239, 68, 68, 0.2);
-}
-
-/* 响应式 */
 @media (max-width: 768px) {
-  .font-control.full {
-    gap: 16px;
-  }
-
   .font-family-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .scale-controls {
-    gap: 6px;
+  .slider-row {
+    flex-wrap: wrap;
   }
 
-  .scale-btn {
-    padding: 6px 10px;
-    font-size: 0.75rem;
+  .range {
+    flex-basis: 100%;
   }
 }
 </style>
