@@ -257,7 +257,31 @@
 
 ---
 
-### 15. [LLM 接入配置切换](../DixyangFast/docs/LLM接入配置切换.md) ✨ 新增
+### 15. [motion-web 技能接入](./motion-web技能接入.md) ✨ 新增
+**位置**: `docs/motion-web技能接入.md`
+
+**内容**:
+- 动效网页 Agent Skill（`motion-web-main/`）接入 opencode 与 Trae 的方案
+- 4 处软链入口（`~/.agents/skills`、`~/.trae-cn/skills`、项目 `.agents/skills`、`.trae/skills`）
+- AGENTS.md 索引兜底、已知问题（Trae 软链解析未实测）、验证命令
+
+**适用人群**: 使用 opencode / Trae 做动效网页开发的成员
+
+---
+
+### 16. [对外介绍落地页](./落地页介绍页.md) ✨ 新增
+**位置**: `docs/落地页介绍页.md`
+
+**内容**:
+- `/` 免登录落地页（SPA 首页）**v2 单屏切换版**：暖纸编辑部视觉、`100dvh` 单屏 + 左缘索引 tablist + 6 面板、抽稿换页签名转场
+- 三层 token / 自托管字体 / matchMedia 动效门控 / reduced-motion 完成态兜底 / ≤768px 纵向流降级
+- 路由守卫 `meta.public` 白名单、几何+动效验证记录、已知基线问题
+
+**适用人群**: 前端开发者、设计/动效维护者
+
+---
+
+### 17. [LLM 接入配置切换](../DixyangFast/docs/LLM接入配置切换.md) ✨ 新增
 **位置**: `DixyangFast/docs/LLM接入配置切换.md`
 
 **内容**:
@@ -363,11 +387,17 @@
 
 ## 版本变更记录
 
-### v1.6 (2026-09-28)
+### v1.8 (2026-09-28)
 - **新增**: [LLM 接入配置切换](../DixyangFast/docs/LLM接入配置切换.md) — 临时切本地 llama-kvmem 模型、`load_dotenv(override=True)` 修复 401、切回 DeepSeek 步骤
 
-### v1.5 (2026-09-28)
+### v1.7 (2026-09-28)
 - **新增**: [登录页背景视频资源修复](../dixiyang-vue/docs/登录页背景视频资源修复.md) — `/videos/卡比.mp4` 解析失败根因与 `@/assets` 引用方案
+
+### v1.6 (2026-09-28)
+- **新增**: [对外介绍落地页](./落地页介绍页.md) — `/` 免登录首页、暖纸编辑部视觉、单屏索引切换 6 面板、抽稿换页转场、几何+动效验证记录
+
+### v1.5 (2026-09-28)
+- **新增**: [motion-web 技能接入](./motion-web技能接入.md) — opencode/Trae 接入动效网页技能，4 处软链 + AGENTS.md 索引
 
 ### v1.4 (2026-09-27)
 - **新增**: [分支重建与版本对齐](./分支重建与版本对齐.md) — main 对齐 GitHub、`java` 分支恢复 Java 模块
@@ -392,6 +422,6 @@
 
 ---
 
-*文档版本: v1.6*
+*文档版本: v1.8*
 *最后更新: 2026-09-28*
 *维护者: Dixiyang Team*
