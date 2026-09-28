@@ -1,10 +1,10 @@
 <template>
   <section class="settings-section">
-    <div class="section-header">
-      <h3 class="section-title">{{ title }}</h3>
-      <p v-if="description" class="section-description">{{ description }}</p>
-    </div>
-    <div class="section-content">
+    <header class="section-header">
+      <h2 class="section-title">{{ title }}</h2>
+      <p v-if="description" class="section-desc">{{ description }}</p>
+    </header>
+    <div class="section-body">
       <slot></slot>
     </div>
   </section>
@@ -21,41 +21,35 @@ defineProps<Props>()
 
 <style scoped>
 .settings-section {
-  padding: 20px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  margin-bottom: 20px;
-  transition: all 0.3s ease;
-}
-
-.settings-section:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.15);
+  padding: 24px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
 }
 
 .section-header {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .section-title {
-  font-size: 1.1rem;
+  font-size: 1.125rem;
   font-weight: 600;
-  margin: 0 0 8px 0;
-  color: #06b6d4;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.section-description {
-  font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.5);
   margin: 0;
+  color: var(--text-primary);
+  letter-spacing: normal;
 }
 
-.section-content {
+.section-desc {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin: 6px 0 0;
+}
+
+.section-body {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 20px;
 }
 </style>

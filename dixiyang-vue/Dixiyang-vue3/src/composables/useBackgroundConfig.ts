@@ -96,9 +96,11 @@ async function saveToServer(data: BackgroundConfig) {
 }
 
 // 切换/选择背景时同步到服务器
+// 约定：backgroundId 传空串表示"清除背景"（后端仅在非 null 时覆盖，
+// 省略字段会导致服务器仍保留旧值，下次登录把旧背景拉回来）
 function syncToServer() {
   saveToServer({
-    backgroundId: _bgImageId.value,
+    backgroundId: _bgImageId.value ?? '',
     customBgs: JSON.stringify(getCustomBgs()),
   })
 }

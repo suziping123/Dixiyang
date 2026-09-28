@@ -1,371 +1,76 @@
 <template>
   <div class="settings-container">
-    <!-- 背景层 -->
-    <div class="bg-gradient-animation"></div>
-
     <FloatingNav />
 
-    <!-- 主容器 -->
     <div class="settings-wrapper">
-      <!-- 侧边栏菜单 -->
+      <!-- 侧边栏分类 -->
       <aside class="settings-sidebar">
         <div class="sidebar-header">
-          <h2 class="sidebar-title">⚙️ 设置</h2>
+          <h1 class="sidebar-title">
+            <Setting class="title-icon" />
+            设置
+          </h1>
         </div>
 
-        <nav class="settings-menu">
+        <nav class="settings-menu" aria-label="设置分类">
           <button
             v-for="category in categories"
             :key="category.id"
             class="menu-item"
             :class="{ active: activeCategory === category.id }"
+            :aria-current="activeCategory === category.id ? 'page' : undefined"
+            type="button"
             @click="activeCategory = category.id"
           >
-            <span class="menu-icon">{{ category.icon }}</span>
+            <component :is="category.icon" class="menu-icon" />
             <span class="menu-label">{{ category.label }}</span>
           </button>
         </nav>
 
         <div class="sidebar-footer">
-          <button class="back-btn" @click="goBack">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-            返回首页
+          <button class="back-btn" type="button" @click="goBack">
+            <ArrowLeft /> 返回首页
           </button>
         </div>
       </aside>
 
-      <!-- 主内容区 -->
+      <!-- 分类内容 -->
       <main class="settings-content">
-<!-- Account Section -->
-      <div v-if="activeCategory === 'account'" class="section-wrapper">
-        <SettingsSection title="个人账户" description="管理你的账户信息和安全设置">
-          <form class="account-form" @submit.prevent @keyup.enter="enterSubmit(saveAccountInfo, $event)">
-            <div class="form-group">
-              <label class="form-label">昵称</label>
-              <div class="input-wrapper">
-                <input
-                  v-model="accountForm.nickname"
-                  type="text"
-                  class="form-input"
-                  placeholder="输入昵称"
-                  @blur="saveAccountInfo"
-                />
-                <span class="input-hint">你在系统中显示的名字</span>
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">邮箱</label>
-              <div class="input-wrapper">
-                <input
-                  v-model="accountForm.email"
-                  type="email"
-                  class="form-input"
-                  placeholder="输入邮箱地址"
-                  @blur="saveAccountInfo"
-                />
-                <span class="input-hint">用于账户恢复和通知</span>
-              </div>
-            </div>
-          </form>
-
-          <!-- TODO: [Account] 未来添加 - 修改密码表单 -->
-          <!-- TODO: [Account] 未来添加 - 三方账户绑定（GitHub/Google等） -->
-          <!-- TODO: [Account] 未来添加 - 账户升级/会员选项 -->
-        </SettingsSection>
-      </div>
-
-      <!-- Display Section -->
-      <div v-if="activeCategory === 'display'" class="section-wrapper">
-        <SettingsSection title="背景与界面" description="自定义你的视觉体验">
-          <BackgroundControl mode="full" />
-
-          <!-- 字体系统 -->
-          <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(255, 255, 255, 0.1)">
-            <FontControl mode="full" />
-          </div>
-
-          <!-- TODO: [Display] 未来添加 - 对比度设置 -->
-          <!-- TODO: [Display] 未来添加 - 界面语言选择 -->
-        </SettingsSection>
-      </div>
-
-      <!-- Creation Section -->
-      <div v-if="activeCategory === 'creation'" class="section-wrapper">
-        <SettingsSection title="创作偏好" description="配置编辑器和创作工具的默认行为">
-          <!-- 新小说默认配置 -->
-          <div class="subsection">
-            <h4 class="subsection-title">新小说配置</h4>
-            <div class="form-group">
-              <label class="form-label">默认笔名</label>
-              <input
-                v-model="creationPrefs.defaultPenName"
-                type="text"
-                class="form-input"
-                placeholder="输入默认笔名"
-                @blur="saveCreationPrefs"
-              />
-            </div>
-          </div>
-
-          <!-- 角色编辑器偏好 -->
-          <div class="subsection">
-            <h4 class="subsection-title">角色编辑器</h4>
-            <div class="form-group">
-              <label class="form-label">默认性别</label>
-              <select v-model="creationPrefs.defaultCharGender" class="form-input" @change="saveCreationPrefs">
-                <option value="">---</option>
-                <option value="male">男性</option>
-                <option value="female">女性</option>
-                <option value="other">其他</option>
-              </select>
-            </div>
-            <div class="toggle-item">
-              <label class="form-label">显示自定义属性</label>
-              <button
-                class="toggle-switch"
-                :class="{ active: creationPrefs.showCustomProps }"
-                @click="creationPrefs.showCustomProps = !creationPrefs.showCustomProps; saveCreationPrefs()"
-              >
-                <span></span>
-              </button>
-            </div>
-          </div>
-
-          <!-- 故事节点编辑器偏好 -->
-          <div class="subsection">
-            <h4 class="subsection-title">故事节点编辑器</h4>
-            <div class="form-group">
-              <label class="form-label">编辑器类型</label>
-              <select v-model="creationPrefs.editorType" class="form-input" @change="saveCreationPrefs">
-                <option value="richtext">富文本编辑器</option>
-                <option value="markdown">Markdown编辑器</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">自动保存间隔（秒）</label>
-              <input
-                v-model.number="creationPrefs.autoSaveInterval"
-                type="number"
-                min="10"
-                max="300"
-                class="form-input"
-                @blur="saveCreationPrefs"
-              />
-            </div>
-            <div class="toggle-item">
-              <label class="form-label">显示字数统计</label>
-              <button
-                class="toggle-switch"
-                :class="{ active: creationPrefs.showWordCount }"
-                @click="creationPrefs.showWordCount = !creationPrefs.showWordCount; saveCreationPrefs()"
-              >
-                <span></span>
-              </button>
-            </div>
-          </div>
-
-          <!-- 时间线显示偏好 -->
-          <div class="subsection">
-            <h4 class="subsection-title">时间线显示</h4>
-            <div class="form-group">
-              <label class="form-label">默认展开深度</label>
-              <input
-                v-model.number="creationPrefs.timelineDefaultDepth"
-                type="number"
-                min="1"
-                max="5"
-                class="form-input"
-                @blur="saveCreationPrefs"
-              />
-            </div>
-          </div>
-
-          <!-- TODO: [创作偏好] 未来添加 - 性格特征预设库 -->
-          <!-- TODO: [创作偏好] 未来添加 - 节点密度视图设置 -->
-          <!-- TODO: [创作偏好] 未来添加 - 关联线条样式设置 -->
-        </SettingsSection>
-      </div>
-
-      <!-- AI Section -->
-      <div v-if="activeCategory === 'ai'" class="section-wrapper">
-        <SettingsSection title="RAG 助手设置" description="配置 AI 建议和智能功能">
-          <div class="subsection">
-            <h4 class="subsection-title">建议类型</h4>
-            <div class="checkbox-group">
-              <label class="checkbox-item">
-                <input
-                  v-model="aiPrefs.suggestions.character"
-                  type="checkbox"
-                  @change="saveAiPrefs"
-                />
-                <span class="checkbox-label">角色建议</span>
-                <span class="checkbox-desc">基于已有角色数据提供建议</span>
-              </label>
-              <label class="checkbox-item">
-                <input
-                  v-model="aiPrefs.suggestions.story"
-                  type="checkbox"
-                  @change="saveAiPrefs"
-                />
-                <span class="checkbox-label">故事建议</span>
-                <span class="checkbox-desc">基于故事节点内容提供建议</span>
-              </label>
-              <label class="checkbox-item">
-                <input
-                  v-model="aiPrefs.suggestions.relation"
-                  type="checkbox"
-                  @change="saveAiPrefs"
-                />
-                <span class="checkbox-label">关系建议</span>
-                <span class="checkbox-desc">基于小说关系提供建议</span>
-              </label>
-            </div>
-          </div>
-
-          <!-- TODO: [RAG助手] 未来添加 - AI模型选择（GPT-4/本地/Claude等） -->
-          <!-- TODO: [RAG助手] 未来添加 - 提示词模板库 -->
-          <!-- TODO: [RAG助手] 未来添加 - 建议数量和风格设置 -->
-          <!-- TODO: [RAG助手] 未来添加 - 知识库微调设置 -->
-        </SettingsSection>
-      </div>
-
-      <!-- Data Section -->
-      <div v-if="activeCategory === 'data'" class="section-wrapper">
-        <SettingsSection title="数据管理" description="备份、导出和管理你的创作数据">
-          <div class="subsection">
-            <h4 class="subsection-title">数据导出</h4>
-            <p class="subsection-desc">导出你的创作数据为本地文件</p>
-            <div class="button-group">
-              <button class="btn-action" @click="handleExportAll">
-                📤 导出全部小说
-              </button>
-              <button class="btn-action" @click="handleExportCharacters">
-                📤 导出角色库
-              </button>
-            </div>
-          </div>
-
-          <!-- TODO: [数据管理] 未来添加 - 导入功能 -->
-          <!-- TODO: [数据管理] 未来添加 - 版本历史面板（关联 StoryNode 编辑历史） -->
-          <!-- TODO: [数据管理] 未来添加 - 小说分类管理 -->
-          <!-- TODO: [数据管理] 未来添加 - 标签管理 -->
-          <!-- TODO: [数据管理] 未来添加 - 自动备份设置 -->
-          <!-- TODO: [数据管理] 未来添加 - 云同步选项 -->
-        </SettingsSection>
-      </div>
-
-      <!-- Security Section -->
-      <div v-if="activeCategory === 'security'" class="section-wrapper">
-        <SettingsSection title="账户安全" description="管理登录会话和安全选项">
-          <div class="subsection">
-            <h4 class="subsection-title">登录会话</h4>
-            <button class="btn-danger" @click="handleLogout">
-              🚪 登出当前会话
-            </button>
-          </div>
-
-          <!-- TODO: [账户安全] 未来添加 - 已登录设备列表 -->
-          <!-- TODO: [账户安全] 未来添加 - 登录历史 -->
-          <!-- TODO: [账户安全] 未来添加 - 两步验证设置 -->
-          <!-- TODO: [账户安全] 未来添加 - IP白名单 -->
-          <!-- TODO: [账户安全] 未来添加 - 活跃会话管理 -->
-        </SettingsSection>
-      </div>
+        <div class="section-wrapper" :key="activeCategory">
+          <AccountSection v-if="activeCategory === 'account'" />
+          <AppearanceSection v-else-if="activeCategory === 'appearance'" />
+          <DataSection v-else-if="activeCategory === 'data'" />
+          <AboutSection v-else />
+        </div>
       </main>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useUserStore } from '@/stores/UserStore'
-import SettingsSection from '@/components/SettingsSection.vue'
-import BackgroundControl from '@/components/BackgroundControl.vue'
-import FontControl from '@/components/FontControl.vue'
+import { ArrowLeft, DataLine, InfoFilled, Picture, Setting, User } from '@element-plus/icons-vue'
 import FloatingNav from '@/components/FloatingNav.vue'
-import { useUser } from '@/composables/useUser'
-import { enterSubmit } from '@/utils/enterSubmit'
+import AccountSection from '@/components/settings/AccountSection.vue'
+import AppearanceSection from '@/components/settings/AppearanceSection.vue'
+import DataSection from '@/components/settings/DataSection.vue'
+import AboutSection from '@/components/settings/AboutSection.vue'
 
 const router = useRouter()
-const userStore = useUserStore()
-const { accountForm, saveAccountInfo } = useUser()
 
-// 活跃的设置分类
-const activeCategory = ref('account')
+type CategoryId = 'account' | 'appearance' | 'data' | 'about'
 
-// 设置分类导航
-const categories = [
-  { id: 'account', label: '个人账户', icon: '👤' },
-  { id: 'display', label: '背景与界面', icon: '🎨' },
-  { id: 'creation', label: '创作偏好', icon: '✏️' },
-  { id: 'ai', label: 'RAG助手', icon: '🤖' },
-  { id: 'data', label: '数据管理', icon: '💾' },
-  { id: 'security', label: '账户安全', icon: '🔒' },
+const activeCategory = ref<CategoryId>('account')
+
+const categories: { id: CategoryId; label: string; icon: typeof User }[] = [
+  { id: 'account', label: '账户', icon: User },
+  { id: 'appearance', label: '外观', icon: Picture },
+  { id: 'data', label: '数据', icon: DataLine },
+  { id: 'about', label: '关于', icon: InfoFilled },
 ]
 
-
-// Creation 偏好设置
-const creationPrefs = reactive({
-  defaultPenName: localStorage.getItem('creation_defaultPenName') || '创作者',
-  defaultCharGender: localStorage.getItem('creation_defaultCharGender') || 'female',
-  showCustomProps: localStorage.getItem('creation_showCustomProps') !== 'false',
-  editorType: localStorage.getItem('creation_editorType') || 'richtext',
-  autoSaveInterval: parseInt(localStorage.getItem('creation_autoSaveInterval') || '60'),
-  showWordCount: localStorage.getItem('creation_showWordCount') !== 'false',
-  timelineDefaultDepth: parseInt(localStorage.getItem('creation_timelineDefaultDepth') || '2'),
-})
-
-// AI 偏好设置
-const aiPrefs = reactive({
-  suggestions: {
-    character: localStorage.getItem('ai_sugg_character') !== 'false',
-    story: localStorage.getItem('ai_sugg_story') !== 'false',
-    relation: localStorage.getItem('ai_sugg_relation') !== 'false',
-  },
-})
-
-// 保存创作偏好
-const saveCreationPrefs = () => {
-  localStorage.setItem('creation_defaultPenName', creationPrefs.defaultPenName)
-  localStorage.setItem('creation_defaultCharGender', creationPrefs.defaultCharGender)
-  localStorage.setItem('creation_showCustomProps', String(creationPrefs.showCustomProps))
-  localStorage.setItem('creation_editorType', creationPrefs.editorType)
-  localStorage.setItem('creation_autoSaveInterval', String(creationPrefs.autoSaveInterval))
-  localStorage.setItem('creation_showWordCount', String(creationPrefs.showWordCount))
-  localStorage.setItem('creation_timelineDefaultDepth', String(creationPrefs.timelineDefaultDepth))
-}
-
-// 保存 AI 偏好
-const saveAiPrefs = () => {
-  localStorage.setItem('ai_sugg_character', String(aiPrefs.suggestions.character))
-  localStorage.setItem('ai_sugg_story', String(aiPrefs.suggestions.story))
-  localStorage.setItem('ai_sugg_relation', String(aiPrefs.suggestions.relation))
-}
-
-// 导出全部小说
-const handleExportAll = () => {
-  alert('导出功能开发中，敬请期待')
-}
-
-// 导出角色库
-const handleExportCharacters = () => {
-  alert('导出功能开发中，敬请期待')
-}
-
-// 登出
-const handleLogout = () => {
-  if (confirm('确认要登出当前会话吗？')) {
-    userStore.logout()
-    router.push('/login')
-  }
-}
-
-// 返回首页
-const goBack = () => {
-  router.push('/home')
-}
+const goBack = () => router.push('/home')
 </script>
 
 <style scoped>
@@ -375,24 +80,7 @@ const goBack = () => {
   color: var(--text-primary);
   overflow: hidden;
   position: relative;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-}
-
-/* ============ 背景 ============ */
-.bg-gradient-animation {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: transparent;
-  z-index: 0;
-  pointer-events: none;
-}
-
-@keyframes rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  font-family: var(--font-family);
 }
 
 /* ============ 主容器 ============ */
@@ -405,37 +93,44 @@ const goBack = () => {
 
 /* ============ 侧边栏 ============ */
 .settings-sidebar {
-  width: 280px;
-  padding: 30px 20px;
-  background: var(--glass-bg);
+  width: 260px;
+  padding: 28px 18px;
+  background: var(--surface-glass);
   backdrop-filter: blur(16px);
-  border-right: 1px solid var(--glass-border);
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   position: sticky;
   top: 0;
   height: 100vh;
   overflow-y: auto;
-  transform: translateZ(0);
-  will-change: transform, backdrop-filter;
-  backface-visibility: hidden;
 }
 
 .sidebar-header {
-  margin-bottom: 30px;
+  margin-bottom: 24px;
 }
 
 .sidebar-title {
-  font-size: 1.5rem;
-  font-weight: 900;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.375rem;
+  font-weight: 700;
   margin: 0;
-  letter-spacing: -1px;
+  letter-spacing: normal;
+  color: var(--text-primary);
+}
+
+.title-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--accent-primary);
 }
 
 .settings-menu {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   flex: 1;
 }
 
@@ -443,32 +138,41 @@ const goBack = () => {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 16px;
+  width: 100%;
+  padding: 11px 14px;
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: 12px;
-  color: rgba(255, 255, 255, 0.7);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   text-align: left;
+  font-size: 0.9375rem;
   font-weight: 500;
+  font-family: inherit;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 
 .menu-item:hover {
-  color: var(--neon-primary);
-  background: rgba(59, 130, 246, 0.05);
-  border-color: rgba(59, 130, 246, 0.2);
+  background: var(--accent-soft);
+  color: var(--text-primary);
+}
+
+.menu-item:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
 }
 
 .menu-item.active {
-  color: var(--text-primary);
-  background: rgba(59, 130, 246, 0.15);
-  border-color: var(--neon-primary);
-  box-shadow: inset 0 0 12px rgba(59, 130, 246, 0.1);
+  background: var(--accent-soft-strong);
+  color: var(--accent-primary);
 }
 
 .menu-icon {
-  font-size: 1.3rem;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
 .menu-label {
@@ -478,7 +182,7 @@ const goBack = () => {
 .sidebar-footer {
   margin-top: 20px;
   padding-top: 20px;
-  border-top: 1px solid var(--glass-border);
+  border-top: 1px solid var(--border-color);
 }
 
 .sidebar-footer .back-btn {
@@ -490,211 +194,22 @@ const goBack = () => {
 .settings-content {
   flex: 1;
   padding: 40px;
-  overflow-y: auto;
+  max-width: 860px;
 }
 
 .section-wrapper {
-  animation: fadeIn 0.3s ease;
+  animation: settings-fade var(--dur) var(--ease-out);
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* ============ 表单元素 ============ */
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.form-label {
-  font-weight: 600;
-  color: var(--text-primary);
-  font-size: 0.95rem;
-}
-
-.input-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.form-input {
-  padding: 12px 16px;
-  background: var(--input-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: 10px;
-  color: var(--text-primary);
-  font-size: 0.95rem;
-  transition: all 0.3s;
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: var(--neon-primary);
-  background: rgba(59, 130, 246, 0.05);
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.2);
-}
-
-.form-input::placeholder {
-  color: rgba(255, 255, 255, 0.4);
-}
-
-.input-hint {
-  font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-/* ============ Subsections ============ */
-.subsection {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 20px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(59, 130, 246, 0.1);
-  border-radius: 12px;
-}
-
-.subsection-title {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--neon-primary);
-  margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.subsection-desc {
-  font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.5);
-  margin: 0;
-}
-
-/* ============ Toggle Switch ============ */
-.toggle-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.toggle-switch {
-  width: 48px;
-  height: 28px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid var(--glass-border);
-  border-radius: 14px;
-  cursor: pointer;
-  position: relative;
-  transition: all 0.3s;
-}
-
-.toggle-switch:hover {
-  border-color: var(--neon-primary);
-}
-
-.toggle-switch.active {
-  background: var(--neon-primary);
-  border-color: var(--neon-primary);
-}
-
-.toggle-switch span {
-  position: absolute;
-  width: 24px;
-  height: 24px;
-  background: white;
-  border-radius: 50%;
-  top: 2px;
-  left: 2px;
-  transition: left 0.3s;
-}
-
-.toggle-switch.active span {
-  left: 22px;
-}
-
-/* ============ Checkboxes ============ */
-.checkbox-group {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.checkbox-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  cursor: pointer;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 8px;
-  transition: all 0.3s;
-}
-
-.checkbox-item:hover {
-  background: rgba(59, 130, 246, 0.05);
-}
-
-.checkbox-item input[type='checkbox'] {
-  width: 20px;
-  height: 20px;
-  cursor: pointer;
-  accent-color: var(--neon-primary);
-}
-
-.checkbox-label {
-  font-weight: 600;
-  color: var(--text-primary);
-  flex: 1;
-}
-
-.checkbox-desc {
-  font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.5);
-  display: block;
-  margin-top: 4px;
-}
-
-/* ============ Buttons ============ */
-.button-group {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.btn-action {
-  padding: 12px 20px;
-  background: rgba(59, 130, 246, 0.15);
-  border: 1px solid var(--neon-primary);
-  border-radius: 10px;
-  color: var(--neon-primary);
-  cursor: pointer;
-  transition: all 0.3s;
-  font-weight: 600;
-}
-
-.btn-action:hover {
-  background: rgba(59, 130, 246, 0.25);
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.2);
-}
-
-.btn-danger {
-  padding: 12px 20px;
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.5);
-  border-radius: 10px;
-  color: #ef4444;
-  cursor: pointer;
-  transition: all 0.3s;
-  font-weight: 600;
-}
-
-.btn-danger:hover {
-  background: rgba(239, 68, 68, 0.25);
-  border-color: #ef4444;
-  box-shadow: 0 0 12px rgba(239, 68, 68, 0.2);
+@keyframes settings-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ============ 响应式 ============ */
@@ -707,13 +222,10 @@ const goBack = () => {
     width: 100%;
     height: auto;
     border-right: none;
-    border-bottom: 1px solid var(--glass-border);
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    align-items: center;
-    gap: 20px;
-    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
     position: static;
+    padding: 16px;
+    gap: 14px;
   }
 
   .sidebar-header {
@@ -722,59 +234,39 @@ const goBack = () => {
 
   .settings-menu {
     flex-direction: row;
-    gap: 12px;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
   }
 
   .menu-item {
-    padding: 10px 14px;
-    font-size: 0.9rem;
+    flex-shrink: 0;
+    padding: 9px 14px;
   }
 
-  .menu-label {
-    display: none;
+  .sidebar-footer {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+  }
+
+  .sidebar-footer .back-btn {
+    width: auto;
   }
 
   .settings-content {
-    padding: 30px 20px;
-  }
-
-  .subsection {
-    padding: 16px;
+    padding: 28px 20px;
   }
 }
 
 @media (max-width: 768px) {
   .settings-content {
-    padding: 20px;
-  }
-
-  .settings-menu {
-    overflow-x: auto;
-    gap: 8px;
+    padding: 20px 16px;
   }
 
   .menu-item {
+    font-size: 0.875rem;
     padding: 8px 12px;
-    font-size: 0.85rem;
-    flex-shrink: 0;
-  }
-
-  .form-group {
-    gap: 6px;
-  }
-
-  .form-input {
-    font-size: 0.9rem;
-    padding: 10px 14px;
-  }
-
-  .button-group {
-    flex-direction: column;
-  }
-
-  .btn-action,
-  .btn-danger {
-    width: 100%;
   }
 }
 </style>
