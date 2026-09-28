@@ -6,7 +6,9 @@ _env_path = Path(__file__).resolve().parent.parent.parent.parent / ".env"
 if _env_path.exists():
     try:
         from dotenv import load_dotenv
-        load_dotenv(_env_path)
+        # override=True：项目 .env 优先于系统环境变量。
+        # 系统级（Machine）存在 DEEPSEEK_API_KEY，默认不覆盖会导致 .env 的切换不生效。
+        load_dotenv(_env_path, override=True)
     except ImportError:
         pass
 
