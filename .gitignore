@@ -154,3 +154,8 @@ DixyangFast/models/
 datasets/
 my_books/
 chroma_data/
+
+# motion-web 技能（已移出版本库，仅本地保留）
+motion-web-main/
+.agents/
+.trae/

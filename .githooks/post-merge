@@ -1,0 +1,32 @@
+#!/bin/sh
+# post-merge：fast-forward pull（最常见场景，不触发 pre-merge-commit）后保护本地 motion-web 技能
+# 机制：pull 应用"删除技能"后，回溯历史找到最后一个仍包含该技能的提交恢复到工作区，
+#       再用 git rm --cached 移出索引 —— 文件保留为未跟踪并被 .gitignore 忽略。
+# 前置（一次性）：git config core.hooksPath .githooks  或运行 scripts/setup-hooks.ps1
+
+SKILL_PATHS="motion-web-main .agents .trae"
+
+find_rev_with_path() {
+    # 遍历改动过该路径的提交，取第一个真正包含它的（跳过删除提交）
+    for r in $(git rev-list HEAD -- "$1" 2>/dev/null); do
+        if git ls-tree --name-only "$r" -- "$1" 2>/dev/null | grep -q .; then
+            echo "$r"
+            return 0
+        fi
+    done
+    return 1
+}
+
+for p in $SKILL_PATHS; do
+    if [ ! -e "$p" ] && [ ! -L "$p" ]; then
+        rev=$(find_rev_with_path "$p")
+        if [ -n "$rev" ]; then
+            git checkout "$rev" -- "$p" 2>/dev/null || true
+        fi
+    fi
+    if [ -e "$p" ] || [ -L "$p" ]; then
+        git rm -r --cached --ignore-unmatch --force "$p" >/dev/null 2>&1 || true
+    fi
+done
+
+exit 0

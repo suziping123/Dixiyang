@@ -1,0 +1,2 @@
+# Git hooks 必须保持 LF，否则 Windows 下 bash 无法执行
+.githooks/* text eol=lf

@@ -16,6 +16,7 @@
    - 或者文件，视频，日志等大文件或者可能会变成的大文件
 8. **Java版本**：java17,sdkman
 9. **`.env` 文件禁令**：**禁止查看、读取、修改、搜索根目录的 `.env` 文件**（内含数据库密码、API Key 等真实凭据）。需要了解环境变量结构时，只允许查看**示例文件** `.env.example`（占位符模板，不含真实值）。确因任务必须接触 `.env` 时，须先向我明确说明原因并获得**一次性**授权（授权仅限当次对话，不可复用）。
+10. **motion-web 技能本地化**：技能目录 `motion-web-main/`、`.agents/`、`.trae/` **已移出版本库，仅本地保留**（GitHub 上不再有）。协作者克隆/拉取前**必须先执行一次** `git config core.hooksPath .githooks`（或 `powershell -File scripts/setup-hooks.ps1`），否则 `git pull` 会删除本地技能文件；一旦文件丢失，运行 `powershell -File scripts/restore-skills.ps1` 从 git 历史恢复。详见 `docs/技能库出库与同步.md`。
 
 ## 聊天编辑 & 重新生成设计
 

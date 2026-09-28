@@ -1,0 +1,21 @@
+#!/bin/sh
+# pre-merge-commit：真 merge（产生 merge commit，含冲突解决后的 commit）时保护本地 motion-web 技能
+# 机制：merge 结果写入提交前，若技能文件已被删除则从 HEAD（merge 前的本地分支）恢复到工作区，
+#       再用 git rm --cached 把它们移出索引（index 仍是"已删除"，工作区文件保留）。
+# 前置（一次性）：git config core.hooksPath .githooks  或运行 scripts/setup-hooks.ps1
+
+SKILL_PATHS="motion-web-main .agents .trae"
+
+for p in $SKILL_PATHS; do
+    if [ ! -e "$p" ] && [ ! -L "$p" ]; then
+        # merge 尚未提交，HEAD 仍是本地分支（含技能）；若本地本来就没有则跳过
+        if git ls-tree --name-only HEAD -- "$p" 2>/dev/null | grep -q .; then
+            git checkout HEAD -- "$p" 2>/dev/null || true
+        fi
+    fi
+    if [ -e "$p" ] || [ -L "$p" ]; then
+        git rm -r --cached --ignore-unmatch --force "$p" >/dev/null 2>&1 || true
+    fi
+done
+
+exit 0

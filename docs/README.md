@@ -295,6 +295,19 @@
 
 ---
 
+### 18. [motion-web 技能库出库与同步](./技能库出库与同步.md) ✨ 新增
+**位置**: `docs/技能库出库与同步.md`
+
+**内容**:
+- 技能从 GitHub 删除但**本地保留**、且**协作者 pull 不丢文件**的方案（`git rm --cached` + `.githooks` 自动本地化）
+- `pre-merge-commit`（真 merge）/ `post-merge`（fast-forward pull）双 hook 机制
+- `scripts/setup-hooks.ps1` 一次性配置、`scripts/restore-skills.ps1` 兜底恢复
+- 协作者操作步骤、已知限制（hooks 需配置一次、全新 clone 需另取技能）、验证命令
+
+**适用人群**: 所有克隆/拉取本仓库的协作者、维护 `.gitignore` 与 hooks 的开发者
+
+---
+
 ## 文档使用指南
 
 ### 对于新加入的开发者
@@ -387,6 +400,10 @@
 
 ## 版本变更记录
 
+### v1.9 (2026-09-28)
+- **新增**: [motion-web 技能库出库与同步](./技能库出库与同步.md) — 技能移出 GitHub 但本地保留，`.githooks` 保护协作者 pull 不丢技能
+- **合并**: 同步远程落地页、字体资源与 motion-web 接入文档（条目 14-17 重排）
+
 ### v1.8 (2026-09-28)
 - **新增**: [LLM 接入配置切换](../DixyangFast/docs/LLM接入配置切换.md) — 临时切本地 llama-kvmem 模型、`load_dotenv(override=True)` 修复 401、切回 DeepSeek 步骤
 
@@ -422,6 +439,6 @@
 
 ---
 
-*文档版本: v1.8*
+*文档版本: v1.9*
 *最后更新: 2026-09-28*
 *维护者: Dixiyang Team*
