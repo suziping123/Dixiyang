@@ -44,6 +44,19 @@ html.theme-dark {
 
   --border-color: rgba(255,255,255,0.06);
 
+  /* 圆角：全站仅两档（控件 / 容器），禁止再新增档位 */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+
+  /* 动效：统一时长与缓动，组件内不再写死 cubic-bezier */
+  --dur-fast: 160ms;
+  --dur: 240ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* 语义色：危险操作统一用这两个，禁止组件内硬编码 #ef4444 */
+  --danger: #ef4444;
+  --danger-soft: rgba(239, 68, 68, 0.12);
+
   /* 兼容旧变量名 */
   --glass-bg: var(--surface-glass);
   --glass-border: var(--surface-glass-border);
