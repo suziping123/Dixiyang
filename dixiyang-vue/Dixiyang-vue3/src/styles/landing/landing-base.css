@@ -1,0 +1,381 @@
+/* ==========================================================================
+   DIXIYANG 落地页 · 基座：亮纸覆盖 / 单屏框架 / 顶栏 / 章节索引 / 面板转场
+   静帧为默认完成态；切换动效只在 no-preference 且桌面宽度下由 GSAP 注入
+   ========================================================================== */
+
+/* 落地页在场时把全局暗底翻成亮纸（main.css 的 html,body 是 unlayered 全局） */
+html:has(.ld-page),
+html:has(.ld-page) body {
+  background: var(--ld-bg);
+  color: var(--ld-text);
+  color-scheme: light;
+}
+html:has(.ld-page) {
+  scrollbar-gutter: stable;
+}
+
+.ld-page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: var(--ld-bg);
+  color: var(--ld-text);
+  font-family: var(--ld-font-body);
+  font-size: var(--ld-t-body);
+  line-height: var(--ld-lh-body);
+  -webkit-font-smoothing: antialiased;
+  overflow: clip;
+}
+.ld-page ::selection {
+  background: var(--ld-accent);
+  color: var(--ld-accent-on);
+}
+.ld-page :is(a, button, [role='button']) {
+  -webkit-tap-highlight-color: transparent;
+}
+.ld-page :where(a, button, [tabindex]):focus-visible {
+  outline: 2px solid var(--ld-focus);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+.ld-page h1,
+.ld-page h2,
+.ld-page h3 {
+  overflow-wrap: break-word;
+  text-wrap: balance;
+}
+.ld-page p {
+  text-wrap: pretty;
+}
+/* 切换转场期间禁止悬停发光干扰 */
+.ld-page :is(a, button):hover {
+  animation: none;
+}
+
+/* ---------- 工具 ---------- */
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.ld-eyebrow {
+  font-family: var(--ld-font-latin);
+  font-size: var(--ld-t-eyebrow);
+  font-weight: 500;
+  letter-spacing: var(--ld-track-eyebrow);
+  text-transform: uppercase;
+  color: var(--ld-text-3);
+  line-height: 1.2;
+}
+.ld-eyebrow .zh {
+  font-family: var(--ld-font-body);
+  letter-spacing: 0.1em;
+}
+.ld-eyebrow::before {
+  content: '';
+  display: inline-block;
+  width: 2rem;
+  height: 1px;
+  background: var(--ld-accent);
+  vertical-align: 0.28em;
+  margin-right: 0.75rem;
+}
+.ld-h2 {
+  font-family: var(--ld-font-display);
+  font-weight: 600;
+  font-size: var(--ld-t-h2);
+  line-height: var(--ld-lh-heading);
+  letter-spacing: var(--ld-track-display);
+}
+.ld-lead {
+  font-size: var(--ld-t-lead);
+  line-height: 1.8;
+  color: var(--ld-text-2);
+  max-width: var(--ld-measure);
+}
+
+/* ---------- 按钮（≤3 角色，hit ≥44px，纸底红笔强调） ---------- */
+.ld-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  min-height: 44px;
+  padding: 0 1.5em;
+  font-family: var(--ld-font-body);
+  font-size: var(--ld-t-sm);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  border: 1px solid transparent;
+  border-radius: var(--ld-btn-radius);
+  background: var(--ld-accent);
+  color: var(--ld-accent-on);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--ld-dur-fast) var(--ld-ease-out),
+    color var(--ld-dur-fast) var(--ld-ease-out),
+    border-color var(--ld-dur-fast) var(--ld-ease-out),
+    transform 90ms var(--ld-ease-out);
+}
+.ld-btn:active {
+  transform: scale(0.98);
+}
+.ld-btn--ghost {
+  background: transparent;
+  color: var(--ld-text);
+  border-color: var(--ld-rule-strong);
+}
+.ld-btn--quiet {
+  background: transparent;
+  color: var(--ld-text-2);
+  border-color: transparent;
+  padding-inline: 0.25em;
+}
+@media (hover: hover) and (pointer: fine) {
+  .ld-btn:hover {
+    background: var(--ld-accent-hover);
+    color: var(--ld-accent-on);
+  }
+  .ld-btn--ghost:hover {
+    background: var(--ld-surface-hover);
+    color: var(--ld-text);
+    border-color: var(--ld-text-3);
+  }
+  .ld-btn--quiet:hover {
+    color: var(--ld-accent);
+  }
+}
+
+/* ==========================================================================
+   顶栏：logo + GitHub/登录（单屏无滚动，无 scrolled 态）
+   ========================================================================== */
+.ld-nav {
+  position: relative;
+  z-index: 50;
+  flex: 0 0 var(--ld-nav-h);
+  height: var(--ld-nav-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(1rem, 3vw, 2.5rem);
+  padding-inline: var(--ld-gutter);
+  border-bottom: 1px solid var(--ld-rule);
+  background: var(--ld-bg);
+}
+.ld-nav__logo {
+  font-family: var(--ld-font-latin);
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  color: var(--ld-text);
+  text-decoration: none;
+}
+.ld-nav__logo b {
+  color: var(--ld-accent);
+  font-weight: 500;
+}
+.ld-nav__right {
+  display: flex;
+  align-items: center;
+  gap: clamp(1rem, 2.5vw, 2rem);
+}
+.ld-nav__ext {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  min-height: 44px;
+  font-family: var(--ld-font-latin);
+  font-size: var(--ld-t-xs);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ld-text-2);
+  text-decoration: none;
+  transition: color var(--ld-dur-fast) var(--ld-ease-out);
+}
+.ld-nav__ext svg {
+  width: 11px;
+  height: 11px;
+}
+.ld-nav__login {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: 1em;
+  font-size: var(--ld-t-sm);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--ld-text);
+  text-decoration: none;
+  border-bottom: 1px solid var(--ld-accent);
+  transition: color var(--ld-dur-fast) var(--ld-ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .ld-nav__ext:hover {
+    color: var(--ld-accent);
+  }
+  .ld-nav__login:hover {
+    color: var(--ld-accent);
+  }
+}
+
+/* ==========================================================================
+   章节索引（左缘竖排 tablist）：点击/滚轮/方向键切换，转场即签名动效
+   ========================================================================== */
+.ld-index {
+  position: fixed;
+  left: 0;
+  top: var(--ld-nav-h);
+  bottom: 0;
+  width: var(--ld-index-w);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.35rem;
+  padding-left: var(--ld-gutter);
+  border-right: 1px solid var(--ld-rule);
+  background: var(--ld-bg);
+}
+.ld-index__btn {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.35rem 0;
+  border: 0;
+  background: none;
+  color: var(--ld-text-3);
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--ld-dur) var(--ld-ease-out);
+}
+.ld-index__num {
+  font-family: var(--ld-font-mono);
+  font-size: var(--ld-t-xs);
+  font-variant-numeric: tabular-nums;
+}
+.ld-index__label {
+  font-size: var(--ld-t-sm);
+  letter-spacing: 0.12em;
+}
+.ld-index__label .en {
+  display: block;
+  font-family: var(--ld-font-latin);
+  font-size: 0.625rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+/* 当前项：红笔批注式下划线（唯一信号） */
+.ld-index__btn[aria-selected='true'] {
+  color: var(--ld-text);
+}
+.ld-index__btn[aria-selected='true']::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--ld-gutter) * -1);
+  top: 50%;
+  width: calc(var(--ld-gutter) - 0.35rem);
+  height: 2px;
+  background: var(--ld-accent);
+}
+.ld-index__hint {
+  position: absolute;
+  bottom: 1.5rem;
+  left: var(--ld-gutter);
+  right: 1rem;
+  font-family: var(--ld-font-latin);
+  font-size: 0.625rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ld-text-3);
+}
+@media (hover: hover) and (pointer: fine) {
+  .ld-index__btn:hover {
+    color: var(--ld-text-2);
+  }
+  .ld-index__btn[aria-selected='true']:hover {
+    color: var(--ld-text);
+  }
+}
+
+/* ==========================================================================
+   舞台与面板：桌面单屏 absolute 叠放，切换=抽稿换页；移动端降级为纵向流
+   ========================================================================== */
+.ld-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-left: var(--ld-index-w);
+}
+.ld-panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--ld-stage-pad) var(--ld-gutter);
+  overflow: auto;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+.ld-panel.is-active {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+.ld-panel__head {
+  margin-bottom: clamp(1.25rem, 3vh, 2.5rem);
+}
+.ld-panel__head .ld-eyebrow {
+  margin-bottom: 0.9rem;
+}
+/* 面板通用小节标题（红笔横线收尾） */
+.ld-rule-accent {
+  border: 0;
+  height: 1px;
+  background: var(--ld-rule);
+}
+
+/* 无 JS 兜底：第一面板即完成态（is-active 由 Vue 渲染） */
+
+/* ==========================================================================
+   媒体查询：移动端降级（page-design §7——单屏改为纵向流，索引退场）
+   ========================================================================== */
+@media (max-width: 768px) {
+  .ld-page {
+    min-height: 0;
+    overflow: visible;
+  }
+  .ld-index {
+    display: none;
+  }
+  .ld-stage {
+    margin-left: 0;
+  }
+  .ld-panel {
+    position: static;
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+    overflow: visible;
+    padding-block: clamp(3rem, 9vw, 5rem);
+    border-bottom: 1px solid var(--ld-rule);
+  }
+  .ld-panel:last-child {
+    border-bottom: 0;
+  }
+}

@@ -94,3 +94,8 @@ uploads/
 ```
 - 遍历时基于当前文件的父目录拼接：`Paths.get(currentFile).getParent().resolve(next)`
 - 不使用 `./` 前缀，不使用绝对路径
+
+## motion-web 技能（动效网页）
+
+- 凡涉及**做网页/落地页/官网/作品集/动效/复刻参考站**的任务，先加载 `motion-web` 技能：入口 `motion-web-main/SKILL.md`（软链 `~/.agents/skills/motion-web`、`.trae/skills/motion-web` 同源），按其 Build Order 执行。
+- 详见 `docs/motion-web技能接入.md`。

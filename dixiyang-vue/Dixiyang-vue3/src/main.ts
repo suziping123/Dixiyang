@@ -1,5 +1,9 @@
 import './assets/main.css'
 import './assets/icon-utils.css'
+// 落地页样式：tokens → 基座 → 章节（须在 main.css 之后，保持未分层顺序）
+import './styles/landing/tokens.css'
+import './styles/landing/landing-base.css'
+import './styles/landing/landing-sections.css'
 
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
