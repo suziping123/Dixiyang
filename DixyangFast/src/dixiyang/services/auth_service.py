@@ -148,11 +148,12 @@ class AuthService:
         code = _generate_code()
         expire_time = now + timedelta(minutes=CODE_EXPIRE_MINUTES)
 
-        if last_record:
-            last_record.code = code
-            last_record.expire_time = expire_time.replace(tzinfo=None)
-            last_record.used = False
-            last_record.created_at = now.replace(tzinfo=None)
+        record = last_record
+        if record:
+            record.code = code
+            record.expire_time = expire_time.replace(tzinfo=None)
+            record.used = False
+            record.created_at = now.replace(tzinfo=None)
         else:
             record = EmailVerificationCode(
                 email=req.email,
@@ -165,8 +166,12 @@ class AuthService:
             self.db.add(record)
         self.db.commit()
 
-        # 发送邮件
-        send_verification_code(req.email, code)
+        # 发送邮件：失败时删除记录（否则 60s 限流会把用户锁死）并真实返回错误
+        if not send_verification_code(req.email, code):
+            self.db.delete(record)
+            self.db.commit()
+            return Result.error("验证码邮件发送失败，请稍后重试")
+
         return Result.success("验证码已发送")
 
     def login_by_code(self, req: LoginByCodeDTO) -> dict:

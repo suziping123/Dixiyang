@@ -82,7 +82,7 @@ import SettingsSection from '@/components/SettingsSection.vue'
 import SettingRow from '@/components/settings/SettingRow.vue'
 import { useUser } from '@/composables/useUser'
 import { useUserStore } from '@/stores/UserStore'
-import http from '@/utils/http'
+import http, { assertApiResponse } from '@/utils/http'
 import { confirmDelete } from '@/utils/confirm'
 import { enterSubmit } from '@/utils/enterSubmit'
 
@@ -113,10 +113,16 @@ const changePassword = async () => {
 
   pwdLoading.value = true
   try {
-    await http.post('/user/password', {
+    const res = await http.post('/user/password', {
       oldPassword: pwd.oldPassword,
       newPassword: pwd.newPassword,
     })
+    // 拦截器对 code:500 也 resolve，必须自行判断业务码
+    const apiRes = assertApiResponse(res)
+    if (apiRes.code !== 200) {
+      ElMessage.error(apiRes.msg || '修改失败，请稍后再试')
+      return
+    }
     ElMessage.success('密码已修改，下次登录请使用新密码')
     pwd.oldPassword = ''
     pwd.newPassword = ''

@@ -40,6 +40,7 @@
             <el-input v-model="registerForm.password" type="password" placeholder="密码" :prefix-icon="Lock" show-password />
           </el-form-item>
           <el-button type="primary" class="auth-btn" @click="handleRegister">注册</el-button>
+          <p class="panel-switch"><a @click.prevent="togglePanel(false)">已有账号？去登录</a></p>
         </el-form>
       </section>
 
@@ -84,6 +85,7 @@
             </a>
           </div>
           <el-button type="primary" class="auth-btn" @click="handleLogin">登录</el-button>
+          <p class="panel-switch"><a @click.prevent="togglePanel(true)">还没有账号？去注册</a></p>
         </el-form>
       </section>
 
@@ -186,6 +188,31 @@ onMounted(() => {
   justify-content: center;
   padding: 40px;
   background: white;
+}
+
+/* 表单标题继承的是浅色 --text-primary，在白色面板上不可见，固定深色 */
+.form-container h2 {
+  color: #1f2937;
+}
+
+/* 移动端：表单内切换登录/注册的入口（桌面由右侧 overlay 提供） */
+.panel-switch {
+  display: none;
+  text-align: center;
+  margin-top: 14px;
+  font-size: 0.875rem;
+  color: #4b5563;
+}
+
+.panel-switch a {
+  color: #6366f1;
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.panel-switch a:hover {
+  text-decoration: underline;
 }
 
 .sign-in-container { left: 0; z-index: 2; }
@@ -335,6 +362,11 @@ onMounted(() => {
   .sign-in-container,
   .sign-up-container {
     opacity: 1;
+  }
+
+  /* 移动端显示表单内的登录/注册切换入口 */
+  .panel-switch {
+    display: block;
   }
 }
 </style>

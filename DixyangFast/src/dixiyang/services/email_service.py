@@ -10,6 +10,12 @@ logger = logging.getLogger(__name__)
 
 def send_verification_code(to_email: str, code: str) -> bool:
     """同步发送验证码邮件（在 FastAPI 线程池中运行）"""
+    if not SMTP_HOST or not SMTP_USERNAME or not SMTP_PASSWORD:
+        logger.error(
+            "SMTP 配置缺失: SMTP_HOST=%s, SMTP_PORT=%s, SMTP_USERNAME 已设置=%s, SMTP_PASSWORD 已设置=%s",
+            SMTP_HOST, SMTP_PORT, bool(SMTP_USERNAME), bool(SMTP_PASSWORD),
+        )
+        return False
     try:
         msg = MIMEMultipart("alternative")
         msg["From"] = SMTP_USERNAME
@@ -30,8 +36,17 @@ def send_verification_code(to_email: str, code: str) -> bool:
         """
         msg.attach(MIMEText(html, "html", "utf-8"))
 
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
-            server.starttls()
+        # 按端口选择协议：465 = 隐式 SSL（SMTP_SSL），587/25 = 明文连接后 STARTTLS
+        # 混用（如 465 上 starttls）会导致 Connection unexpectedly closed
+        if SMTP_PORT == 465:
+            server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=15)
+        else:
+            server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15)
+        with server:
+            server.ehlo()
+            if SMTP_PORT != 465:
+                server.starttls()
+                server.ehlo()
             server.login(SMTP_USERNAME, SMTP_PASSWORD)
             server.sendmail(SMTP_USERNAME, to_email, msg.as_string())
 

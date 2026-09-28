@@ -20,12 +20,14 @@ defineProps<Props>()
 </script>
 
 <style scoped>
+/* RAG 助手同款玻璃面板（glass-bg + blur20 + glass-border），叠深色衬底保证可读 */
 .settings-section {
   padding: 24px;
   background: var(--surface-panel);
-  backdrop-filter: blur(16px);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
 }
 
 .section-header {

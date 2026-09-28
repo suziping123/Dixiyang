@@ -23,8 +23,8 @@ html.theme-dark {
   --surface-glass-border: rgba(255,255,255,0.10);
   --surface-glass-border-hover: rgba(255,255,255,0.22);
   --surface-card: rgba(255,255,255,0.04);
-  /* 不透明深色面板：背景图开启时保证文字可读（设置页等整块内容区） */
-  --surface-panel: rgba(13,13,15,0.86);
+  /* 面板衬底：RAG 玻璃风格 + 深色衬底（对齐 rag-assistant 观感，保证背景图下可读） */
+  --surface-panel: rgba(10,10,12,0.6);
   --surface-input: rgba(255,255,255,0.05);
 
   --text-primary: #eeeeee;

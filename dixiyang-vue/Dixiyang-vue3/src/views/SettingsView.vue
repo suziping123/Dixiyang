@@ -104,8 +104,9 @@ const goBack = () => router.push('/home')
   flex-shrink: 0;
   padding: 28px 18px;
   background: var(--surface-panel);
-  backdrop-filter: blur(16px);
-  border-right: 1px solid var(--border-color);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid var(--glass-border);
   display: flex;
   flex-direction: column;
   position: sticky;

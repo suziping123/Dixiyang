@@ -13,7 +13,7 @@
 
     <div class="rag-container">
       <!-- 最左侧：历史会话 -->
-      <aside class="session-panel">
+      <aside class="session-panel" :class="{ 'drawer-open': showSessions }">
         <div class="session-header">
           <h3>历史会话</h3>
           <div class="session-actions">
@@ -22,6 +22,9 @@
             </button>
             <button class="new-btn" @click="handleNewSession" title="新建对话">
               <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            </button>
+            <button class="panel-close-btn" @click="showSessions = false" title="关闭">
+              <el-icon :size="16"><Close /></el-icon>
             </button>
           </div>
         </div>
@@ -45,7 +48,13 @@
       </aside>
 
       <!-- 左侧：上下文选择面板 -->
-      <aside class="context-panel">
+      <aside class="context-panel" :class="{ 'drawer-open': showContext }">
+        <div class="context-drawer-header">
+          <h3>上下文设置</h3>
+          <button class="panel-close-btn" @click="showContext = false" title="关闭">
+            <el-icon :size="16"><Close /></el-icon>
+          </button>
+        </div>
         <div class="panel-section">
           <h3>选择小说</h3>
           <div class="selector-list">
@@ -130,12 +139,22 @@
         </div>
       </aside>
 
+      <div v-if="showSessions || showContext" class="drawer-mask" @click="closeDrawers"></div>
+
       <!-- 右侧：聊天区域 -->
       <main class="chat-area">
         <div class="chat-header">
           <div class="chat-info">
             <h2>创作对话</h2>
             <p v-if="selectedNovel">当前语境：{{ selectedNovel.title }}</p>
+          </div>
+          <div class="mobile-panel-actions">
+            <button class="panel-toggle-btn" @click="showSessions = true">
+              <el-icon :size="15"><Clock /></el-icon><span>历史</span>
+            </button>
+            <button class="panel-toggle-btn" @click="showContext = true">
+              <el-icon :size="15"><Setting /></el-icon><span>上下文</span>
+            </button>
           </div>
           <div class="chat-stats">
             <span class="stat-badge">已选 {{ selectedCharacters.length }} 角色</span>
@@ -252,7 +271,7 @@ import EditMessageModal from '@/components/chat/EditMessageModal.vue'
 import CharacterSettingsDialog from '@/components/CharacterSettingsDialog.vue'
 import http from '@/utils/http'
 import { confirmDelete } from '@/utils/confirm'
-import { eventTypeLabel, eventTypeConfig, genderLabel, genderStyle } from '@/utils/storyMappings'
+import { eventTypeLabel, genderLabel, genderStyle } from '@/utils/storyMappings'
 
 const userStore = useUserStore()
 const userId = userStore.userId || (() => {
@@ -273,10 +292,27 @@ const editingUserMessageContent = ref<string>('')
 const editedUserMessageIndex = ref<number>(-1)
 const isUserEditing = ref<boolean>(false)
 
-const novels = ref<any[]>([])
-const characters = ref<any[]>([])
-const storyNodes = ref<any[]>([])
-const selectedNovel = ref<any>(null)
+// RAG 视图所需数据形状（后端返回结构，仅取用到的字段）
+interface RagNovel {
+  id: number
+  title: string
+  char_count?: number
+}
+interface RagCharacter {
+  id: number
+  name: string
+  gender?: string
+}
+interface RagStoryNode {
+  id: number
+  title: string
+  eventType?: string
+}
+
+const novels = ref<RagNovel[]>([])
+const characters = ref<RagCharacter[]>([])
+const storyNodes = ref<RagStoryNode[]>([])
+const selectedNovel = ref<RagNovel | null>(null)
 const selectedCharacters = ref<number[]>([])
 const selectedNodes = ref<number[]>([])
 const inputMessage = ref('')
@@ -284,20 +320,12 @@ const messagesRef = ref<HTMLElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const editModalRef = ref<InstanceType<typeof EditMessageModal> | null>(null)
 
-const saveEditedUserMessages = async (userId?: number) => {
-  if (!currentSessionId.value || !userId) return
-  try {
-    await http.post('/chatHistory/batchSave', {
-      sessionId: currentSessionId.value,
-      novelId: selectedNovel.value?.id ?? null,
-      messages: messages.value.map(m => ({
-        role: m.role,
-        content: m.content,
-        thinking: m.thinking ?? null,
-        createTime: m.timestamp.toISOString()
-      }))
-    })
-  } catch { /* silent */ }
+// 移动端抽屉：历史会话 / 上下文设置（桌面布局不受影响）
+const showSessions = ref(false)
+const showContext = ref(false)
+const closeDrawers = () => {
+  showSessions.value = false
+  showContext.value = false
 }
 
 const options = ref({
@@ -316,7 +344,10 @@ import {
   ChatDotRound,
   Search,
   MagicStick,
-  Help
+  Help,
+  Close,
+  Clock,
+  Setting
 } from '@element-plus/icons-vue'
 
 const conversationModes = [
@@ -343,7 +374,7 @@ const loadNovels = async () => {
   }
 }
 
-const selectNovel = async (novel: any) => {
+const selectNovel = async (novel: RagNovel) => {
   selectedNovel.value = novel
   selectedCharacters.value = []
   selectedNodes.value = []
@@ -364,13 +395,13 @@ const selectNovel = async (novel: any) => {
   await loadSessions(novel.id)
 }
 
-const toggleCharacter = (char: any) => {
+const toggleCharacter = (char: RagCharacter) => {
   const idx = selectedCharacters.value.indexOf(char.id)
   if (idx > -1) selectedCharacters.value.splice(idx, 1)
   else selectedCharacters.value.push(char.id)
 }
 
-const toggleNode = (node: any) => {
+const toggleNode = (node: RagStoryNode) => {
   const idx = selectedNodes.value.indexOf(node.id)
   if (idx > -1) selectedNodes.value.splice(idx, 1)
   else selectedNodes.value.push(node.id)
@@ -423,11 +454,13 @@ const scrollToBottom = () => {
 const handleNewSession = () => {
   const created = newSession()
   if (!created) ElMessage.info('已有新对话，已切换到该对话')
+  showSessions.value = false
 }
 
 const handleSelectSession = async (sessionId: string) => {
   await loadSessionMessages(sessionId)
   nextTick(scrollToBottom)
+  showSessions.value = false
 }
 
 const handleUserEdit = (index: number, content: string) => {
@@ -735,6 +768,60 @@ onMounted(async () => {
   padding: 20px 0;
   color: var(--text-muted);
   font-size: 0.85rem;
+}
+
+/* ── 移动端抽屉相关（桌面一律隐藏） ── */
+.mobile-panel-actions,
+.panel-close-btn,
+.context-drawer-header,
+.drawer-mask {
+  display: none;
+}
+
+.panel-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.panel-toggle-btn:hover {
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--neon-cyan);
+  border-color: var(--neon-cyan);
+}
+
+.panel-close-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.panel-close-btn:hover {
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--neon-cyan);
+  border-color: var(--neon-cyan);
+}
+
+.context-drawer-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--neon-cyan);
 }
 
 .context-panel {
@@ -1194,22 +1281,50 @@ onMounted(async () => {
 }
 
 @media (max-width: 1024px) {
-  .rag-container {
-    flex-direction: column;
-    height: auto;
-    min-height: calc(100vh - 120px);
+  /* 三栏改抽屉：历史会话左滑、上下文右滑，聊天区独占剩余空间 */
+  .session-panel,
+  .context-panel {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    z-index: 120;
+    width: min(82vw, 320px);
+    max-height: none;
+    transition: transform var(--dur, 240ms) var(--ease-out, ease-out);
   }
   .session-panel {
-    width: 100%;
-    max-height: 150px;
+    left: 0;
+    border-radius: 0 16px 16px 0;
+    transform: translateX(-105%);
   }
-  .session-list {
-    flex-direction: row;
-    overflow-x: auto;
+  .context-panel {
+    right: 0;
+    padding: 16px;
+    border-radius: 16px 0 0 16px;
+    transform: translateX(105%);
   }
-  .session-item { white-space: nowrap; flex-shrink: 0; }
-  .context-panel { width: 100%; max-height: 300px; }
-  .chat-area { min-height: 500px; }
+  .session-panel.drawer-open,
+  .context-panel.drawer-open {
+    transform: translateX(0);
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+  }
+  .session-list { flex-direction: column; overflow-y: auto; }
+  .chat-area { min-height: 0; height: 100%; }
+  .mobile-panel-actions { display: flex; gap: 8px; }
+  .panel-close-btn { display: inline-flex; }
+  .context-drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .drawer-mask {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    background: rgba(0, 0, 0, 0.55);
+  }
 }
 
 @media (max-width: 768px) {
