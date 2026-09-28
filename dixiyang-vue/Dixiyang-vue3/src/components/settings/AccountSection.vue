@@ -166,7 +166,12 @@ const handleLogout = async () => {
 
 .pwd-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
+}
+
+.pwd-actions .btn {
+  width: 100%;
+  max-width: 320px;
 }
 
 .spin {

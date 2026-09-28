@@ -61,7 +61,14 @@ defineProps<Props>()
 .is-stacked .row-control {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 8px;
+}
+
+/* stacked 行内的按钮统一宽度并居中（flex column 默认 stretch 会占满整行） */
+.is-stacked .row-control :deep(.btn) {
+  width: 100%;
+  max-width: 320px;
 }
 
 /* 行内控件统一外观（slot 内容继承） */

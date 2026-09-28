@@ -1165,13 +1165,17 @@ onBeforeUnmount(() => {
 
 @media (max-width: 768px) {
   .main-stage {
-    padding: 40px 30px;
+    padding: 32px 16px;
   }
   .logo-text { font-size: 2rem; }
-  .galaxy-grid { grid-template-columns: 1fr; }
+  /* 手机上双列小卡，避免单列封面占满整屏 */
+  .galaxy-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
   .galaxy-grid.single-card {
     grid-template-columns: 1fr;
-    max-width: 320px;
+    max-width: 240px;
     margin-left: auto;
     margin-right: auto;
   }

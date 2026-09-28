@@ -67,11 +67,18 @@ const router = useRouter()
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+  justify-content: center;
 }
 
 @media (max-width: 768px) {
   .about-actions {
     flex-direction: column;
+    align-items: center;
+  }
+
+  .about-actions .btn {
+    width: 100%;
+    max-width: 320px;
   }
 }
 </style>

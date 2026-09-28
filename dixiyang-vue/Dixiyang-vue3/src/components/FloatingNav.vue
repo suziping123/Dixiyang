@@ -147,4 +147,48 @@ const handleNavClick = (idx: number) => {
   background: var(--accent-soft-strong);
   color: var(--accent-primary);
 }
+
+/* ============ 触屏设备：左下角常驻横条（hover 触发在触屏无效） ============ */
+@media (hover: none), (pointer: coarse) {
+  .nav-wrapper {
+    width: auto;
+    height: auto;
+    top: auto;
+    bottom: 14px;
+    left: 14px;
+  }
+
+  .nav-trigger {
+    display: none;
+  }
+
+  .floating-nav {
+    position: fixed;
+    left: 14px;
+    top: auto;
+    bottom: 14px;
+    transform: none;
+    flex-direction: row;
+    padding: 8px 10px;
+    gap: 8px;
+    border-radius: 999px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  }
+
+  /* 不依赖 hover 的 visible 状态 */
+  .floating-nav,
+  .floating-nav.visible {
+    left: 14px;
+  }
+
+  .nav-item {
+    width: 38px;
+    height: 38px;
+  }
+
+  .nav-item svg {
+    width: 18px;
+    height: 18px;
+  }
+}
 </style>

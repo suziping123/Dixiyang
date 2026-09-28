@@ -283,4 +283,58 @@ onMounted(() => {
 .login-mode-switch a:hover {
   text-decoration: underline;
 }
+
+/* ============ 移动端：单面板静态布局 ============ */
+@media (max-width: 768px) {
+  .auth-container {
+    height: auto;
+    min-height: 100vh;
+    padding: 32px 16px;
+    gap: 24px;
+    justify-content: center;
+  }
+
+  .system-title {
+    position: static;
+  }
+
+  .loginHead {
+    font-size: 1.75rem;
+  }
+
+  .loginFooter {
+    font-size: 0.8125rem;
+    letter-spacing: 1px;
+  }
+
+  .auth-box {
+    width: min(100%, 400px);
+    height: auto;
+    border-radius: 16px;
+  }
+
+  /* 隐藏滑动 overlay，表单改为静态流 */
+  .overlay-container {
+    display: none;
+  }
+
+  .form-container {
+    position: static;
+    width: 100%;
+    padding: 28px 24px;
+    transform: none !important;
+    animation: none !important;
+  }
+
+  /* 只显示当前面板 */
+  .auth-box:not(.right-panel-active) .sign-up-container,
+  .auth-box.right-panel-active .sign-in-container {
+    display: none;
+  }
+
+  .sign-in-container,
+  .sign-up-container {
+    opacity: 1;
+  }
+}
 </style>

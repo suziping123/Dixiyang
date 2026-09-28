@@ -22,7 +22,8 @@ defineProps<Props>()
 <style scoped>
 .settings-section {
   padding: 24px;
-  background: var(--surface-card);
+  background: var(--surface-panel);
+  backdrop-filter: blur(16px);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
 }

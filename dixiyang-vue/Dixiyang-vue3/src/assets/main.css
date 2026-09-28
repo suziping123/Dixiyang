@@ -23,6 +23,8 @@ html.theme-dark {
   --surface-glass-border: rgba(255,255,255,0.10);
   --surface-glass-border-hover: rgba(255,255,255,0.22);
   --surface-card: rgba(255,255,255,0.04);
+  /* 不透明深色面板：背景图开启时保证文字可读（设置页等整块内容区） */
+  --surface-panel: rgba(13,13,15,0.86);
   --surface-input: rgba(255,255,255,0.05);
 
   --text-primary: #eeeeee;
@@ -83,12 +85,15 @@ html.theme-dark {
 
 * { box-sizing: border-box; }
 
+/* 基准字号：用户设置的 --font-size-user × 响应式系数 --viewport-font（见文末媒体查询） */
+html { font-size: calc(var(--font-size-user, 16px) * var(--viewport-font, 1)); }
+
 html, body {
   margin: 0; padding: 0;
   background: var(--surface-page);
   color: var(--text-primary);
   font-family: var(--font-family);
-  font-size: var(--font-size-base);
+  font-size: inherit;
   line-height: 1.6;
   scrollbar-width: thin;
   -webkit-font-smoothing: antialiased;
@@ -223,10 +228,11 @@ tr:hover { background: rgba(59,130,246,0.04); }
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; } }
-@media (max-width: 1920px) { html { font-size: 15px; } }
-@media (max-width: 1024px) { html { font-size: 14px; } }
-@media (max-width: 768px) { html { font-size: 13px; } h1 { font-size: 2rem; } h2 { font-size: 1.5rem; } h3 { font-size: 1.25rem; } }
-@media (max-width: 480px) { html { font-size: 12px; } h1 { font-size: 1.5rem; } h2 { font-size: 1.25rem; } h3 { font-size: 1rem; } }
+/* 响应式字号系数（15/16、14/16、13/16、12/16），叠加在用户设置的 --font-size-user 上 */
+@media (max-width: 1920px) { html { --viewport-font: 0.9375; } }
+@media (max-width: 1024px) { html { --viewport-font: 0.875; } }
+@media (max-width: 768px) { html { --viewport-font: 0.8125; } h1 { font-size: 2rem; } h2 { font-size: 1.5rem; } h3 { font-size: 1.25rem; } }
+@media (max-width: 480px) { html { --viewport-font: 0.75; } h1 { font-size: 1.5rem; } h2 { font-size: 1.25rem; } h3 { font-size: 1rem; } }
 
 :root {
   --el-color-primary: var(--accent-primary);

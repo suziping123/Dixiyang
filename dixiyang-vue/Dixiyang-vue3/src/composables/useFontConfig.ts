@@ -95,20 +95,25 @@ export function useFontConfig() {
   }
 
   /**
-   * 应用字体配置到DOM的:root CSS变量
+   * 应用字体配置到:root CSS 变量与 html 元素
+   * - --font-size-user: main.css 的 html font-size = 该值 × --viewport-font，rem 全局生效
+   * - font-family 内联到 html，避免被 Tailwind 等预设样式覆盖
    */
   const applyFontSettings = () => {
     const root = document.documentElement
 
-    // 设置字体族变量
+    // 字体族：计算出具体字体栈，同时写变量与 html 内联
     const familyVar = fontFamilyMap[family.value]
     const fontFamilyValue = getComputedStyle(root).getPropertyValue(familyVar).trim()
-    root.style.setProperty('--font-family', fontFamilyValue || `var(${familyVar})`)
+    const resolvedFamily = fontFamilyValue || `var(${familyVar})`
+    root.style.setProperty('--font-family', resolvedFamily)
+    if (fontFamilyValue) root.style.setProperty('font-family', fontFamilyValue)
 
-    // 设置基础字体大小
+    // 基准字号（html 按 --font-size-user 缩放，rem 随之变化）
+    root.style.setProperty('--font-size-user', `${size.value}px`)
     root.style.setProperty('--font-size-base', `${size.value}px`)
 
-    // 设置全局缩放因子
+    // 全局缩放因子（h1-h6 等 calc 使用）
     root.style.setProperty('--font-scale', String(scale.value))
   }
 

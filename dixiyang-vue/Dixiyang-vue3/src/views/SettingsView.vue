@@ -20,7 +20,7 @@
             :class="{ active: activeCategory === category.id }"
             :aria-current="activeCategory === category.id ? 'page' : undefined"
             type="button"
-            @click="activeCategory = category.id"
+            @click="switchCategory(category.id)"
           >
             <component :is="category.icon" class="menu-icon" />
             <span class="menu-label">{{ category.label }}</span>
@@ -70,6 +70,12 @@ const categories: { id: CategoryId; label: string; icon: typeof User }[] = [
   { id: 'about', label: '关于', icon: InfoFilled },
 ]
 
+/** 切换分类并滚回内容顶部（避免停在上一分类的滚动位置） */
+const switchCategory = (id: CategoryId) => {
+  activeCategory.value = id
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
 const goBack = () => router.push('/home')
 </script>
 
@@ -78,7 +84,8 @@ const goBack = () => router.push('/home')
   min-height: 100vh;
   background: transparent;
   color: var(--text-primary);
-  overflow: hidden;
+  /* clip 不创建滚动容器，避免破坏侧边栏 sticky（hidden 会使 sticky 失效） */
+  overflow-x: clip;
   position: relative;
   font-family: var(--font-family);
 }
@@ -94,8 +101,9 @@ const goBack = () => router.push('/home')
 /* ============ 侧边栏 ============ */
 .settings-sidebar {
   width: 260px;
+  flex-shrink: 0;
   padding: 28px 18px;
-  background: var(--surface-glass);
+  background: var(--surface-panel);
   backdrop-filter: blur(16px);
   border-right: 1px solid var(--border-color);
   display: flex;
@@ -193,8 +201,10 @@ const goBack = () => router.push('/home')
 /* ============ 主内容区 ============ */
 .settings-content {
   flex: 1;
+  width: 100%;
+  max-width: 1040px;
+  margin: 0 auto;
   padding: 40px;
-  max-width: 860px;
 }
 
 .section-wrapper {
@@ -218,33 +228,60 @@ const goBack = () => router.push('/home')
     flex-direction: column;
   }
 
+  /* 分类条吸顶，滚动内容时不消失 */
   .settings-sidebar {
     width: 100%;
     height: auto;
     border-right: none;
     border-bottom: 1px solid var(--border-color);
-    position: static;
-    padding: 16px;
-    gap: 14px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    padding: 10px 14px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "head foot"
+      "menu menu";
+    align-items: center;
+    gap: 8px;
+    overflow: visible;
   }
 
   .sidebar-header {
+    grid-area: head;
     margin-bottom: 0;
   }
 
-  .settings-menu {
-    flex-direction: row;
+  .sidebar-title {
+    font-size: 1.125rem;
     gap: 8px;
-    overflow-x: auto;
-    padding-bottom: 4px;
+  }
+
+  .settings-menu {
+    grid-area: menu;
+    /* 4 个分类等分，大小一致 */
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
   }
 
   .menu-item {
-    flex-shrink: 0;
-    padding: 9px 14px;
+    flex-direction: column;
+    gap: 3px;
+    padding: 7px 4px;
+    font-size: 0.75rem;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .menu-icon {
+    width: 16px;
+    height: 16px;
   }
 
   .sidebar-footer {
+    grid-area: foot;
     margin-top: 0;
     padding-top: 0;
     border-top: none;
@@ -252,21 +289,18 @@ const goBack = () => router.push('/home')
 
   .sidebar-footer .back-btn {
     width: auto;
+    padding: 7px 12px;
+    font-size: 0.8125rem;
   }
 
   .settings-content {
-    padding: 28px 20px;
+    padding: 24px 18px;
   }
 }
 
 @media (max-width: 768px) {
   .settings-content {
-    padding: 20px 16px;
-  }
-
-  .menu-item {
-    font-size: 0.875rem;
-    padding: 8px 12px;
+    padding: 18px 14px;
   }
 }
 </style>

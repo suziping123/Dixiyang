@@ -324,8 +324,13 @@ const handleResetAll = async () => {
 /* 重置 */
 .reset-row {
   display: flex;
-  justify-content: flex-start;
+  justify-content: center;
   padding-top: 4px;
+}
+
+.reset-row .btn {
+  width: 100%;
+  max-width: 320px;
 }
 
 @media (max-width: 768px) {

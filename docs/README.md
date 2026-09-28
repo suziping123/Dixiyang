@@ -177,6 +177,7 @@
 **内容**:
 - 6 阶段改造：设计 token、信息架构（4 分类）、外观组件精简、FloatingNav 图标统一、后端 fontColors 端点、文档
 - 死设置删除清单、compact 背景弹层修复、`backgroundId: ""` 清除语义
+- 第二轮 8 项体验修复：Python 改密码端点、全局字号 rem 生效、登录页/首页移动端适配、设置页 sticky 分类条与按钮统一、触屏浮动导航、背景图可读性
 - 改动文件清单、既有 type-check 错误、验证方式（build-only / eslint / mvn compile）
 
 **适用人群**: 前端开发者、后端开发者、测试
