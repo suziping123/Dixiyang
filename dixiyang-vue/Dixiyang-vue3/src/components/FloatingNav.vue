@@ -1,17 +1,20 @@
 <template>
   <div class="nav-wrapper" @mouseenter="isVisible = true" @mouseleave="isVisible = false">
     <div class="nav-trigger"></div>
-    <nav class="floating-nav" :class="{ visible: isVisible }">
-      <div
+    <nav class="floating-nav" :class="{ visible: isVisible }" aria-label="全局导航">
+      <button
         v-for="(item, idx) in navItems"
-        :key="idx"
+        :key="item.path"
         class="nav-item"
         :class="{ active: activeNav === idx }"
+        type="button"
+        :title="item.label"
+        :aria-label="item.label"
+        :aria-current="activeNav === idx ? 'page' : undefined"
         @click="handleNavClick(idx)"
-        :title="item.tooltip"
       >
-        {{ item.iconClass }}
-      </div>
+        <component :is="item.icon" />
+      </button>
     </nav>
   </div>
 </template>
@@ -19,10 +22,11 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { ChatDotRound, House, Setting } from '@element-plus/icons-vue'
 
 interface NavItem {
-  iconClass: string
-  tooltip: string
+  icon: typeof House
+  label: string
   path: string
 }
 
@@ -37,32 +41,32 @@ const emit = defineEmits<{
 const router = useRouter()
 const route = useRoute()
 
-const activeNav = ref(props.modelValue ?? 0)
+const activeNav = ref(props.modelValue ?? -1)
 const isVisible = ref(false)
 
-const navItems = ref<NavItem[]>([
-  { iconClass: '🏠', tooltip: '首页', path: '/home' },
-  { iconClass: '🧭', tooltip: '发现', path: '/discover' },
-  { iconClass: '💾', tooltip: '库', path: '/library' },
-  { iconClass: '🤖', tooltip: 'RAG助手', path: '/rag-assistant' },
-  { iconClass: '🔔', tooltip: '通知', path: '/notifications' },
-  { iconClass: '⚙️', tooltip: '设置', path: '/settings' },
-])
+// 只列真实存在的路由（/discover /library /notifications 无路由，已移除）
+const navItems: NavItem[] = [
+  { icon: House, label: '首页', path: '/home' },
+  { icon: ChatDotRound, label: 'RAG 助手', path: '/rag-assistant' },
+  { icon: Setting, label: '设置', path: '/settings' },
+]
 
-const pathToIndex = (path: string) => {
-  const idx = navItems.value.findIndex(item => item.path === path)
-  return idx >= 0 ? idx : 0
-}
+const pathToIndex = (path: string) => navItems.findIndex((item) => item.path === path)
 
-watch(() => route.path, (newPath) => {
-  activeNav.value = pathToIndex(newPath)
-  emit('update:modelValue', activeNav.value)
-}, { immediate: true })
+watch(
+  () => route.path,
+  (newPath) => {
+    const idx = pathToIndex(newPath)
+    activeNav.value = idx
+    emit('update:modelValue', idx)
+  },
+  { immediate: true },
+)
 
 const handleNavClick = (idx: number) => {
   activeNav.value = idx
   emit('update:modelValue', idx)
-  const item = navItems.value[idx]
+  const item = navItems[idx]
   if (item) {
     router.push(item.path)
   }
@@ -91,38 +95,56 @@ const handleNavClick = (idx: number) => {
   position: absolute;
   left: -100px;
   top: 50%;
-  background: var(--glass-bg);
+  background: var(--surface-glass);
   backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-  border-radius: 50px;
-  padding: 20px 10px;
+  border: 1px solid var(--surface-glass-border);
+  border-radius: 24px;
+  padding: 16px 10px;
   display: flex;
   flex-direction: column;
-  gap: 25px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  transition: left 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  transform: translateY(-50%) translateZ(0);
-  will-change: transform, backdrop-filter;
-  backface-visibility: hidden;
+  gap: 16px;
+  box-shadow: var(--shadow-card);
+  transition: left var(--dur) var(--ease-out);
+  transform: translateY(-50%);
 }
 
 .floating-nav.visible {
-  left: 20px;
+  left: 16px;
 }
 
 .nav-item {
-  width: 50px;
-  height: 50px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 1.5rem;
+  color: var(--text-muted);
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 
-.nav-item:hover { color: var(--neon-cyan); transform: scale(1.1); }
-.nav-item.active { background: rgba(59, 130, 246, 0.2); color: var(--neon-blue); box-shadow: inset 0 0 20px rgba(59, 130, 246, 0.3), 0 0 20px rgba(59, 130, 246, 0.5); }
+.nav-item svg {
+  width: 20px;
+  height: 20px;
+}
+
+.nav-item:hover {
+  background: var(--accent-soft);
+  color: var(--text-primary);
+}
+
+.nav-item:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
+}
+
+.nav-item.active {
+  background: var(--accent-soft-strong);
+  color: var(--accent-primary);
+}
 </style>

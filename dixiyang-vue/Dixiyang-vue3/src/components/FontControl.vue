@@ -88,7 +88,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { RefreshLeft } from '@element-plus/icons-vue'
 import { useFontConfig, type FontFamily } from '@/composables/useFontConfig'
 import { confirmDelete } from '@/utils/confirm'
