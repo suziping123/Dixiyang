@@ -360,14 +360,8 @@ npm run test:unit
 ---
 ## 主题系统
 
-### 全局主题（3套）
-每个主题是完整的 CSS class（`html.theme-xxx`），定义所有页面元素的表面色和文字色。
-
-| 主题 | class | 背景 | 文字色 | 特点 |
-|------|-------|------|--------|------|
-| 动态暗色 | `theme-dynamic` | 暗色动画渐变 | 浅色 | ⭐ 默认，沉浸式 |
-| 极简暗色 | `theme-minimal-dark` | 纯黑 | 浅色 | 专注写作 |
-| 极简亮色 | `theme-minimal-light` | 纯白 | 深色 | 日常使用 |
+### 全局主题（1套）
+当前仅保留暗色一套：`html.theme-dark`（`main.css` 主题系统 v3）。`ThemeId` 类型为 `'dark'`，`useBackgroundConfig().setTheme()` 无调用方，历史上的 `theme-dynamic` / `theme-minimal-dark` / `theme-minimal-light` 类名已移除。
 
 ### CSS 变量体系
 ```
@@ -387,6 +381,11 @@ npm run test:unit
 --accent-primary      主强调色
 --accent-cyan         青色强调色
 --accent-purple       紫色强调色
+
+--radius-sm / --radius-md        圆角 8px（控件）/ 12px（容器）
+--dur-fast / --dur / --ease-out  动效 160ms / 240ms / ease-out
+--danger / --danger-soft / --danger-border   危险操作色
+--accent-soft / --accent-soft-strong         强调浅底
 ```
 
 旧变量名 `--text-primary`、`--glass-bg`、`--neon-*` 等保留兼容。
@@ -397,11 +396,10 @@ npm run test:unit
 使用：
 ```typescript
 const bg = useBackgroundConfig()
-bg.setTheme('minimal-light')       // 切主题
 bg.setBgImage('filename')          // 切背景图
-bg.setBgImage(undefined)           // 清除背景图
+bg.setBgImage(undefined)           // 清除背景图（同步后端时 backgroundId 传 ''）
 ```
 
 ---
-*文档版本: v1.4*
-*最后更新: 2026-09-24*
+*文档版本: v1.5*
+*最后更新: 2026-09-28（设置页重构：主题描述修正、设计 token 登记）*

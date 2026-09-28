@@ -171,6 +171,18 @@
 
 ---
 
+### 8.3 [设置页重构](../dixiyang-vue/docs/设置页重构.md) ✨ 新增
+**位置**: `dixiyang-vue/docs/设置页重构.md`
+
+**内容**:
+- 6 阶段改造：设计 token、信息架构（4 分类）、外观组件精简、FloatingNav 图标统一、后端 fontColors 端点、文档
+- 死设置删除清单、compact 背景弹层修复、`backgroundId: ""` 清除语义
+- 改动文件清单、既有 type-check 错误、验证方式（build-only / eslint / mvn compile）
+
+**适用人群**: 前端开发者、后端开发者、测试
+
+---
+
 ## 现有文档（已存在）
 
 ### 9. [后端开发技术文档](./后端开发技术文档.md)
