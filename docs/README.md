@@ -159,6 +159,18 @@
 
 ---
 
+### 8.2 [登录页背景视频资源修复](../dixiyang-vue/docs/登录页背景视频资源修复.md) ✨ 新增
+**位置**: `dixiyang-vue/docs/登录页背景视频资源修复.md`
+
+**内容**:
+- Vite `Failed to resolve import "/videos/卡比.mp4"` 根因（`transformAssetUrls` 编译为 import、源文件只在 `dist/`）
+- 修复：资源移入 `src/assets/videos/` + `@/assets/...` alias 引用
+- 验证命令与产物确认；`*.mp4` gitignore、`type-check` 既有错误等待办
+
+**适用人群**: 前端开发者
+
+---
+
 ## 现有文档（已存在）
 
 ### 9. [后端开发技术文档](./后端开发技术文档.md)
@@ -242,6 +254,20 @@
 - 切分支时 Java 目录行为说明与验证命令
 
 **适用人群**: 需要切换分支、维护 `.gitignore`、恢复 Java 模块的开发者
+
+---
+
+### 15. [LLM 接入配置切换](../DixyangFast/docs/LLM接入配置切换.md) ✨ 新增
+**位置**: `DixyangFast/docs/LLM接入配置切换.md`
+
+**内容**:
+- 临时切换到本地 `llama-kvmem`（`Ternary-Bonsai-2-27B-PTQ1_0.gguf`，端口 18200）
+- `.env` 三件套（`DEEPSEEK_API_KEY/BASE_URL/MODEL`）配置与注释保留方式
+- `load_dotenv(override=True)` 修复：Machine 级系统环境变量覆盖导致 401
+- 切回 DeepSeek 的步骤、前置依赖与验证命令
+- 已知问题（`_llm_cache` 不含 model、`.env` 不触发 reload）
+
+**适用人群**: 维护 Python 后端、切换 LLM 供应商的开发者
 
 ---
 
@@ -337,6 +363,12 @@
 
 ## 版本变更记录
 
+### v1.6 (2026-09-28)
+- **新增**: [LLM 接入配置切换](../DixyangFast/docs/LLM接入配置切换.md) — 临时切本地 llama-kvmem 模型、`load_dotenv(override=True)` 修复 401、切回 DeepSeek 步骤
+
+### v1.5 (2026-09-28)
+- **新增**: [登录页背景视频资源修复](../dixiyang-vue/docs/登录页背景视频资源修复.md) — `/videos/卡比.mp4` 解析失败根因与 `@/assets` 引用方案
+
 ### v1.4 (2026-09-27)
 - **新增**: [分支重建与版本对齐](./分支重建与版本对齐.md) — main 对齐 GitHub、`java` 分支恢复 Java 模块
 - **调整**: `.gitignore` 放开 `dixiyang-engine/`（仅 `java` 分支）
@@ -360,6 +392,6 @@
 
 ---
 
-*文档版本: v1.4*
-*最后更新: 2026-09-27*
+*文档版本: v1.6*
+*最后更新: 2026-09-28*
 *维护者: Dixiyang Team*

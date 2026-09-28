@@ -1,7 +1,7 @@
 <template>
   <div class="auth-container">
     <video class="background-video" autoplay loop playsinline muted>
-      <source src="/videos/卡比.mp4" type="video/mp4">
+      <source src="@/assets/videos/卡比.mp4" type="video/mp4">
     </video>
 
     <header class="system-title">
