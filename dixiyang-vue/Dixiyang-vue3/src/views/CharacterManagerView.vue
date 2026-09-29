@@ -88,11 +88,11 @@
       </div>
     </main>
 
-    <!-- 创建/编辑角色弹窗 -->
+    <!-- 创建/编辑角色弹窗（width 用 min() 防窄屏 650px 超出视口挤掉底部按钮） -->
     <el-dialog
       v-model="showDialog"
       :title="isEditMode ? '编辑角色' : '创建新角色'"
-      width="650px"
+      width="min(650px, 92vw)"
       class="character-dialog"
       @close="resetForm"
     >
@@ -156,7 +156,7 @@
     </el-dialog>
 
     <!-- 删除确认弹窗 -->
-    <el-dialog v-model="showDeleteDialog" title="确认删除" width="400px" class="character-dialog">
+    <el-dialog v-model="showDeleteDialog" title="确认删除" width="min(400px, 92vw)" class="character-dialog">
       <p>确定要删除角色「{{ deleteCandidate?.name }}」吗？此操作不可恢复。</p>
       <template #footer>
         <span class="dialog-footer">
@@ -757,35 +757,91 @@ onMounted(() => {
 @media (max-width: 1024px) {
   .main-stage {
     padding: 60px 40px;
-    margin-left: 80px;
-  }
-
-  .floating-nav {
-    left: 15px;
-    padding: 15px 8px;
-  }
-
-  .nav-item {
-    width: 40px;
-    height: 40px;
-    font-size: 1.2rem;
+    /* 导航已改右侧悬浮球，去掉旧左侧竖条的 margin-left（否则整体偏左不居中） */
+    margin-left: 0;
   }
 }
 
 @media (max-width: 768px) {
   .main-stage {
-    padding: 40px 20px;
-    margin-left: 70px;
-  }
-
-  .character-grid {
-    grid-template-columns: 1fr;
+    padding: 40px 16px;
+    margin-left: 0;
   }
 
   .section-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 15px;
+  }
+
+  .section-title {
+    font-size: 1.15rem;
+  }
+
+  .create-character-btn {
+    padding: 8px 16px;
+    font-size: 0.9rem;
+    align-self: stretch;
+    justify-content: center;
+  }
+
+  .character-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  /* 卡片紧凑：缩小内边距/头像/留白，避免移动端巨卡 */
+  .glass-card {
+    padding: 16px;
+  }
+
+  .character-avatar {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 12px;
+  }
+
+  .avatar-text {
+    font-size: 1.1rem;
+  }
+
+  .character-name {
+    font-size: 1.05rem;
+    margin-bottom: 6px;
+  }
+
+  .character-desc {
+    font-size: 0.85rem;
+    margin-bottom: 12px;
+  }
+
+  .action-btn {
+    padding: 7px 10px;
+    font-size: 0.85rem;
+  }
+
+  .create-card {
+    min-height: 200px;
+  }
+
+  .back-section {
+    margin-top: 24px;
+  }
+
+  /* 弹窗：两列改单列 + 超高时内部滚动，保证底部按钮始终可见可点 */
+  .character-dialog :deep(.el-col) {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+
+  .character-dialog :deep(.el-dialog) {
+    max-height: 86vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .character-dialog :deep(.el-dialog__body) {
+    overflow-y: auto;
   }
 }
 </style>

@@ -1167,7 +1167,14 @@ onBeforeUnmount(() => {
   .main-stage {
     padding: 32px 16px;
   }
-  .logo-text { font-size: 2rem; }
+  /* 顶栏：桌面 3.5rem 大字 + 300px 最小宽会把右侧控制按钮挤出屏 */
+  .logo-wrapper { min-width: 0; }
+  .logo-img { max-height: 56px; min-width: 56px; }
+  .logo-text { font-size: 1.6rem; letter-spacing: -1px; }
+  .glow-line { width: 90px; }
+  .subtitle { font-size: 1rem; margin-top: 12px; }
+  .section-title { font-size: 1.05rem; letter-spacing: 1px; margin: 30px 0 18px; }
+
   /* 手机上双列小卡，避免单列封面占满整屏 */
   .galaxy-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -1179,6 +1186,22 @@ onBeforeUnmount(() => {
     margin-left: auto;
     margin-right: auto;
   }
+
+  /* 双列卡片内容区：28px 内边距 + 桌面字号在 ~160px 宽卡片里会溢出、挤掉底部按钮 */
+  .card-content { padding: 14px; }
+  .card-header { margin-bottom: 8px; }
+  .pen-name { font-size: 0.7rem; }
+  .novel-id { display: none; }
+  .novel-title { font-size: 1.1rem; margin-bottom: 6px; line-height: 1.25; }
+  .description { font-size: 0.8rem; margin-bottom: 8px; line-height: 1.4; max-height: 54px; }
+  .card-stats { gap: 6px; margin: 8px 0 10px; max-height: 48px; }
+  .stat { padding: 6px; border-radius: 8px; }
+  .stat span { font-size: 0.6rem; margin-top: 2px; letter-spacing: 0.3px; }
+  .stat-icon, .btn-icon { width: 1rem; height: 1rem; }
+  .card-actions { gap: 6px; margin-bottom: 6px; }
+  .action-btn-sm { padding: 5px; border-radius: 8px; }
+  .empty-hint p { font-size: 0.9rem; }
+
   .rag-drawer { width: 100%; }
   .knowledge-sphere {
     width: 80px;

@@ -283,4 +283,40 @@ const removeCover = async () => {
   font-weight: 600;
   text-shadow: 0 0 10px rgba(6, 182, 212, 0.4);
 }
+
+/* ============ 响应式（此前完全没有，3.5rem 标题在手机上会把顶栏挤爆） ============ */
+@media (max-width: 1024px) {
+  .logo-text { font-size: 2.5rem; }
+}
+
+@media (max-width: 768px) {
+  .stage-header { margin-bottom: 32px; }
+
+  .header-top {
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .logo-wrapper { min-width: 0; }
+
+  .logo-text {
+    font-size: 1.6rem;
+    letter-spacing: -1px;
+  }
+
+  .glow-line { width: 90px; }
+
+  .subtitle-row {
+    gap: 10px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+
+  .subtitle { font-size: 1rem; }
+
+  .novel-cover-thumb {
+    width: 44px;
+    height: 44px;
+  }
+}
 </style>

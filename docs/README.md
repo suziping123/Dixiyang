@@ -185,6 +185,74 @@
 
 ---
 
+### 8.4 [移动端浮动导航防遮挡](../dixiyang-vue/docs/移动端浮动导航防遮挡.md) ✨ 新增
+**位置**: `dixiyang-vue/docs/移动端浮动导航防遮挡.md`
+
+**内容**:
+- 触屏 FloatingNav 由左下角常驻横条改为 FAB 悬浮球 + 点击展开（含全屏遮罩拦截误触）
+- FAB 触发条件扩展为「触屏 或 视口 ≤1024px」：桌面缩窗下 100px hover 热区挡按钮的问题一并解决
+- RAG 页 ≤768px「历史/上下文」按钮居中，远离左缘
+- 点遮罩 / 再点球 / 选导航项 / 路由切换均收起；>1024px 桌面 hover 模式不变
+- 层级结构、已知问题、验证方式
+
+**适用人群**: 前端开发者、移动端测试
+
+---
+
+### 8.5 [悬浮球美化与适配修复](../dixiyang-vue/docs/悬浮球美化与适配修复.md) ✨ 新增
+**位置**: `dixiyang-vue/docs/悬浮球美化与适配修复.md`
+
+**内容**:
+- 修复 FAB 模式两处布局回归：`top:50%` 未重置导致巨型胶囊、`left` 特异性被桌面规则抢走导致横条压球
+- 悬浮球/横条纯 CSS 美化：内高光、呼吸光晕、双图标交叉过渡、按压波纹、条目 stagger
+- safe-area 预留、Esc 收起、wrapper z-index 130（压过 RAG 抽屉 120）、reduced-motion 降级
+- **v1.1**: 球位置迁至**右侧垂直居中**（避开首页知识球体/时间线图例），wrapper 改右侧全高锚点条 + `pointer-events:none`，横条向左展开、条目方向反转
+- 已知取舍（抽屉与球重叠、遮罩盖抽屉）、验证方式
+
+**适用人群**: 前端开发者、移动端测试
+
+---
+
+### 8.6 [表单内联校验与错误文案统一](../dixiyang-vue/docs/表单内联校验与错误文案统一.md) ✨ 新增
+**位置**: `dixiyang-vue/docs/表单内联校验与错误文案统一.md`
+
+**内容**:
+- 抽象通用警告模板：`FieldError.vue`（输入框下方内联红字）+ `useFormValidation.ts`（字段级/跨字段校验）+ `errorText.ts`（错误文案映射）
+- 登录页拆 `el-form/rules` 三处统一；补齐原缺失的 `nickname`/`code` 校验规则，删 18 处 `ElMessage.warning`
+- 后端原始错误只进 console 不上屏（HTTP 接口 + RAG 聊天气泡）
+- `confirmDelete` 标题去硬编码、`ElMessageBox` 全套玻璃美化（新增 `--warning` 语义 token）
+- **v1.1**: 昵称/邮箱**脏值检测**——blur 未改动内容则不发 `/user/update`、不弹「更新成功」（`useUser.ts` 快照比对）
+
+**适用人群**: 前端开发者
+
+---
+
+### 8.7 [更换邮箱验证码流程](../dixiyang-vue/docs/更换邮箱验证码流程.md) ✨ 新增
+**位置**: `dixiyang-vue/docs/更换邮箱验证码流程.md`
+
+**内容**:
+- **需求**：改邮箱不该失焦即写库（`sXXXXXXXX@outlook.co` 曾直接成功）；须收得到新邮箱验证码才准改
+- **根因**：`DixyangFast /user/update` 零校验；邮件验证码设施（`EmailVerificationCode`/SMTP）早已存在却从未接到改邮箱（purpose 白名单缺项）
+- **后端**：purpose 白名单加 `CHG_EMAIL`（9 字符，兼容 `VARCHAR(10)` 无需改表）；`verify_change_email_code()` + 唯一性校验；**全部校验通过才落库**
+- **前端**：邮箱从「blur 即存」剥离为更换流程（新邮箱 → 发码 60s 倒计时 → 输码 → 确认）；昵称仍失焦即存且只提交 `{ nickname }`
+
+**适用人群**: 前端、后端开发者
+
+---
+
+### 8.8 [移动端响应式修复](../dixiyang-vue/docs/移动端响应式修复.md) ✨ 新增
+**位置**: `dixiyang-vue/docs/移动端响应式修复.md`
+
+**内容**:
+- **角色管理**：删旧左侧导航 `margin-left` 残留（恢复居中）、卡片/字号降档、`el-dialog width=min(650px,92vw)` 修超宽挤掉按钮、删 scoped 够不到的死代码
+- **主页**：顶栏 `min-width:300px` 与大字缩放；双列小卡 `.card-content 28→14px` + 字号降档，修内容溢出挤压底部三枚操作按钮
+- **NovelPageHeader**：补齐此前为零的媒体查询（共用顶栏，3.5rem → 1.6rem）
+- 全部改动包在媒体查询内，宽屏桌面零影响
+
+**适用人群**: 前端开发者、移动端测试
+
+---
+
 ## 现有文档（已存在）
 
 ### 9. [后端开发技术文档](./后端开发技术文档.md)
@@ -277,6 +345,7 @@
 **内容**:
 - 动效网页 Agent Skill（`motion-web-main/`）接入 opencode 与 Trae 的方案
 - 4 处软链入口（`~/.agents/skills`、`~/.trae-cn/skills`、项目 `.agents/skills`、`.trae/skills`）
+- Windows 修复：symlink 被 checkout 成文本文件 → 改建 Junction（含根因 `core.symlinks=false` 与验证命令）
 - AGENTS.md 索引兜底、已知问题（Trae 软链解析未实测）、验证命令
 
 **适用人群**: 使用 opencode / Trae 做动效网页开发的成员
@@ -414,6 +483,24 @@
 
 ## 版本变更记录
 
+### v1.14 (2026-09-29)
+- **新增**: [更换邮箱验证码流程](../dixiyang-vue/docs/更换邮箱验证码流程.md) — 后端 `/user/update` 加 `CHG_EMAIL` 验证码+唯一性校验（先校验后落库），前端邮箱改为更换流程（发码/输码/确认），昵称保持失焦即存
+- **新增**: [移动端响应式修复](../dixiyang-vue/docs/移动端响应式修复.md) — 角色管理删 `margin-left` 残留恢复居中、卡片字号降档、弹窗 `width=min()`；主页双列小卡降档修按钮挤压；`NovelPageHeader` 补齐响应式
+
+### v1.13 (2026-09-29)
+- **修改**: [悬浮球美化与适配修复](../dixiyang-vue/docs/悬浮球美化与适配修复.md) v1.1 — 球由左下/右下改**右侧垂直居中**，避开首页知识球体与时间线图例；横条向左展开、`pointer-events:none` 全高锚点条
+- **修改**: [表单内联校验与错误文案统一](../dixiyang-vue/docs/表单内联校验与错误文案统一.md) v1.1 — 昵称/邮箱脏值检测，点一下输入框不再空发 update、不再误弹「更新成功」
+
+### v1.12 (2026-09-29)
+- **新增**: [表单内联校验与错误文案统一](../dixiyang-vue/docs/表单内联校验与错误文案统一.md) — FieldError/useFormValidation/errorText 三件套、登录页拆 el-form 三处统一、后端错误原文屏蔽、确认弹窗美化
+
+### v1.11 (2026-09-29)
+- **新增**: [悬浮球美化与适配修复](../dixiyang-vue/docs/悬浮球美化与适配修复.md) — 修复 FAB 模式巨型胶囊/横条压球两处布局回归，悬浮球纯 CSS 视觉美化 + Esc 收起 + 层级 130 + reduced-motion
+- **新增**: [移动端浮动导航防遮挡](../dixiyang-vue/docs/移动端浮动导航防遮挡.md) — 触屏/窄视口 FloatingNav 改 FAB 悬浮球
+
+### v1.10 (2026-09-28)
+- **修复**: [motion-web 技能接入](./motion-web技能接入.md) — Windows 下 symlink 被 checkout 成文本文件导致技能不被发现，项目级 2 处改为 Junction 联接
+
 ### v1.9 (2026-09-28)
 - **新增**: [motion-web 技能库出库与同步](./技能库出库与同步.md) — 技能移出 GitHub 但本地保留，`.githooks` 保护协作者 pull 不丢技能
 - **合并**: 同步远程落地页、字体资源与 motion-web 接入文档（条目 14-17 重排）
@@ -453,6 +540,6 @@
 
 ---
 
-*文档版本: v1.9*
-*最后更新: 2026-09-28*
+*文档版本: v1.14*
+*最后更新: 2026-09-29*
 *维护者: Dixiyang Team*
