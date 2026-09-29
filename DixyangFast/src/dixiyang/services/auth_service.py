@@ -121,7 +121,7 @@ class AuthService:
     def send_code(self, req: SendCodeDTO) -> dict:
         if not req.email:
             return Result.error("邮箱不能为空")
-        if req.purpose not in ("LOGIN", "REGISTER"):
+        if req.purpose not in ("LOGIN", "REGISTER", "CHG_EMAIL"):
             return Result.error("用途参数无效")
 
         now = datetime.now(timezone.utc)
@@ -218,3 +218,34 @@ class AuthService:
             },
         }
         return Result.success("操作成功", data)
+
+
+def verify_change_email_code(db: Session, email: str, code: str | None) -> str | None:
+    """校验「更换邮箱」验证码（purpose=CHG_EMAIL）。
+
+    返回 None 表示通过；否则返回用户可读的错误文案。
+    复用 send_code 写入的 EmailVerificationCode（60s 限流 / 5 分钟过期 / 一次性）。
+    """
+    if not code:
+        return "更换邮箱需要验证码"
+
+    record = (
+        db.query(EmailVerificationCode)
+        .filter(
+            EmailVerificationCode.email == email,
+            EmailVerificationCode.purpose == "CHG_EMAIL",
+            EmailVerificationCode.used == False,  # noqa: E712 — SQLAlchemy 列比较
+        )
+        .order_by(EmailVerificationCode.created_at.desc())
+        .first()
+    )
+    if not record:
+        return "请先获取验证码"
+    if record.expire_time.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+        return "验证码已过期，请重新获取"
+    if record.code != str(code).strip():
+        return "验证码错误"
+
+    # 校验通过：标记一次性使用
+    record.used = True
+    return None

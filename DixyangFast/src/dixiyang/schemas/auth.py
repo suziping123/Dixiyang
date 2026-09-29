@@ -21,7 +21,7 @@ class LoginByCodeDTO(BaseModel):
 
 class SendCodeDTO(BaseModel):
     email: str
-    purpose: str = "LOGIN"  # LOGIN or REGISTER
+    purpose: str = "LOGIN"  # LOGIN / REGISTER / CHG_EMAIL（更换邮箱）
 
 
 class LoginResponse(BaseModel):
