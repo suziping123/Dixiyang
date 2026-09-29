@@ -12,71 +12,84 @@
     <main class="auth-box" :class="{ 'right-panel-active': isSignUp }">
       <!-- 注册面板 -->
       <section class="form-container sign-up-container">
-        <el-form :model="registerForm" :rules="rules" label-position="top" @submit.prevent @keyup.enter="enterSubmit(handleRegister, $event)">
+        <form class="auth-form" @submit.prevent @keyup.enter="enterSubmit(handleRegister, $event)">
           <h2 class="text-2xl font-bold mb-6">创建账号</h2>
-          <el-form-item prop="nickname" required>
-            <el-input v-model="registerForm.nickname" placeholder="昵称" :prefix-icon="UserFilled" />
-          </el-form-item>
-          <el-form-item prop="username" required>
-            <el-input v-model="registerForm.username" placeholder="姓名" :prefix-icon="User" />
-          </el-form-item>
-          <el-form-item prop="email" required>
+
+          <div class="field">
+            <el-input v-model="registerForm.nickname" placeholder="昵称" :prefix-icon="UserFilled" @blur="validateRegisterField('nickname')" />
+            <FieldError :message="registerErrors.nickname" />
+          </div>
+
+          <div class="field">
+            <el-input v-model="registerForm.username" placeholder="姓名" :prefix-icon="User" @blur="validateRegisterField('username')" />
+            <FieldError :message="registerErrors.username" />
+          </div>
+
+          <div class="field">
             <div class="email-with-code">
-              <el-input v-model="registerForm.email" placeholder="邮箱" :prefix-icon="Message" />
+              <el-input v-model="registerForm.email" placeholder="邮箱" :prefix-icon="Message" @blur="validateRegisterField('email')" />
               <el-button
                 class="send-code-btn"
                 :disabled="codeCooldown > 0"
-                @click="sendCode(registerForm.email, 'REGISTER')"
+                @click="sendRegisterCode"
               >
                 {{ codeCooldown > 0 ? `${codeCooldown}s` : '发送验证码' }}
               </el-button>
             </div>
-          </el-form-item>
-          <el-form-item prop="code" required>
-            <el-input v-model="registerForm.code" placeholder="请输入验证码" :prefix-icon="Key">
-            </el-input>
-          </el-form-item>
-          <el-form-item prop="password" required>
-            <el-input v-model="registerForm.password" type="password" placeholder="密码" :prefix-icon="Lock" show-password />
-          </el-form-item>
+            <FieldError :message="registerErrors.email" />
+          </div>
+
+          <div class="field">
+            <el-input v-model="registerForm.code" placeholder="请输入验证码" :prefix-icon="Key" @blur="validateRegisterField('code')" />
+            <FieldError :message="registerErrors.code" />
+          </div>
+
+          <div class="field">
+            <el-input v-model="registerForm.password" type="password" placeholder="密码" :prefix-icon="Lock" show-password @blur="validateRegisterField('password')" />
+            <FieldError :message="registerErrors.password" />
+          </div>
+
           <el-button type="primary" class="auth-btn" @click="handleRegister">注册</el-button>
           <p class="panel-switch"><a @click.prevent="togglePanel(false)">已有账号？去登录</a></p>
-        </el-form>
+        </form>
       </section>
 
       <!-- 登录面板 -->
       <section class="form-container sign-in-container">
-        <el-form :model="loginForm" :rules="rules" label-position="top" @submit.prevent @keyup.enter="enterSubmit(handleLogin, $event)">
+        <form class="auth-form" @submit.prevent @keyup.enter="enterSubmit(handleLogin, $event)">
           <h2 class="text-2xl font-bold mb-6">欢迎回来</h2>
 
           <!-- 密码登录 -->
           <template v-if="loginMode === 'password'">
-            <el-form-item prop="username" required>
-              <el-input v-model="loginForm.username" placeholder="用户名" :prefix-icon="User" />
-            </el-form-item>
-            <el-form-item prop="password" required>
-              <el-input v-model="loginForm.password" type="password" placeholder="密码" :prefix-icon="Lock" show-password />
-            </el-form-item>
+            <div class="field">
+              <el-input v-model="loginForm.username" placeholder="用户名" :prefix-icon="User" @blur="validateLoginField('username')" />
+              <FieldError :message="loginErrors.username" />
+            </div>
+            <div class="field">
+              <el-input v-model="loginForm.password" type="password" placeholder="密码" :prefix-icon="Lock" show-password @blur="validateLoginField('password')" />
+              <FieldError :message="loginErrors.password" />
+            </div>
           </template>
 
           <!-- 验证码登录 -->
           <template v-else>
-            <el-form-item prop="email" required>
-              <el-input v-model="loginForm.email" placeholder="邮箱" :prefix-icon="Message" />
-            </el-form-item>
-            <el-form-item prop="code" required>
+            <div class="field">
+              <el-input v-model="loginForm.email" placeholder="邮箱" :prefix-icon="Message" @blur="validateLoginField('email')" />
+              <FieldError :message="loginErrors.email" />
+            </div>
+            <div class="field">
               <div class="email-with-code">
-                <el-input v-model="loginForm.code" placeholder="验证码" :prefix-icon="Key">
-                </el-input>
+                <el-input v-model="loginForm.code" placeholder="验证码" :prefix-icon="Key" @blur="validateLoginField('code')"></el-input>
                 <el-button
                   class="send-code-btn"
                   :disabled="codeCooldown > 0"
-                  @click="sendCode(loginForm.email, 'LOGIN')"
+                  @click="sendLoginCode"
                 >
                   {{ codeCooldown > 0 ? `${codeCooldown}s` : '发送验证码' }}
                 </el-button>
               </div>
-            </el-form-item>
+              <FieldError :message="loginErrors.code" />
+            </div>
           </template>
 
           <div class="login-mode-switch">
@@ -86,7 +99,7 @@
           </div>
           <el-button type="primary" class="auth-btn" @click="handleLogin">登录</el-button>
           <p class="panel-switch"><a @click.prevent="togglePanel(true)">还没有账号？去注册</a></p>
-        </el-form>
+        </form>
       </section>
 
       <section class="overlay-container">
@@ -113,11 +126,13 @@ import { gsap } from 'gsap'
 import { onMounted } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import { enterSubmit } from '../utils/enterSubmit'
+import FieldError from '@/components/ui/FieldError.vue'
 
 const {
-  rules, isSignUp, loginMode, loginForm, registerForm,
+  isSignUp, loginMode, loginForm, registerForm,
   togglePanel, toggleLoginMode, handleLogin, handleRegister,
-  sendCode, codeCooldown
+  sendLoginCode, sendRegisterCode, codeCooldown,
+  loginErrors, registerErrors, validateLoginField, validateRegisterField,
 } = useAuth()
 
 onMounted(() => {
@@ -188,6 +203,11 @@ onMounted(() => {
   justify-content: center;
   padding: 40px;
   background: white;
+  /* 注册面板 5 字段同时报错会超过 auth-box 的 500px：允许滚动，避免提交按钮被裁 */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* 居中；内容超高时回退顶部对齐（safe），保证可滚动到按钮 */
+  justify-content: safe center;
 }
 
 /* 表单标题继承的是浅色 --text-primary，在白色面板上不可见，固定深色 */
@@ -280,6 +300,25 @@ onMounted(() => {
 @keyframes show {
   0%, 49.99% { opacity: 0; z-index: 1; }
   50%, 100% { opacity: 1; z-index: 5; }
+}
+
+/* 校验字段容器：替代 el-form-item 的纵向间距与错误占位 */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  /* 对齐原 el-form-item 的默认字段间距 */
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  /* 输入框 → 内联错误的间距 */
+  gap: 4px;
+}
+
+.field .el-input {
+  width: 100%;
 }
 
 /* 验证码相关样式 */

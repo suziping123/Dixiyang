@@ -63,6 +63,11 @@ html.theme-dark {
   --danger-soft: rgba(239, 68, 68, 0.12);
   --danger-border: rgba(239, 68, 68, 0.45);
 
+  /* 语义色：警告（确认框 / 提示条），禁止组件内硬编码橙色 */
+  --warning: #e6a23c;
+  --warning-soft: rgba(230, 162, 60, 0.14);
+  --warning-border: rgba(230, 162, 60, 0.45);
+
   /* 兼容旧变量名 */
   --glass-bg: var(--surface-glass);
   --glass-border: var(--surface-glass-border);
@@ -245,7 +250,123 @@ tr:hover { background: rgba(59,130,246,0.04); }
   --el-text-color-secondary: var(--text-muted);
   --el-text-color-placeholder: var(--text-muted);
 }
-.el-message-box { background: var(--surface-glass) !important; backdrop-filter: blur(20px) !important; border: 1px solid var(--surface-glass-border) !important; }
+/* ========== 确认/警告弹窗（ElMessageBox）全量美化 ========== */
+.el-message-box {
+  background: var(--surface-glass) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--surface-glass-border) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-card);
+  padding: 22px 24px 18px !important;
+  overflow: hidden;
+}
+
+.el-message-box__header {
+  padding: 0 !important;
+  margin-bottom: 12px;
+}
+
+.el-message-box__title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.el-message-box__headerbtn {
+  top: -4px !important;
+  right: -4px !important;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.el-message-box__headerbtn:hover {
+  background: var(--accent-soft);
+}
+
+.el-message-box__headerbtn .el-message-box__close {
+  color: var(--text-muted);
+}
+
+.el-message-box__content {
+  padding: 0 !important;
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+/* 警告图标：warning 语义色 + 浅底圆底 */
+.el-message-box__content .el-message-box__status {
+  font-size: 20px;
+}
+
+.el-message-box__content .el-message-box__status.is-warning {
+  color: var(--warning);
+}
+
+.el-message-box__content .el-message-box__status.is-error {
+  color: var(--danger);
+}
+
+.el-message-box__message {
+  margin-left: 10px;
+}
+
+.el-message-box__btns {
+  padding: 16px 0 0 !important;
+  margin-top: 4px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.el-message-box__btns .el-button {
+  border-radius: var(--radius-sm) !important;
+  min-width: 84px;
+  font-weight: 500;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+/* 主按钮（确定）：玻璃强调 */
+.el-message-box__btns .el-button--primary {
+  background: var(--accent-soft-strong) !important;
+  border: 1px solid var(--accent-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+.el-message-box__btns .el-button--primary:hover {
+  background: var(--accent-soft) !important;
+  transform: translateY(-1px);
+}
+
+/* 次按钮（取消）：弱化 */
+.el-message-box__btns .el-button:not(.el-button--primary) {
+  background: transparent !important;
+  border: 1px solid var(--surface-glass-border) !important;
+  color: var(--text-secondary) !important;
+}
+
+.el-message-box__btns .el-button:not(.el-button--primary):hover {
+  border-color: var(--surface-glass-border-hover) !important;
+  color: var(--text-primary) !important;
+}
+
+/* 危险语义：type=error 时确定按钮改用危险色 */
+.el-message-box.is-danger .el-message-box__btns .el-button--primary {
+  background: var(--danger-soft) !important;
+  border-color: var(--danger-border) !important;
+  color: var(--danger) !important;
+}
 .el-dialog { background: var(--surface-page) !important; backdrop-filter: blur(20px) !important; }
 .el-input__wrapper { background: var(--surface-input) !important; }
 

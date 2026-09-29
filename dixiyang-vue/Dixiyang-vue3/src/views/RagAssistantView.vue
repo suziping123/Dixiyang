@@ -1330,6 +1330,7 @@ onMounted(async () => {
 @media (max-width: 768px) {
   .page-header { padding: 20px; }
   .rag-container { padding: 10px; }
-  .chat-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+  /* 居中：历史/上下文按钮远离左右缘（左侧桌面热区 / 右侧中部悬浮球），不被遮挡 */
+  .chat-header { flex-direction: column; align-items: center; gap: 12px; }
 }
 </style>

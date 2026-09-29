@@ -9,12 +9,13 @@
 import { ElMessageBox } from "element-plus"
 
 /**
- * 错误消息弹窗组件
- * @param message 错误消息内容
- * @returns Promise<boolean> 用户点击确认按钮返回true,点击取消返回false
+ * 确认对话框（危险操作警告）
+ * @param message 提示内容
+ * @param title 窗口标题，默认「确认操作」；危险删除/登出等场景传「警告」
+ * @returns 用户点击确认按钮返回true,点击取消返回false
  */
-export function confirmDelete(message: string = "确定删除吗？"): Promise<boolean> {
-  return ElMessageBox.confirm(message, '警告', {
+export function confirmDelete(message: string = "确定删除吗？", title: string = "确认操作"): Promise<boolean> {
+  return ElMessageBox.confirm(message, title, {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning',

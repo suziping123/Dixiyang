@@ -1,5 +1,6 @@
 import { ref, readonly } from 'vue'
 import http from '@/utils/http'
+import { friendlyError } from '@/utils/errorText'
 
 export interface RagReference {
   source: string
@@ -241,7 +242,7 @@ export function useChatStream(userId?: number) {
       } else {
         messages.value.push({
           role: 'assistant',
-          content: `抱歉，请求失败：${(error as Error).message}`,
+          content: `抱歉，${friendlyError((error as Error).message, '请求失败，请稍后再试')}`,
           timestamp: new Date()
         })
       }
@@ -363,7 +364,7 @@ export function useChatStream(userId?: number) {
       if ((error as Error).name !== 'AbortError') {
         messages.value.push({
           role: 'assistant',
-          content: `重新生成失败：${(error as Error).message}`,
+          content: `重新生成失败：${friendlyError((error as Error).message, '请稍后再试')}`,
           timestamp: new Date()
         })
       }
