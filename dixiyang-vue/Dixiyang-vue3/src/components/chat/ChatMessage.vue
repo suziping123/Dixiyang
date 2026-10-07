@@ -1,8 +1,8 @@
 <template>
   <div class="message-item" :class="[message.role, { 'user-editing-mode': isEditing }]">
     <div class="message-avatar">
-      <span v-if="message.role === 'user'">👤</span>
-      <span v-else>🤖</span>
+      <el-icon v-if="message.role === 'user'"><UserFilled /></el-icon>
+      <el-icon v-else><MagicStick /></el-icon>
     </div>
     <div class="message-body">
       <div class="message-bubble">
@@ -70,7 +70,7 @@
 
 <script setup lang="ts">
 import { renderMarkdown } from '@/utils/markdown'
-import { Collection } from '@element-plus/icons-vue'
+import { Collection, UserFilled, MagicStick } from '@element-plus/icons-vue'
 
 interface Props {
   message: {
@@ -215,10 +215,11 @@ const openSource = (ref: { source: string; title: string; content: string; score
 .message-avatar {
   width: 36px; height: 36px; border-radius: 50%;
   background: rgba(59, 130, 246, 0.2);
+  color: var(--neon-cyan, #28c4d4);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0; font-size: 1.2rem;
 }
-.message-item.user .message-avatar { background: rgba(168, 85, 247, 0.2); }
+.message-item.user .message-avatar { background: rgba(168, 85, 247, 0.2); color: var(--neon-purple, #a855f7); }
 
 .message-body { flex: 1; min-width: 0; }
 

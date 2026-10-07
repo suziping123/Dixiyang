@@ -253,6 +253,194 @@
 
 ---
 
+### 8.9 [角色管理页移动端适配与美化](../dixiyang-vue/docs/角色管理页移动端适配与美化.md) ✨ 新增
+**位置**: `dixiyang-vue/docs/角色管理页移动端适配与美化.md`
+
+**内容**:
+- **双列自适应**：`repeat(auto-fill, minmax(150px, 1fr))` 一条规则覆盖全部窄屏 —— 375 屏两列（每卡 ≈166px）、320 屏自动降单列；平板档 `280→240px`
+- **单卡瘦身**：266px → 约 205px（−23%），信息一项不减；描述 `min-height:2.32em` 固定两行保证同排按钮对齐
+- **移动端修复**：触屏去掉 sticky hover 位移改按压反馈；输入框 `font-size:16px` 防 iOS 聚焦缩放；长表单弹窗改**底部抽屉**（`margin: auto auto 0` 抵消 EP 默认 15vh + body 内滚动 + 安全区），删除确认框用 `.delete-dialog` 排除
+- **美化**：圆角归 `--radius-md/sm` 两档、硬编码色值换 `--accent-soft/--danger-soft/--accent-purple`、动效统一 `--dur/--ease-out`、头像内描边、幽灵创建卡虚线描边 + 加号旋转、卡片上浮淡入错峰（最多 8 张）
+- **零 JS 改动**：仅模板 2 处（`v-for` 补 `index` + 内联 `--i`、删卡弹窗加类）与样式表
+
+**适用人群**: 前端开发者、移动端测试
+
+---
+
+### 8.10 [卡片毛玻璃底板与弹窗配色修复](../dixiyang-vue/docs/卡片毛玻璃底板与弹窗配色修复.md) ✨ 新增
+**位置**: `dixiyang-vue/docs/卡片毛玻璃底板与弹窗配色修复.md`
+
+**内容**:
+- **取证方式**：Chrome CDP 探针 + 像素级测量（锐度/对比度/截图字节数），纠正前两轮的推断
+- **卡片透明真因**：底板一直是 `rgba(255,255,255,.05)`，而 `backdrop-filter` **只模糊背后内容、不提供底色**；实测 `will-change`/`transform`/`position`/`overflow` 四种切换对结果**零影响**（旧判断方向错误）
+- **弹窗全黑真因**：`main.css` 那条是 `!important`，而 **`!important` 优先于任何非 `!important` 声明、与特异性无关**（旧判断"复合选择器压过"错误），故修复需逐条补 `!important`
+- **修复**：新增 `--surface-panel-strong: rgba(16,18,26,.52)`（实测白字对比度 18.9、背景摆幅比原值减半），全局 `.glass-card`（时间线+角色页共用）与角色卡、角色弹窗统一换用；补 `-webkit-backdrop-filter`、移除多余 `will-change`
+- 影响面已核实：`HomeView`/`CreateCard` 各自 scoped `.glass-card` 不受影响；`.glass-sm/lg/xl` 未动
+
+**适用人群**: 前端开发者、UI 排查
+
+---
+
+### 8.11 [弹窗面板全局化与去黑](../dixiyang-vue/docs/弹窗面板全局化与去黑.md) ✨ 新增
+**位置**: `dixiyang-vue/docs/弹窗面板全局化与去黑.md`
+
+**内容**:
+- **需求**：弹窗不能"一块全黑"、也不能淡到看不清；不再逐页写样式，改全局 `.el-dialog` 全站复用（含此前无样式的「AI 设定助手」）
+- **像素标定**：面板 `#0d0d0f`（L 0.0032）→ **`#222530` = rgb(34,37,48)**（L 0.0188，白字对比度 **15.27**），实测否掉"半透明玻璃"方案——亮衬底上会糊成一片白，白字对比度只剩 2.38~3.37 不合格
+- **另修一个深层坑**：`main.ts` 里 `element-plus/dist/index.css` 在 `main.css` **之后**导入，同特异性时 EP 赢 → 标题色被 EP 的 `rgb(48,49,51)` 覆盖到几乎不可见；统一用 `html` 前缀提升特异性（不引入 `!important`）
+- **范围**：8 个弹窗（角色创建/编辑/删除、时间线×3、换封面、AI设定助手、编辑回答）自动生效；移动端 ≤768 全站统一贴底抽屉；组件内约 120 行重复样式删除
+
+**适用人群**: 前端开发者、UI 排查
+
+---
+
+### 8.12 [404页被背景图覆盖修复](../dixiyang-vue/docs/404页被背景图覆盖修复.md) ✨ 新增
+**位置**: `dixiyang-vue/docs/404页被背景图覆盖修复.md`
+
+**内容**:
+- **根因**：背景图是 `#theme-bg`（`position:fixed; z-index:0`，body 首子节点），全站页面根容器靠 `position:relative` 画其之上，唯独 `.ld-404` 是非定位元素被整层压住
+- **修复**：`.ld-404` 补 `position:relative`；`html:has(.ld-page)` 亮纸底规则扩展为同时匹配 `html:has(.ld-404)`
+- 改动仅 2 处 CSS、零 JS；含既有 type-check 错误说明与验证命令
+
+**适用人群**: 前端开发者
+
+---
+
+### 8.13 [小说卷章节API封装](../dixiyang-vue/docs/小说卷章节API封装.md) ✨ 新增
+**位置**: `dixiyang-vue/docs/小说卷章节API封装.md`
+
+**内容**:
+- `types.ts` 末尾追加卷/章节/正文类型：`Volume`、`VolumeDTO`、`Chapter`、`ChapterDTO`、`ChapterContent`、`SaveContentResult`、`ConflictResult`
+- 新增 `chapterApi.ts`：11 个函数覆盖卷 CRUD、章节 CRUD、正文读取/保存/冲突检测（`http + assertApiResponse`，返回 `Promise<ApiResponse<T>>`）
+- 路径对齐 `DixyangFast` 的 `/volumes`、`/chapters` 路由；`novelId` 走路径参数、body 用 `Omit<ChapterDTO,'novel_id'>`
+
+**适用人群**: 前端开发者
+
+---
+
+### 8.14 [章节草稿本地优先存储](../dixiyang-vue/docs/章节草稿本地优先存储.md) ✨ 新增
+**位置**: `dixiyang-vue/docs/章节草稿本地优先存储.md`
+
+**内容**:
+- **需求**：章节编辑 Local First —— 先落本地 IndexedDB（800ms 防抖），再异步同步云端；断网不丢稿、不阻塞
+- **`src/utils/draftDB.ts`**：原生 IndexedDB 封装（`dixiyang-drafts`/`chapters`，`keyPath: chapterId`，`novelId` 索引），单例 open、`settled` 防重复回调；IDB 不可用降级内存 Map（编辑器绝不崩溃，`getDraft` 永不 reject）
+- **`src/composables/useChapterDraft.ts`**：`loadDraft` 本地优先（先 flush 上一章 pending 再读）、`scheduleSave` 防抖 800ms、`flushSave` 立即落盘、`markSynced` 清脏标记、`dispose` + `onScopeDispose` 自动清理、`wordCount` 去空白计字
+- 改动文件、已知取舍（本地优先不处理服务端冲突）、验证命令与手工验收清单
+
+**适用人群**: 前端开发者
+
+---
+
+### 8.15 [小说编辑页背景图层叠与视觉AI修复](../dixiyang-vue/docs/小说编辑页背景图层叠与视觉AI修复.md) ✨ 新增
+**位置**: `dixiyang-vue/docs/小说编辑页背景图层叠与视觉AI修复.md`
+
+**内容**:
+- **⚠️ 核心警告**：有背景图时 `/novel-editor/{id}` 整页被 `#theme-bg`（fixed/z-index:0/pointer-events:none）压住 → 看不见但能点；根因是根容器 `.editor-layout` 缺 `position: relative`（全站唯一漏加者，同 404 页历史问题）。**后续新增页面根容器必须 `position:relative`**
+- **视觉**：不遮死背景也不全黑——页面半透明 scrim（0.72）+ 顶栏/双侧栏玻璃（blur 18px）+ 中间"稿纸"浮起卡片（亮一档+圆角+阴影）
+- **移动端 ≤1024px**：树/侧栏改 fixed 覆盖式抽屉 + 遮罩 + 左右互斥；顶栏窄屏收缩；`resize` 监听跨档位回默认（不覆盖手动切换）；390px 横向溢出修复
+- **mini-btn**：`:focus-within/:focus-visible` 显示 + `@media(hover:none)` 触屏常显 0.6（修"看不见但能点"）
+- **AI 补全去死代码感**：空文档触发给 ElMessage 提示、ghost 改蓝紫高亮+虚线下划线、**后端 mock/独立 `AI_*` 配置全部消灭**（改见条目 19）
+- CDP 探针验证记录与手工验收清单
+
+**适用人群**: 前端开发者、移动端测试、**所有新增页面的开发者（先读警告）**
+
+---
+
+### 8.16 [单点登录与登录风控](./单点登录与登录风控.md) ✨ 新增
+**位置**: `docs/单点登录与登录风控.md`
+
+**内容**:
+- **顶号踢出**：`app_user.session_id` 单会话号 + JWT `sid` claim，登录覆盖写入、请求时比对；被踢端下次请求 401「账号已在其他设备登录」，前端提示并跳登录
+- **登录风控**：10 分钟内登录 3 次 → 密码登录强制邮箱验证码（`require_code`），验证码登录解除；前端自动切验证码模式
+- **双后端对齐**：Java 补齐 `send-code/login-by-code` 邮件验证码设施（`spring-boot-starter-mail` + `.env` 兜底）；Python 复用既有验证码体系；风控时间统一 UTC 共表可比
+- 改动文件清单、双后端端到端 12/12 PASS 验证记录、已知问题（JWT 双密钥、Java 注册不验码、permitAll）
+
+**适用人群**: 全栈开发者、测试
+
+---
+
+### 8.17 [RAG对话头像图标替换](../dixiyang-vue/docs/RAG对话头像图标替换.md) ✨ 新增
+**位置**: `dixiyang-vue/docs/RAG对话头像图标替换.md`
+
+**内容**:
+- 对话头像 emoji 👤/🤖 替换为 Element Plus 图标：用户 `UserFilled`、助手 `MagicStick`（含等待首 token 加载气泡）
+- 头像底色不变，图标补同系文字色（`--neon-cyan`/`--neon-purple`）；`el-icon` 继承既有字号
+- 改动 2 文件、grep 零残留、type-check/vite 编译验证
+
+**适用人群**: 前端开发者
+
+---
+
+### 8.18 [编辑器AI补全设定勾选与光标续写](../dixiyang-vue/docs/编辑器AI补全设定勾选与光标续写.md) ✨ 新增
+**位置**: `dixiyang-vue/docs/编辑器AI补全设定勾选与光标续写.md`
+
+**内容**:
+- 「设定上下文」面板（开关 + 角色/时间线/事件三组 chips 细粒度勾选，按小说存 localStorage），勾选 ids 随 `/ai/completion` 传后端；后端复用 `build_fixed_context` + 查 timeline 表组装上下文（总截断 1500 字符）
+- **防复述**：prompt 强化"严禁复述光标前内容" + `_strip_repetition` 截掉与前文尾部 ≥6 字重叠的返回文本（修本地模型整段复述返回问题）
+- 自动补全去"距文末 30 字"限制 → 光标任意位置停顿 700ms 即出幽灵文本（700ms 停顿 + 3s 冷却保留）
+- 改动 4 前端 + 3 后端文件；compileall/type-check/lint 全过，8085 实测带/不带 ids 均 200
+
+**适用人群**: 前端开发者、后端开发者
+
+---
+
+### 8.19 [小说编辑器Tab禁用与段落视觉间距](../dixiyang-vue/docs/小说编辑器Tab禁用与段落视觉间距.md) ✨ 新增
+**位置**: `dixiyang-vue/docs/小说编辑器Tab禁用与段落视觉间距.md`
+
+**内容**:
+- Tab/Shift-Tab 彻底废掉（有幽灵文本时接受补全，否则吞掉不缩进不移焦）；吞 `Mod-[`/`Mod-]`/`Mod-Alt-\` 缩进快捷键；`Enter` 改 `insertNewline` 覆盖 `insertNewlineAndIndent`（不复制行首缩进）——全部利用「同 key 按数组顺序先命中」前置在 `...defaultKeymap` 之前
+- 回车段落间距纯 CSS：`.cm-line` 底部 `padding: 1.95em`（≈一个空行），**padding 计入 `getBoundingClientRect` 故 CM6 测量自洽，不能用 margin**；不向文档写入空行
+- 键盘移出编辑器逃逸口：`Ctrl-m`（toggleTabFocusMode）与 `Esc`→`Tab` 2 秒窗口（有幽灵时 Esc 需按两次）
+- 附带：新建卷 icon → folder-plus、切换侧栏 icon → 右侧面板（消除两按钮同图标）
+- type-check/lint 验证通过（仅仓库既有报错，均不在改动文件内）
+
+**适用人群**: 前端开发者
+
+---
+
+### 8.20 [设定上下文与弹窗样式统一](../dixiyang-vue/docs/设定上下文与弹窗样式统一.md) ✨ 新增
+**位置**: `dixiyang-vue/docs/设定上下文与弹窗样式统一.md`
+
+**内容**:
+- 设定上下文标题 30px→0.78rem（根因：组件未设字号落全局 h3，scoped 跨不过组件边界）；去卡中卡融入侧栏；启用开关改纯色状态钮（灰=关/蓝点发光=开，状态文字只在 hover title）
+- ElMessageBox 标题看不清根因：底色是 5% 白半透明玻璃，亮页上糊白 → 改 `--surface-dialog: #222530` 实底（对齐 el-dialog，白字对比度 15.3）
+- 按钮复用时间线页 `.btn-icon` 玻璃语言：玻璃次钮 + accent 实底主钮；**修复死规则** `.is-danger`（EP 不给盒子加该类）→ 改 `:has(状态图标)` 激活危险红确认钮
+- 影响面：全站 message-box 统一（EP css 后导入，规则均带 `!important`）；type-check/lint 本次文件 0 报错
+- **后续**：新建 `DialogHost.vue`（Promise 化输入/确认/离开三态 el-dialog），NovelEditorView 5 处 ElMessageBox 全部换用，复用全局 `html .el-dialog` 样式 + 移动端底部抽屉响应式；顺带修复取消时 Promise 未捕获 rejection
+
+**适用人群**: 前端开发者
+
+---
+
+### 8.21 [Home页头部精简与视觉去AI味](../dixiyang-vue/docs/Home页头部精简与视觉去AI味.md) ✨ 新增
+**位置**: `dixiyang-vue/docs/Home页头部精简与视觉去AI味.md`
+
+**内容**:
+- 需求：`/home` 头部臃肿 + 整体像 AI 模板（用户确认方向：暗色基础打磨）
+- 头部 → 单行顶栏：40px logo + 1.2rem 单色品牌字 + 0.9rem 小字副行；`80px/120px` 固定 padding → 三档 clamp；glow 光条、3.5rem 渐变大字、拖拽 demo 死代码全删
+- design-slop 闸门修复：紫蓝渐变 ×5、荧光 text-shadow/drop-shadow、card-glow 光晕、`✧` 装饰符全删；色板收敛 **蓝+青+中性**（角色绿/时间线 indigo hover → 青/蓝，删除红保留）
+- `我的创作宇宙` 升 display 级 `clamp(1.5rem,2.4vw,2rem)`；删 HomeView 内 `.floating-nav` 死样式；卡片/翻转/抽屉/动画结构不动
+- **第二轮（「太简单了」反馈）**：编辑部式 Hero 不对称两栏（3.25rem 标题 + 宇宙/角色/节点大数字统计，真实字段汇总）、分节横规（标题+细线+计数徽章）、吸顶栏（sticky 负 margin 出血 + 滚动玻璃底，`overflow:hidden`→`clip` 解锁）、卡片 hover 封面推近+主蓝边；尺度层级 4.5rem→0.9rem ≈5×
+- 验证：type-check/lint 无新增、`vite build` ✓
+
+**适用人群**: 前端开发者
+
+---
+
+### 8.22 [主页宇宙分页与改密码提示修复](../dixiyang-vue/docs/主页宇宙分页与改密码提示修复.md) 🐛 修复
+**位置**: `dixiyang-vue/docs/主页宇宙分页与改密码提示修复.md`
+
+**内容**:
+- **主页 10 个上限**：前端硬编码只拉第 1 页 + 参数 `pageSize`（驼峰）被 FastAPI 忽略（路由是 `page_size`，恒默认 10）+ 计数用 `novels.length`（封顶 10）→ 三重叠加导致第 11 个宇宙"消失"
+- 修复：`page_size` 参数对齐、分页状态 + 「加载更多（x / total）」按钮（追加失败回退页码）、Hero/分节计数全部改用后端 `total`、删除同步 `total--`
+- **改密码时好时坏**：后端 `/user/password` 实测 6/6 稳定；真凶是 `errorText.ts` 关键词 `/密码/` 把「当前密码不正确」「新密码不能与当前密码相同」全吞成登录文案「账号或密码不正确」→ EXACT 精确表补 4 条业务原文；按钮文案「保存信息」→「修改密码」
+- 附带记录：登录风控（10 分钟 3 次锁密码登录）、单点登录踢号机制、测试账号残留（`codex_pwd_t1`/`codex_pg_t2`）
+- 验证：API 实证旧参数恒 10 条→新参数正确分页、type-check/lint 无新增、`vite build` ✓
+
+**适用人群**: 前端开发者、后端开发者
+
+---
+
 ## 现有文档（已存在）
 
 ### 9. [后端开发技术文档](./后端开发技术文档.md)
@@ -391,6 +579,20 @@
 
 ---
 
+### 19. [卷章节与AI补全接口](../DixyangFast/docs/卷章节与AI补全接口.md) ✨ 新增
+**位置**: `DixyangFast/docs/卷章节与AI补全接口.md`
+
+**内容**:
+- 卷 `/volumes` 6 端点、章节 `/chapters` 6 章节元数据端点 + 正文文件存储 4 端点（读/冲突检测/保存/版本历史）
+- 正文**不入 MySQL**：写 `books/{novelId}/chapters/{chapterId}/content.json`，DB 只存 `__file__:` 引用；版本历史 `versions/v{n}.json`；删除连带清理
+- 保存冲突协议：版本变化且 hash 不同 → `hasConflict=true`，`force=true` 才覆盖
+- 全部端点强制 `user_id` 归属校验（11 项越权攻击用例全拦）
+- AI 补全 `/ai/status`、`/ai/completion`：**真模型**——mock Provider 与独立 `AI_*` 配置已全部删除，复用 RAG 同款 `DEEPSEEK_*`（一处配置同切）、超时降级、请求体截断约定
+
+**适用人群**: 后端开发者、前端 API 对接者
+
+---
+
 ## 文档使用指南
 
 ### 对于新加入的开发者
@@ -483,6 +685,53 @@
 
 ## 版本变更记录
 
+### v1.28 (2026-10-07)
+- **修复**: [主页宇宙分页与改密码提示修复](../dixiyang-vue/docs/主页宇宙分页与改密码提示修复.md) — 主页 10 个宇宙上限三重根因（只拉第 1 页 / `pageSize` 被 FastAPI 忽略恒默认 10 / 计数用已加载数）→ `page_size` 对齐 + 加载更多分页 + 计数改 `total`；设置页改密码"时好时坏"= `errorText.ts` 关键词 `/密码/` 吞掉后端真实提示（精确表补 4 条）；后端实测 6/6 稳定无偶发
+
+### v1.27 (2026-10-07)
+- **新增**: [Home页头部精简与视觉去AI味](../dixiyang-vue/docs/Home页头部精简与视觉去AI味.md) — `/home` 单行顶栏（原 3.5rem 渐变大标题+光条+100px logo → 40px 紧凑品牌行，clamp 边距），design-slop 闸门修复：紫蓝渐变/荧光/装饰全删、色板收敛蓝+青+中性、区块标题升 display 级；卡片与交互结构不动
+- **补充**: 同文档第二轮——「太简单了」反馈后补结构：编辑部式 Hero（3.25rem 标题 + 宇宙/角色/节点大数字统计，真实字段汇总）、分节横规（标题+细线+计数徽章）、吸顶玻璃栏（`overflow:hidden`→`clip` 解锁 sticky）、卡片 hover 封面推近+主蓝边；尺度层级 ≈5× 对比
+
+### v1.26 (2026-10-07)
+- **新增**: [设定上下文与弹窗样式统一](../dixiyang-vue/docs/设定上下文与弹窗样式统一.md) — 设定上下文标题字号对齐（全局 h3 30px 根因）+ 去卡中卡 + 启用开关改纯色状态钮（hover title 显示状态）；ElMessageBox 底色 5% 白半透明 → `#222530` 实底修标题对比度，按钮复用时间线页 `.btn-icon` 玻璃风格，`:has()` 激活此前从未生效的危险红确认钮
+- **重构**: 新增 `DialogHost.vue`（Promise 化输入/确认/离开三态 el-dialog 宿主），小说编辑页 5 处 ElMessageBox 全部改用，复用全局 `html .el-dialog` 玻璃面板 + 移动端底部抽屉，与角色/时间线页写法统一；修复取消弹窗时 Promise 未捕获 rejection
+
+### v1.25 (2026-10-07)
+- **新增**: [小说编辑器Tab禁用与段落视觉间距](../dixiyang-vue/docs/小说编辑器Tab禁用与段落视觉间距.md) — Tab 彻底废掉（幽灵文本时仍接受补全）+ 吞三个缩进快捷键 + Enter 换 `insertNewline`；段落间距用 `.cm-line` 底部 padding 1.95em（纯视觉、不写入文档，margin 会致 CM6 光标错位故不可用）；新建卷/切换侧栏两按钮换不同图标
+
+### v1.24 (2026-10-06)
+- **新增**: [编辑器AI补全设定勾选与光标续写](../dixiyang-vue/docs/编辑器AI补全设定勾选与光标续写.md) — 编辑器补全支持细粒度勾选角色/时间线/事件作为上下文（`AIContextPanel` + `novelId/characterIds/storyNodeIds/timelineIds` 请求字段，后端 `build_fixed_context` 组装截断 1500 字）；防复述截重叠修"整段返回"；自动补全放宽到光标任意位置
+- **修改**: [卷章节与AI补全接口](../DixyangFast/docs/卷章节与AI补全接口.md) — `/ai/completion` 请求体新增设定 ids 字段与防复述行为说明
+
+### v1.23 (2026-10-06)
+- **新增**: [RAG对话头像图标替换](../dixiyang-vue/docs/RAG对话头像图标替换.md) — 对话头像 emoji 👤/🤖 换 Element Plus 图标（用户 `UserFilled`、助手 `MagicStick`），补同系文字色
+- **修复**: 单点登录与登录风控 — 撤销"无 sid 旧 token 一律 401"，改兼容放行（修复后端 reload 后旧登录态全被拒、聊天页报"请求失败，请稍后再试"的问题），顶号比对保留，双后端同规则
+
+### v1.22 (2026-10-06)
+- **新增**: [单点登录与登录风控](./单点登录与登录风控.md) — 同账号多端登录时后登录顶掉先登录者（`app_user.session_id` + JWT `sid`，请求时比对，被踢端 401 自动跳登录并提示）；10 分钟内登录 3 次后密码登录强制邮箱验证码并可解除；Java 端补齐 `/auth/send-code`、`/auth/login-by-code` 邮件验证码设施（共用 `email_verification_code` 表）；双后端端到端各 12/12 PASS
+
+### v1.21 (2026-09-30)
+- **修改**: [卷章节与AI补全接口](../DixyangFast/docs/卷章节与AI补全接口.md) — **AI 补全去 mock**：`mock_provider.py` 删除、`config.py` 独立 `AI_PROVIDER/AI_BASE_URL/AI_API_KEY/AI_MODEL/AI_TIMEOUT` 5 项删除、`BaseTimedProvider` 死代码删除；补全直接复用 RAG 同款 `DEEPSEEK_*`（与聊天一处配置同切，当前指向本地 Ternary-Bonsai-2-27B，6.5s 实测返回真续写）；`/ai/status` 的 `connected` 改为如实反映 key 存在性（不再假报就绪）
+
+### v1.20 (2026-09-30)
+- **新增**: [小说编辑页背景图层叠与视觉AI修复](../dixiyang-vue/docs/小说编辑页背景图层叠与视觉AI修复.md) — `.editor-layout` 补 `position:relative`（有背景图时整页被 `#theme-bg` 压住、看不见但能点，全站唯一漏加者；**警告：新页面根容器必须 relative**）；视觉改半透明 scrim + 玻璃侧栏 + "稿纸"浮起卡片（不再全黑无区分度）；≤1024px 树/侧栏覆盖式抽屉 + resize 跨档位监听；mini-btn focus/触屏可见；AI 补全空文档提示 + ghost 配色加强 + 后端 mock 文案池
+- **新增**: [卷章节与AI补全接口](../DixyangFast/docs/卷章节与AI补全接口.md) — 卷/章节 CRUD、正文文件存储与冲突协议、版本历史、AI 补全端点与 Provider 切换、越权校验说明
+
+### v1.19 (2026-09-30)
+- **新增**: [章节草稿本地优先存储](../dixiyang-vue/docs/章节草稿本地优先存储.md) — `draftDB.ts`（原生 IndexedDB + 内存降级）与 `useChapterDraft.ts`（本地优先加载、800ms 防抖自动保存、markSynced 清脏、dispose 自动清理）
+
+### v1.18 (2026-09-30)
+- **修复**: [404页被背景图覆盖修复](../dixiyang-vue/docs/404页被背景图覆盖修复.md) — `.ld-404` 补 `position:relative` 使其画到 `#theme-bg`（fixed/z-index:0）之上，亮纸底规则扩展匹配 `html:has(.ld-404)`；2 处 CSS、零 JS
+
+### v1.17 (2026-09-29)
+- **新增**: [弹窗面板全局化与去黑](../dixiyang-vue/docs/弹窗面板全局化与去黑.md) — 弹窗面板由不透明 `#0d0d0f` 改为 `#222530`（实测白字对比度 15.27，不黑且清晰），样式写入全局 `.el-dialog` 全站复用（8 个弹窗自动生效，含无样式的「AI 设定助手」）；同步修掉"EP 样式后导入 + 同特异性"导致标题色被覆盖成近黑的坑（改用 `html` 前缀，不引入 `!important`）；组件内约 120 行重复弹窗样式删除
+
+### v1.16 (2026-09-29)
+- **新增**: [卡片毛玻璃底板与弹窗配色修复](../dixiyang-vue/docs/卡片毛玻璃底板与弹窗配色修复.md) — 用 Chrome CDP 探针 + 像素测量取证：卡片透明真因是底板仅 `rgba(255,255,255,.05)` 而 `backdrop-filter` 不提供底色（实测切换 will-change/transform/position/overflow 零影响）；弹窗真因是全局 `.el-dialog{…!important}`，**`!important` 与特异性无关**必须逐条补 `!important`。新增 `--surface-panel-strong`（实测白字对比度 18.9），全局 `.glass-card`（时间线+角色页共用）、角色卡、角色弹窗统一换用
+
+### v1.15 (2026-09-29)
+- **新增**: [角色管理页移动端适配与美化](../dixiyang-vue/docs/角色管理页移动端适配与美化.md) — 卡片改 `auto-fill + minmax(150px,1fr)` 双列自适应（320 屏自动降单列），单卡 266→约 205px 且信息不减；弹窗改底部抽屉、输入框防 iOS 缩放、触屏去 sticky hover；圆角/语义色/动效统一到设计 token，卡片加错峰入场
+
 ### v1.14 (2026-09-29)
 - **新增**: [更换邮箱验证码流程](../dixiyang-vue/docs/更换邮箱验证码流程.md) — 后端 `/user/update` 加 `CHG_EMAIL` 验证码+唯一性校验（先校验后落库），前端邮箱改为更换流程（发码/输码/确认），昵称保持失焦即存
 - **新增**: [移动端响应式修复](../dixiyang-vue/docs/移动端响应式修复.md) — 角色管理删 `margin-left` 残留恢复居中、卡片字号降档、弹窗 `width=min()`；主页双列小卡降档修按钮挤压；`NovelPageHeader` 补齐响应式
@@ -540,6 +789,6 @@
 
 ---
 
-*文档版本: v1.14*
-*最后更新: 2026-09-29*
+*文档版本: v1.24*
+*最后更新: 2026-10-06*
 *维护者: Dixiyang Team*

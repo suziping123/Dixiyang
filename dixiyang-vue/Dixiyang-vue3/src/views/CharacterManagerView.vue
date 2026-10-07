@@ -30,7 +30,13 @@
         </div>
 
         <div v-else-if="characters.length > 0" class="character-grid">
-          <div v-for="character in characters" :key="character.id" class="character-card-wrapper">
+          <!-- 入场错峰：内联 --i 只给卡片壳，靠继承下发到子元素（不落到表单控件上） -->
+          <div
+            v-for="(character, index) in characters"
+            :key="character.id"
+            class="character-card-wrapper"
+            :style="{ '--i': Math.min(index, 7) }"
+          >
             <div class="glass-card character-card" @mouseenter="hoveredCard = character.id" @mouseleave="hoveredCard = null">
               <div class="card-glow" :style="{ opacity: hoveredCard === character.id ? 1 : 0 }"></div>
 
@@ -63,6 +69,7 @@
             </div>
           </div>
 
+          <!-- 幽灵卡无内联 --i：CSS 变量按内容宽度自动多占一格（手机上自动落到下一行） -->
           <div class="character-card-wrapper create-card-wrapper">
             <div class="glass-card create-card" @click="openCreateDialog">
               <div class="card-create-content">
@@ -155,8 +162,8 @@
       </template>
     </el-dialog>
 
-    <!-- 删除确认弹窗 -->
-    <el-dialog v-model="showDeleteDialog" title="确认删除" width="min(400px, 92vw)" class="character-dialog">
+    <!-- 删除确认弹窗（独立 .delete-dialog 类：手机上保持居中短弹窗，不套用底部抽屉） -->
+    <el-dialog v-model="showDeleteDialog" title="确认删除" width="min(400px, 92vw)" class="character-dialog delete-dialog">
       <p>确定要删除角色「{{ deleteCandidate?.name }}」吗？此操作不可恢复。</p>
       <template #footer>
         <span class="dialog-footer">
@@ -427,17 +434,25 @@ onMounted(() => {
   padding: 10px 20px;
   background: linear-gradient(135deg, var(--neon-blue), var(--neon-cyan));
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: white;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition:
+    transform var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    filter var(--dur) var(--ease-out);
 }
 
 .create-character-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+  filter: brightness(1.06);
+  box-shadow: 0 4px 20px var(--accent-soft-strong);
+}
+
+.create-character-btn:active {
+  transform: translateY(0) scale(0.985);
 }
 
 .create-character-btn svg {
@@ -458,15 +473,41 @@ onMounted(() => {
 }
 
 .glass-card {
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
+  /* 深色玻璃底板：backdrop-filter 只负责模糊背后内容、不提供底色，
+     底板透明度过低（旧值 --glass-bg = rgba(255,255,255,.05)）时卡片看起来就是全透明。
+     加 !important 是为了压过 main.css 里同名的全局 .glass-card。 */
+  background: var(--glass-bg-strong) !important;
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
-  border-radius: 16px;
+  border-radius: var(--radius-md);
   padding: 24px;
   position: relative;
   overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition:
+    transform var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out);
   height: 100%;
+}
+
+/* 入场：仅透明度错峰（--i 由内联 style 下发，见卡片模板）
+   注意：祖先一旦存在生效的 transform/filter/will-change 就会生成 backdrop root，
+   子元素 .glass-card 的 backdrop-filter 将采不到页面背景 → 卡片变全透明。
+   故此处关键帧【只允许动 opacity】，禁止再加 transform。 */
+@keyframes cardIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.character-card-wrapper {
+  animation: cardIn 320ms var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 40ms);
 }
 
 .character-card {
@@ -477,8 +518,14 @@ onMounted(() => {
 }
 
 .character-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  transform: translateY(-4px);
+  border-color: var(--glass-border-hover);
+  box-shadow: var(--shadow-card);
+}
+
+/* 触屏适配：无 hover 可依赖，按压时轻微内缩代替上浮 */
+.character-card:active {
+  transform: scale(0.985);
 }
 
 .card-glow {
@@ -489,7 +536,7 @@ onMounted(() => {
   height: 3px;
   background: linear-gradient(90deg, var(--neon-blue), var(--neon-cyan), var(--neon-purple));
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity var(--dur) var(--ease-out);
 }
 
 .character-card:hover .card-glow {
@@ -499,9 +546,9 @@ onMounted(() => {
 .card-border-gradient {
   position: absolute;
   inset: 0;
-  border-radius: 16px;
+  border-radius: var(--radius-md);
   padding: 1px;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), transparent, rgba(168, 85, 247, 0.3));
+  background: linear-gradient(135deg, var(--accent-soft-strong), transparent, var(--accent-soft-strong));
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
@@ -518,6 +565,10 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   margin: 0 auto 16px;
+  /* 内描边 + 底部微光：与玻璃卡同一套质感，不再是一枚实心圆 */
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+    0 2px 10px rgba(0, 0, 0, 0.3);
 }
 
 .avatar-text {
@@ -530,10 +581,14 @@ onMounted(() => {
   font-size: 1.25rem;
   color: var(--text-primary);
   margin: 0 0 8px 0;
+  line-height: 1.3;
+  /* 超长名字折行不溢出（手机上每行只能容 4~5 个汉字） */
+  overflow-wrap: anywhere;
 }
 
 .character-info {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
   margin-bottom: 12px;
@@ -541,17 +596,19 @@ onMounted(() => {
 
 .info-tag {
   padding: 2px 10px;
-  background: rgba(59, 130, 246, 0.2);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  border-radius: 12px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-soft-strong);
+  border-radius: 999px;
   font-size: 0.85rem;
-  color: var(--neon-blue);
+  line-height: 1.5;
+  color: var(--accent-primary);
+  font-variant-numeric: tabular-nums;
 }
 
 .settings-tag {
-  background: rgba(168, 85, 247, 0.2);
-  border-color: rgba(168, 85, 247, 0.3);
-  color: var(--neon-purple, #a855f7);
+  background: var(--accent-soft-strong);
+  border-color: var(--accent-purple);
+  color: var(--accent-purple);
 }
 
 .character-desc {
@@ -579,43 +636,68 @@ onMounted(() => {
   gap: 6px;
   padding: 8px 12px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 0.9rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
 .action-btn svg {
   width: 16px;
   height: 16px;
+  transition: transform var(--dur) var(--ease-out);
+}
+
+.action-btn:hover svg {
+  transform: scale(1.08);
+}
+
+.action-btn:active {
+  transform: scale(0.97);
 }
 
 .edit-btn {
-  background: rgba(59, 130, 246, 0.2);
-  color: var(--neon-blue);
+  background: var(--accent-soft);
+  color: var(--accent-primary);
 }
 
 .edit-btn:hover {
-  background: rgba(59, 130, 246, 0.3);
+  background: var(--accent-soft-strong);
 }
 
 .delete-btn {
-  background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .delete-btn:hover {
-  background: rgba(239, 68, 68, 0.3);
+  background: var(--danger-soft);
+  box-shadow: inset 0 0 0 1px var(--danger-border);
 }
 
-/* 创建卡片 */
+/* 创建卡片：虚线幽灵卡，和实心角色卡形成层级区分 */
 .create-card {
   min-height: 280px;
   height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-style: dashed;
+  cursor: pointer;
 }
 
 .create-card:hover {
-  transform: translateY(-5px);
+  transform: translateY(-4px);
+  border-style: solid;
+  border-color: var(--accent-primary);
+  box-shadow: var(--shadow-card);
+}
+
+.create-card:active {
+  transform: scale(0.985);
 }
 
 .card-create-content {
@@ -626,6 +708,11 @@ onMounted(() => {
   width: 48px;
   height: 48px;
   color: var(--neon-blue);
+  transition: transform var(--dur) var(--ease-out);
+}
+
+.create-card:hover .create-icon {
+  transform: scale(1.12) rotate(90deg);
 }
 
 .create-card span {
@@ -667,6 +754,12 @@ onMounted(() => {
   height: 80px;
   color: var(--neon-blue);
   margin-bottom: 16px;
+  opacity: 0.9;
+}
+
+.empty-state p {
+  color: var(--text-secondary);
+  font-size: 1rem;
 }
 
 /* 返回按钮 */
@@ -696,152 +789,195 @@ onMounted(() => {
   flex: 2;
 }
 
-/* 弹窗样式覆盖 */
-.character-dialog :deep(.el-dialog) {
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-}
+/* 弹窗配色见文件末尾【非 scoped】样式块：
+   scoped 的 `:deep()` 编译为 `.character-dialog[data-v-x] .el-dialog`（要求祖先带类），
+   而 EP 把 class 透传落在对话框根节点 `.el-dialog` 自身 → 永久不匹配，规则形同死代码，故移除。 */
 
-.character-dialog :deep(.el-dialog__title) {
-  color: var(--text-primary);
-}
-
-.character-dialog :deep(.el-form-item__label) {
-  color: var(--text-primary);
-}
-
-.character-dialog :deep(.el-input__wrapper),
-.character-dialog :deep(.el-textarea__inner),
-.character-dialog :deep(.el-select__wrapper),
-.character-dialog :deep(.el-input-number__wrapper) {
-  background: var(--glass-bg);
-  border-color: var(--glass-border);
-  color: var(--text-primary);
-  box-shadow: none;
-}
-
-.character-dialog :deep(.el-input__wrapper:hover),
-.character-dialog :deep(.el-textarea__inner:hover),
-.character-dialog :deep(.el-select__wrapper:hover) {
-  border-color: var(--neon-blue);
-}
-
-.character-dialog :deep(.el-input__wrapper.is-focus),
-.character-dialog :deep(.el-textarea__inner:focus),
-.character-dialog :deep(.el-select__wrapper.is-focus) {
-  border-color: var(--neon-blue);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-}
-
-.character-dialog :deep(.el-input__inner),
-.character-dialog :deep(.el-select__placeholder),
-.character-dialog :deep(.el-select-input) {
-  color: var(--text-primary);
-}
-
-.character-dialog :deep(.el-option) {
-  background: var(--dark-bg);
-  color: var(--text-primary);
-}
-
-.character-dialog :deep(.el-option:hover) {
-  background: rgba(59, 130, 246, 0.2);
-}
-
-.character-dialog :deep(.el-option.is-selected) {
-  background: rgba(59, 130, 246, 0.3);
-}
-
-/* 响应式 */
+/* 响应式：三档沿用项目既有断点（1024 / 768 / 480） */
 @media (max-width: 1024px) {
   .main-stage {
-    padding: 60px 40px;
+    padding: 60px 32px;
     /* 导航已改右侧悬浮球，去掉旧左侧竖条的 margin-left（否则整体偏左不居中） */
     margin-left: 0;
+  }
+
+  /* 平板：280px 下限在 1024 屏会挤出 4 列窄卡，降到 240px 收成 2~3 列 */
+  .character-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 18px;
   }
 }
 
 @media (max-width: 768px) {
   .main-stage {
-    padding: 40px 16px;
+    padding: 32px 14px 24px;
     margin-left: 0;
   }
 
   .section-header {
     flex-direction: column;
-    align-items: flex-start;
-    gap: 15px;
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 18px;
   }
 
   .section-title {
-    font-size: 1.15rem;
+    font-size: 1.05rem;
   }
 
   .create-character-btn {
-    padding: 8px 16px;
-    font-size: 0.9rem;
-    align-self: stretch;
+    padding: 9px 14px;
+    font-size: 0.85rem;
     justify-content: center;
   }
 
+  /* 150px 下限：375 屏自动两列（每卡 ≈166px），320 屏自动降单列，无需额外断点 */
   .character-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
   }
 
-  /* 卡片紧凑：缩小内边距/头像/留白，避免移动端巨卡 */
+  /* 卡片紧凑：缩小内边距/头像/留白，避免移动端巨卡（信息一项不减） */
   .glass-card {
-    padding: 16px;
+    padding: 12px 10px;
+  }
+
+  /* 触屏无 hover：去掉上浮改用按压反馈，避免“点一下跳一下” */
+  .character-card:hover {
+    transform: none;
+  }
+
+  .character-card:active {
+    transform: scale(0.985);
   }
 
   .character-avatar {
-    width: 48px;
-    height: 48px;
-    margin-bottom: 12px;
+    width: 40px;
+    height: 40px;
+    margin-bottom: 8px;
   }
 
   .avatar-text {
-    font-size: 1.1rem;
+    font-size: 1rem;
   }
 
   .character-name {
-    font-size: 1.05rem;
-    margin-bottom: 6px;
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+  }
+
+  .character-info {
+    gap: 5px;
+    margin-bottom: 8px;
+  }
+
+  .info-tag {
+    padding: 1px 7px;
+    font-size: 0.7rem;
   }
 
   .character-desc {
-    font-size: 0.85rem;
-    margin-bottom: 12px;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    margin-bottom: 10px;
+    /* 固定两行高度：同排卡片按钮始终对齐（有/无描述都不塌） */
+    min-height: 2.32em;
+  }
+
+  .card-actions {
+    gap: 6px;
   }
 
   .action-btn {
-    padding: 7px 10px;
-    font-size: 0.85rem;
+    padding: 7px 4px;
+    font-size: 0.78rem;
+    gap: 4px;
+  }
+
+  .action-btn svg {
+    width: 14px;
+    height: 14px;
   }
 
   .create-card {
-    min-height: 200px;
+    min-height: 0;
+    padding: 16px 10px;
+  }
+
+  .create-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .create-card span {
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+  }
+
+  .create-hint {
+    font-size: 0.75rem;
+  }
+
+  .loading-state,
+  .empty-state {
+    padding: 40px 12px;
+  }
+
+  .empty-icon {
+    width: 56px;
+    height: 56px;
+  }
+
+  .empty-state p {
+    font-size: 0.85rem;
   }
 
   .back-section {
     margin-top: 24px;
   }
 
-  /* 弹窗：两列改单列 + 超高时内部滚动，保证底部按钮始终可见可点 */
-  .character-dialog :deep(.el-col) {
+  /* 弹窗相关的移动端规则（单列 / 底部抽屉 / 输入框字号）见末尾【非 scoped】样式块 */
+
+  /* 键值对行：手机上两列 + 触控友好的删除按钮 */
+  .extra-field-row {
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-stage {
+    padding: 28px 12px 20px;
+  }
+
+  .character-grid {
+    gap: 10px;
+  }
+
+  /* 148px 宽的卡上 1px 渐变描边收益低于合成开销，超窄档关掉 */
+  .card-border-gradient {
+    display: none;
+  }
+
+  .novel-cover-thumb {
+    width: 40px;
+    height: 40px;
+  }
+}
+</style>
+
+<!--
+  弹窗配色/移动端抽屉已【全站统一】到 src/assets/main.css 的 `.el-dialog` 规则，
+  这里只保留本页专属覆写（性别/年龄两列改单列）。
+  历史说明：scoped 的 `.character-dialog :deep(.el-dialog)` 会编译成
+  `.character-dialog[data-v-x] .el-dialog`（要求祖先带类），而 Element Plus 2.13 把 dialog 的
+  class 经 $attrs 透传到对话框根节点 `.el-dialog` 自身，故 scoped 规则永不匹配 —— 必须走全局样式。
+-->
+<style>
+@media (max-width: 768px) {
+  /* 本页表单的「性别 / 年龄」两列在手机上改单列（其余抽屉样式由全局 .el-dialog 提供） */
+  .el-dialog .el-col {
     flex: 0 0 100%;
     max-width: 100%;
-  }
-
-  .character-dialog :deep(.el-dialog) {
-    max-height: 86vh;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .character-dialog :deep(.el-dialog__body) {
-    overflow-y: auto;
   }
 }
 </style>

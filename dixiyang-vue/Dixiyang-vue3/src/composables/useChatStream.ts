@@ -1,6 +1,19 @@
 import { ref, readonly } from 'vue'
-import http from '@/utils/http'
+import http, { handleUnauthorized } from '@/utils/http'
 import { friendlyError } from '@/utils/errorText'
+
+// 401 统一处理（被其他设备顶号/过期）：提取后端文案 → 清登录态并跳登录页
+async function guard401(response: Response): Promise<void> {
+  if (response.status !== 401) return
+  let message = '账号已在其他设备登录'
+  try {
+    const data = (await response.clone().json()) as Record<string, unknown>
+    const text = data?.msg ?? data?.message ?? data?.detail
+    if (typeof text === 'string' && text.trim()) message = text
+  } catch { /* 响应体非 JSON 时用默认文案 */ }
+  handleUnauthorized(message)
+  throw new Error(message)
+}
 
 export interface RagReference {
   source: string
@@ -173,6 +186,7 @@ export function useChatStream(userId?: number) {
         signal: controller.signal
       })
 
+      await guard401(response)
       if (!response.ok) throw new Error(`请求失败 (${response.status})`)
       if (!response.body) throw new Error('响应无数据')
 
@@ -316,6 +330,7 @@ export function useChatStream(userId?: number) {
         signal: controller.signal
       })
 
+      await guard401(response)
       if (!response.ok) throw new Error(`请求失败 (${response.status})`)
       if (!response.body) throw new Error('响应无数据')
 

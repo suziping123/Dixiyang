@@ -113,3 +113,74 @@ export interface TimelineNode {
   characterNames: string
   tags: string
 }
+
+// ===== 小说编辑器：卷 =====
+export interface Volume {
+  id: number
+  novel_id: number
+  title: string
+  sort_order: number
+  description?: string
+  create_time?: string
+  update_time?: string
+}
+
+export interface VolumeDTO {
+  title: string
+  sort_order?: number
+  description?: string
+}
+
+// ===== 小说编辑器：章节 =====
+export interface Chapter {
+  id: number
+  novel_id: number
+  volume_id?: number | null
+  title: string
+  sort_order: number
+  content_path?: string | null
+  content_hash?: string | null
+  content_size: number
+  version: number
+  local_version: number
+  word_count: number
+  create_time?: string
+  update_time?: string
+}
+
+export interface ChapterDTO {
+  novel_id: number
+  volume_id?: number | null
+  title: string
+  sort_order?: number
+}
+
+// 云端正文
+export interface ChapterContent {
+  chapterId: number
+  title: string
+  version: number
+  contentHash: string | null
+  content: string
+  wordCount: number
+  updatedAt: string | null
+}
+
+// 保存正文结果
+export interface SaveContentResult {
+  chapterId: number
+  version: number
+  contentHash: string
+  contentPath?: string
+  wordCount?: number
+  hasConflict: boolean
+  serverVersion?: number
+  serverHash?: string
+}
+
+// 冲突检测结果
+export interface ConflictResult {
+  hasConflict: boolean
+  serverVersion: number
+  serverHash: string
+}

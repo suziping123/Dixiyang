@@ -17,7 +17,7 @@
             class="context-msg"
             :class="msg.role"
           >
-            <span class="msg-role">{{ msg.role === 'user' ? '👤 用户' : '🤖 AI' }}</span>
+            <span class="msg-role">{{ msg.role === 'user' ? '用户' : 'AI' }}</span>
             <div class="msg-content">{{ msg.content }}</div>
           </div>
         </div>

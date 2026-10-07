@@ -25,6 +25,14 @@ html.theme-dark {
   --surface-card: rgba(255,255,255,0.04);
   /* 面板衬底：RAG 玻璃风格 + 深色衬底（对齐 rag-assistant 观感，保证背景图下可读） */
   --surface-panel: rgba(10,10,12,0.6);
+  /* 强衬底：卡片/弹窗的"毛玻璃底板"。透明度过低(如 .05)时卡片只会是一层看不见的薄膜，
+     backdrop-filter 仅负责模糊背后内容、不提供底色，故必须自带足够不透明度。 */
+  --surface-panel-strong: rgba(16,18,26,0.52);
+  --glass-bg-strong: var(--surface-panel-strong);
+  /* 弹窗面板专用：比 --surface-panel 亮一档，避免"一块全黑"。
+     实测渲染像素 rgb(34,37,48)，白字对比度 15.3（≥4.5 合格），
+     且不透明度为 1，不受背后页面明暗影响而糊掉。 */
+  --surface-dialog: #222530;
   --surface-input: rgba(255,255,255,0.05);
 
   --text-primary: #eeeeee;
@@ -163,14 +171,15 @@ input::placeholder { color: var(--text-muted); }
 .glass-xl { backdrop-filter: blur(25px); border-radius: 32px; }
 
 .glass-card {
-  background: var(--surface-glass);
+  /* 底板：深色玻璃衬底（rgba(255,255,255,.05) 的旧值会让卡片在背景图上完全透明） */
+  background: var(--glass-bg-strong);
   backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--surface-glass-border);
   border-radius: 24px;
   transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
   color: var(--text-primary);
   transform: translateZ(0);
-  will-change: transform, backdrop-filter;
   backface-visibility: hidden;
 }
 .glass-card:hover {
@@ -252,7 +261,10 @@ tr:hover { background: rgba(59,130,246,0.04); }
 }
 /* ========== 确认/警告弹窗（ElMessageBox）全量美化 ========== */
 .el-message-box {
-  background: var(--surface-glass) !important;
+  /* 实底深板（对齐 el-dialog 的 --surface-dialog）：原 --surface-glass 仅 5% 白半透明，
+     在编辑页亮背景上会糊成一片亮，白字标题/正文对比度崩掉（同 el-dialog 注释里的教训）。
+     #222530 上白字对比度 15.3，不受背后页面明暗影响。 */
+  background: var(--surface-dialog) !important;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--surface-glass-border) !important;
@@ -327,47 +339,187 @@ tr:hover { background: rgba(59,130,246,0.04); }
   justify-content: flex-end;
 }
 
+/* 按钮：复用时间线页 .btn-icon 的玻璃视觉语言（玻璃底 + 1px 边 + radius 8 + hover 变主色）。
+   EP css 在本文件之后导入、同特异性后到者赢，故颜色类规则一律 !important。 */
 .el-message-box__btns .el-button {
   border-radius: var(--radius-sm) !important;
   min-width: 84px;
   font-weight: 500;
+  /* 抵消 EP 相邻按钮 margin-left：本容器用 flex gap 控距 */
+  margin-left: 0 !important;
   transition:
     background var(--dur-fast) var(--ease-out),
     border-color var(--dur-fast) var(--ease-out),
-    transform var(--dur-fast) var(--ease-out);
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out),
+    filter var(--dur-fast) var(--ease-out);
 }
 
-/* 主按钮（确定）：玻璃强调 */
+/* 主确认钮：accent 实底白字（原 20% 半透明蓝在深色弹窗上太弱） */
 .el-message-box__btns .el-button--primary {
-  background: var(--accent-soft-strong) !important;
+  background: var(--accent-primary) !important;
   border: 1px solid var(--accent-primary) !important;
-  color: var(--text-primary) !important;
+  color: #fff !important;
 }
 
 .el-message-box__btns .el-button--primary:hover {
-  background: var(--accent-soft) !important;
+  filter: brightness(1.12) !important;
   transform: translateY(-1px);
 }
 
-/* 次按钮（取消）：弱化 */
+/* 次按钮（取消）：玻璃钮，对齐 .btn-icon（玻璃底 + 玻璃边，hover 变主色） */
 .el-message-box__btns .el-button:not(.el-button--primary) {
-  background: transparent !important;
+  background: var(--glass-bg) !important;
   border: 1px solid var(--surface-glass-border) !important;
   color: var(--text-secondary) !important;
 }
 
 .el-message-box__btns .el-button:not(.el-button--primary):hover {
-  border-color: var(--surface-glass-border-hover) !important;
-  color: var(--text-primary) !important;
+  border-color: var(--accent-primary) !important;
+  color: var(--accent-primary) !important;
 }
 
-/* 危险语义：type=error 时确定按钮改用危险色 */
-.el-message-box.is-danger .el-message-box__btns .el-button--primary {
+/* 危险语义：警告/错误弹窗的确认钮改危险色（对齐 .btn-icon.btn-danger 红语义）。
+   EP 不会给盒子加 is-danger，旧 `.el-message-box.is-danger` 规则从未生效；
+   改用 :has 关联状态图标——不支持 :has 的老浏览器降级为普通主色，可接受。 */
+.el-message-box:has(.el-message-box__status.is-warning) .el-message-box__btns .el-button--primary,
+.el-message-box:has(.el-message-box__status.is-error) .el-message-box__btns .el-button--primary {
   background: var(--danger-soft) !important;
   border-color: var(--danger-border) !important;
   color: var(--danger) !important;
 }
-.el-dialog { background: var(--surface-page) !important; backdrop-filter: blur(20px) !important; }
+
+.el-message-box:has(.el-message-box__status.is-warning) .el-message-box__btns .el-button--primary:hover,
+.el-message-box:has(.el-message-box__status.is-error) .el-message-box__btns .el-button--primary:hover {
+  border-color: var(--danger) !important;
+  filter: brightness(1.15) !important;
+}
+/* ========== 弹窗（el-dialog）全局玻璃面板 ==========
+   一次定义，全站复用：所有 el-dialog 默认即为此面板，无需加 class、无需逐页写样式。
+   面板色 #222530 = rgb(34,37,48)：比原先的 #0d0d0f 明显不黑，白字对比度仍有 15.3；
+   不透明度为 1，故在亮/暗两种页面上观感都稳定（半透明玻璃在亮页上会糊成一片白）。
+   注意 1：这里取代了原先的 `background: var(--surface-page) !important`，对抗源消失后组件内不必再用 !important。
+   注意 2：main.ts 里 element-plus/dist/index.css 在本文件之后导入，EP 自带的 `.el-dialog`
+   （margin/padding/border-radius 等）同特异性且后到会赢，故用 `html .el-dialog` 提升特异性。 */
+html .el-dialog {
+  background: var(--surface-dialog);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  color: var(--text-primary); /* 顺带兜住组件里用到但项目未定义的 --text-on-card 等继承 */
+  padding: 17px; /* EP 默认 16px + 1px 边框回填，保证内容盒不缩水 */
+}
+
+/* 头部 / 底部与正文分层
+   注意：EP 自带 `.el-dialog__title` / `.el-form-item__label` 等深色文字色，同特异性且后导入会赢，
+   故凡与 EP 撞名的文字色一律用 `html` 前缀提升特异性（不靠 !important）。 */
+html .el-dialog__header {
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.el-dialog__headerbtn .el-dialog__close {
+  color: var(--text-muted);
+}
+
+.el-dialog__headerbtn:hover .el-dialog__close {
+  color: var(--text-primary);
+}
+
+html .el-dialog__footer {
+  padding-top: 14px;
+  border-top: 1px solid var(--border-color);
+}
+
+html .el-dialog__title {
+  color: var(--text-primary);
+}
+
+/* 表单控件：全站弹窗统一（原仅角色弹窗私有） */
+html .el-dialog .el-form-item__label {
+  color: var(--text-primary);
+}
+
+html .el-dialog .el-input__wrapper,
+html .el-dialog .el-textarea__inner,
+html .el-dialog .el-select__wrapper,
+html .el-dialog .el-input-number__wrapper {
+  background: var(--surface-input);
+  border-color: var(--glass-border);
+  color: var(--text-primary);
+  box-shadow: none;
+}
+
+html .el-dialog .el-input__inner,
+html .el-dialog .el-textarea__inner,
+html .el-dialog .el-select__placeholder {
+  color: var(--text-primary);
+}
+
+html .el-dialog .el-input__wrapper:hover,
+html .el-dialog .el-textarea__inner:hover,
+html .el-dialog .el-select__wrapper:hover {
+  border-color: var(--neon-blue);
+}
+
+html .el-dialog .el-input__wrapper.is-focus,
+html .el-dialog .el-textarea__inner:focus,
+html .el-dialog .el-select__wrapper.is-focus {
+  border-color: var(--neon-blue);
+  box-shadow: 0 0 0 2px var(--accent-soft-strong);
+}
+
+html .el-dialog .el-input__inner::placeholder,
+html .el-dialog .el-textarea__inner::placeholder {
+  color: var(--text-muted);
+}
+
+html .el-dialog .el-option {
+  background: var(--dark-bg);
+  color: var(--text-primary);
+}
+
+html .el-dialog .el-option:hover,
+html .el-dialog .el-option.is-selected {
+  background: var(--accent-soft-strong);
+}
+
+/* 逃生口：个别弹窗想改成实心更暗时加 class="dialog-plain"（当前无弹窗使用） */
+.el-dialog.dialog-plain {
+  background: var(--surface-page);
+}
+
+/* 移动端：全站弹窗统一贴底抽屉 + 输入框防 iOS 聚焦缩放 */
+@media (max-width: 768px) {
+  html .el-dialog {
+    width: 100% !important; /* 压过各弹窗固定 width（420/480/800/850px） */
+    max-width: 100vw;
+    max-height: 88vh !important;
+    margin: auto auto 0 !important; /* 抵消 EP 默认 margin: 15vh auto 50px，贴底 */
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .el-dialog__body {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 14px;
+  }
+
+  .el-dialog__footer {
+    padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* 输入框字号必须 ≥16px，否则 iOS Safari 聚焦时会放大整页 */
+  .el-dialog .el-input__inner,
+  .el-dialog .el-textarea__inner {
+    font-size: 16px;
+  }
+}
+
 .el-input__wrapper { background: var(--surface-input) !important; }
 
 @media print { body { background: white; color: black; } a { color: black; text-decoration: underline; } }

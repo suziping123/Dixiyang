@@ -205,7 +205,7 @@
     :is-streaming="true"
               />
               <div v-else class="message-item assistant">
-                <div class="message-avatar">🤖</div>
+                <div class="message-avatar"><el-icon><MagicStick /></el-icon></div>
                 <div class="message-content">
                   <div class="typing-indicator">
                     <span class="dot"></span>
@@ -1065,6 +1065,7 @@ onMounted(async () => {
   height: 36px;
   border-radius: 50%;
   background: rgba(59, 130, 246, 0.2);
+  color: var(--neon-cyan, #28c4d4);
   display: flex;
   align-items: center;
   justify-content: center;

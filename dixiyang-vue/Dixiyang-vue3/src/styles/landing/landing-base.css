@@ -3,14 +3,17 @@
    静帧为默认完成态；切换动效只在 no-preference 且桌面宽度下由 GSAP 注入
    ========================================================================== */
 
-/* 落地页在场时把全局暗底翻成亮纸（main.css 的 html,body 是 unlayered 全局） */
+/* 落地页 / 404 页在场时把全局暗底翻成亮纸（main.css 的 html,body 是 unlayered 全局） */
 html:has(.ld-page),
-html:has(.ld-page) body {
+html:has(.ld-404),
+html:has(.ld-page) body,
+html:has(.ld-404) body {
   background: var(--ld-bg);
   color: var(--ld-text);
   color-scheme: light;
 }
-html:has(.ld-page) {
+html:has(.ld-page),
+html:has(.ld-404) {
   scrollbar-gutter: stable;
 }
 

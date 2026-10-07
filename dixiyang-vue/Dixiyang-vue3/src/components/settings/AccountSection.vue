@@ -96,9 +96,11 @@
         <FieldError :message="pwdErrors.confirm" />
       </SettingRow>
       <div class="pwd-actions">
-        <button class="btn btn-primary" type="submit" :disabled="pwdLoading">
+        <!-- type=button：不走 form submit（form @submit.prevent 为空处理器，走它会静默无反应）；
+             点击直接调 changePassword，回车仍由 keyup.enter → enterSubmit 处理 -->
+        <button class="btn btn-primary" type="button" :disabled="pwdLoading" @click="changePassword">
           <Loading v-if="pwdLoading" class="spin" />
-          {{ pwdLoading ? '保存中…' : '保存信息' }}
+          {{ pwdLoading ? '保存中…' : '修改密码' }}
         </button>
       </div>
     </form>
@@ -201,6 +203,7 @@ const onNicknameBlur = () => {
  * 修改密码：字段级校验通过后调 POST /user/password（后端校验旧密码）
  */
 const changePassword = async () => {
+  if (pwdLoading.value) return // 防重入：回车与连点
   if (!validatePwdAll()) return
 
   pwdLoading.value = true

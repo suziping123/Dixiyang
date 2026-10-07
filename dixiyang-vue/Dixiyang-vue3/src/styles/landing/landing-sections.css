@@ -699,6 +699,8 @@
    404（无 .ld-page 容器，自带亮纸底）
    ========================================================================== */
 .ld-404 {
+  /* 定位层：使亮纸底与文字绘制在 #theme-bg（fixed; z-index:0，body 首子节点）之上 */
+  position: relative;
   min-height: 100svh;
   display: flex;
   flex-direction: column;

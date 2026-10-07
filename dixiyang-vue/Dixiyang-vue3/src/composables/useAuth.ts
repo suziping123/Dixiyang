@@ -163,6 +163,11 @@ export function useAuth() {
         ElMessage.success(`欢迎回来, ${user.nickname}`)
         router.push('/home')
       } else {
+        // 登录风控：短时间内频繁顶号 → 自动切到邮箱验证码登录模式
+        if (apiRes.msg && apiRes.msg.includes('验证码登录')) {
+          loginMode.value = 'code'
+          loginV.clearAll()
+        }
         ElMessage.error(friendlyError(apiRes.msg, '登录失败'))
       }
     } catch {

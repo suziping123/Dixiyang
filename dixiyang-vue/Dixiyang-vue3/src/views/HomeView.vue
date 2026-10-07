@@ -3,24 +3,44 @@
     <FloatingNav />
 
     <main class="main-stage" :class="{ 'blur-bg': showRag }">
+      <div class="topbar" :class="{ stuck: topbarStuck }">
+        <div class="brand">
+          <img src="../assets/logoByGpt.png" alt="Dixiyang Logo" class="brand-logo">
+          <h1 class="brand-name">DIXIYANG <span class="brand-engine">ENGINE</span></h1>
+        </div>
+        <BackgroundControl mode="compact" />
+      </div>
+
       <header class="stage-header">
-        <div class="header-top">
-          <div class="logo-wrapper">
-            <div id="div1" @drop="drop" @dragover.prevent></div>
-            <br>
-            <img src="../assets/logoByGpt.png" alt="Dixiyang Logo" sizes="" srcset="" class="logo-img" draggable="true" @dragstart="drag">
-            <h1 class="logo-text">DIXIYANG <span class="engine-span">ENGINE</span></h1>
-            <div class="glow-line"></div>
+        <div class="hero">
+          <div class="hero-left">
+            <p class="eyebrow">创作台 WORKSPACE</p>
+            <h2 class="hero-title">我的创作宇宙</h2>
+            <p class="subtitle">欢迎回来，<span class="user-name">{{ userStore.nickname || '创作者' }}</span>。当前有 <span class="highlight">{{ total }}</span> 个宇宙正在运行。</p>
           </div>
-          <div class="header-controls">
-            <BackgroundControl mode="compact" />
+          <div class="hero-stats">
+            <div class="stat-hero">
+              <b class="stat-hero-num">{{ total }}</b>
+              <span class="stat-hero-label">宇宙</span>
+            </div>
+            <div class="stat-hero">
+              <b class="stat-hero-num">{{ charTotal }}</b>
+              <span class="stat-hero-label">角色</span>
+            </div>
+            <div class="stat-hero">
+              <b class="stat-hero-num">{{ nodeTotal }}</b>
+              <span class="stat-hero-label">节点</span>
+            </div>
           </div>
         </div>
-        <p class="subtitle">欢迎回来，<span class="user-name">{{ userStore.nickname || '创作者' }}</span>。当前有 <span class="highlight">{{ novels.length }}</span> 个宇宙正在运行。</p>
       </header>
 
       <div class="galaxy-section">
-        <h2 class="section-title">✧ 我的创作宇宙</h2>
+        <div class="section-head">
+          <h2 class="section-title">全部作品</h2>
+          <span class="section-rule"></span>
+          <span class="section-count">{{ total }}</span>
+        </div>
 
         <div v-if="isLoading" class="loading-state">
           <div class="spinner"></div>
@@ -36,7 +56,6 @@
           <div class="galaxy-grid" :class="{ 'single-card': novels.length === 0 }">
             <div v-for="novel in novels" :key="novel.id" class="novel-card-wrapper" @mouseenter="hoveredCard = novel.id" @mouseleave="hoveredCard = null">
               <div class="glass-card novel-card" :class="{ flipped: flippedCards.has(novel.id) }" @click="handleCardClick(novel, $event)" title="点击查看宇宙概览，快速双击翻转">
-                <div class="card-glow" :style="{ opacity: hoveredCard === novel.id ? 1 : 0 }"></div>
 
                 <!-- 封面层 -->
                 <div class="novel-cover-wrapper">
@@ -89,11 +108,17 @@
                     <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M5 13l4 4L19 7"/></svg>
                   </button>
                 </div>
-                <div class="card-border-gradient"></div>
               </div>
             </div>
 
-            <CreateCard @create-success="fetchNovels" />
+            <CreateCard @create-success="() => fetchNovels()" />
+          </div>
+
+          <!-- 分页：还有未加载的宇宙时提供「加载更多」 -->
+          <div v-if="hasMore" class="load-more-row">
+            <button class="load-more-btn" type="button" :disabled="loadingMore" @click="loadMore">
+              {{ loadingMore ? '加载中…' : `加载更多（${novels.length} / ${total}）` }}
+            </button>
           </div>
         </template>
 
@@ -103,7 +128,7 @@
 
     <div class="rag-drawer" :class="{ open: showRag }">
       <div class="drawer-header">
-        <h3>✧ 宇宙概览</h3>
+        <h3>宇宙概览</h3>
         <button class="close-btn" @click="showRag = false"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/></svg></button>
       </div>
       <div class="drawer-content">
@@ -154,7 +179,7 @@
 
 <script setup lang="ts">
 // 核心导入（统一放在顶部）
-import { onMounted, onBeforeUnmount, ref, nextTick } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { gsap } from 'gsap'
 // 组件导入
@@ -169,7 +194,6 @@ import { confirmDelete } from '@/utils/confirm'
 // 资源导入
 import defaultCover from '@/images/default-cover.png'
 import { resolveNovelCover } from '@/utils/localImages'
-import SiliconAge from '@/images/presets/silicon-age.png'
 
 
 // 路由/状态初始化
@@ -199,8 +223,22 @@ const selectedNovel = ref<Novel | null>(null)
 const isLoading = ref(true)
 const ragLoading = ref(false)
 const novels = ref<Novel[]>([])
+// 分页：后端 /novel/listall 返回 { records, total, ... }，参数为蛇形 page_size
+const PAGE_SIZE = 10
+const page = ref(1)
+const total = ref(0)
+const loadingMore = ref(false)
+const hasMore = computed(() => novels.value.length < total.value)
 const flippedCards = ref<Set<string | number>>(new Set())
 const clickTimers = new Map<string | number, ReturnType<typeof setTimeout>>()
+
+// 顶栏吸顶态（滚动后出现玻璃底）
+const topbarStuck = ref(false)
+const onScroll = () => { topbarStuck.value = window.scrollY > 12 }
+
+// Hero 大数字统计：仅汇总接口真实字段，不引入杜撰指标
+const charTotal = computed(() => novels.value.reduce((s, n) => s + (n.char_count || 0), 0))
+const nodeTotal = computed(() => novels.value.reduce((s, n) => s + (n.node_count || 0), 0))
 
 
 
@@ -211,23 +249,6 @@ const toggleCardFlip = (novelId: string | number, event: Event) => {
     ? flippedCards.value.delete(novelId)
     : flippedCards.value.add(novelId)
 }
-
-function allowDrop(ev: DragEvent)
-{
-	ev.preventDefault();
-}
-
-function drag(ev: DragEvent) {
-  ev.dataTransfer!.setData("text/plain", (ev.target as HTMLElement).id)
-}
-function drop(ev: DragEvent) {
-  ev.preventDefault()
-  const id = ev.dataTransfer!.getData("text/plain")
-  const el = document.getElementById(id)
-  if (el && ev.currentTarget) (ev.currentTarget as HTMLElement).appendChild(el)
-}
-
-
 
 // 事件处理：卡片点击（单击/双击区分）
 const handleCardClick = (novel: Novel, event: Event) => {
@@ -280,6 +301,8 @@ async function deleteNovel(novel: Novel) {
     http.post(`/novel/delete/${novel.id}`)
       .then(() => {
         novels.value = novels.value.filter(n => n.id !== novel.id)
+        // 同步总数（分页计数口径）
+        total.value = Math.max(novels.value.length, total.value - 1)
 
         if (selectedNovel.value?.id === novel.id) {
           showRag.value = false
@@ -306,16 +329,29 @@ const goToRagAssistant = () => {
 const prevNovelCount = ref(0)
 
 // 数据请求：获取小说列表
-// HomeView 里的 fetchNovels 方法修改
-const fetchNovels = async () => {
+// append=true 为「加载更多」追加下一页；失败回退 page，避免跳页
+const fetchNovels = async (append = false) => {
+  if (append) loadingMore.value = true
+  else isLoading.value = true
+  let ok = false
   try {
-    isLoading.value = true;
-    const res = await http.get('/novel/listall', { params: { page: 1, pageSize: 10 } });
+    const res = await http.get('/novel/listall', {
+      params: { page: append ? page.value : 1, page_size: PAGE_SIZE },
+    })
     // 401 已由拦截器统一跳登录；其它业务失败直接返回，避免读空 data
-    const apiRes = assertApiResponse<{ records?: Novel[] } | Novel[] | null>(res)
-    if (apiRes.code !== 200 || !apiRes.data) return;
+    const apiRes = assertApiResponse<{ records?: Novel[]; total?: number } | Novel[] | null>(res)
+    if (apiRes.code !== 200 || !apiRes.data) return
     const data = apiRes.data
-    novels.value = Array.isArray(data) ? data : (data.records || []);
+    const records = Array.isArray(data) ? data : (data.records || [])
+    if (!Array.isArray(data) && typeof data.total === 'number') total.value = data.total
+    novels.value = append ? [...novels.value, ...records] : records
+    ok = true
+
+    if (append) {
+      // 追加页不重播全列表入场动画，仅重启悬浮（纳入新卡片）
+      nextTick(() => startFloatAnimation())
+      return
+    }
 
     // 判断是否有新卡片增加
     const hasNewCards = novels.value.length > prevNovelCount.value
@@ -340,8 +376,20 @@ const fetchNovels = async () => {
   } catch {
     // 获取小说列表失败（401 已由拦截器跳转登录）
   } finally {
-    isLoading.value = false;
+    if (append) {
+      loadingMore.value = false
+      if (!ok) page.value -= 1 // 追加失败回退页码，下次点击不跳页
+    } else {
+      isLoading.value = false
+    }
   }
+}
+
+// 「加载更多」：翻页并追加
+const loadMore = () => {
+  if (loadingMore.value || !hasMore.value) return
+  page.value += 1
+  fetchNovels(true)
 }
 
 // 保存悬浮动画实例
@@ -375,6 +423,7 @@ const startFloatAnimation = () => {
 
 // 生命周期：挂载
 onMounted(async () => {
+  window.addEventListener('scroll', onScroll, { passive: true })
   await fetchNovels()
 
   textColorCustomizer.loadFromStorage()
@@ -383,6 +432,7 @@ onMounted(async () => {
 
 // 生命周期：卸载（清理定时器和动画）
 onBeforeUnmount(() => {
+  window.removeEventListener('scroll', onScroll)
   clickTimers.forEach(timer => clearTimeout(timer))
   clickTimers.clear()
   // 清理悬浮动画
@@ -399,7 +449,8 @@ onBeforeUnmount(() => {
   min-height: 100vh;
   background: transparent;
   color: var(--text-primary);
-  overflow: hidden;
+  /* clip 而非 hidden：拦住横向溢出，但不破坏内部 position:sticky 吸顶 */
+  overflow-x: clip;
   position: relative;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   transition: filter 0.3s ease;
@@ -428,118 +479,176 @@ onBeforeUnmount(() => {
   to { transform: rotate(360deg); }
 }
 
-/* ============ 导航栏 ============ */
-.floating-nav {
-  position: fixed;
-  left: 30px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-  border-radius: 50px;
-  padding: 20px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 25px;
-  z-index: 100;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-
-.nav-item {
-  width: 50px;
-  height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 1.5rem;
-}
-
-.nav-item:hover { color: var(--neon-cyan); transform: scale(1.1); }
-.nav-item.active { background: rgba(59, 130, 246, 0.2); color: var(--neon-blue); box-shadow: inset 0 0 20px rgba(59, 130, 246, 0.3), 0 0 20px rgba(59, 130, 246, 0.5); }
-
 /* ============ 主舞台 ============ */
 .main-stage {
   position: relative;
   z-index: 1;
-  padding: 80px 120px;
+  /* 边距提为变量：顶栏负 margin 出血复用同一值 */
+  --stage-py: clamp(28px, 5vh, 64px);
+  --stage-px: clamp(20px, 5vw, 64px);
+  padding: var(--stage-py) var(--stage-px);
 }
 
-.stage-header { margin-bottom: 60px; }
+.stage-header { margin-bottom: 32px; }
 
-.header-top {
-  display: grid;
+/* 吸顶栏：负 margin 满幅出血，滚动后浮出玻璃底 + 发丝线 */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 90;
+  display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 30px;
-  margin-bottom: 20px;
-  
-
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 0 calc(-1 * var(--stage-px));
+  padding: 14px var(--stage-px);
+  background: transparent;
+  transition: background-color 0.25s ease;
 }
 
-.logo-img {
-  
-  max-height: 100px;
-  min-width: 100px;
+.topbar.stuck {
+  background: rgba(13, 13, 15, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--glass-border);
 }
-.logo-wrapper { position: relative; min-width: 300px; }
 
-.logo-text {
-  font-size: 3.5rem;
-  font-weight: 900;
-  letter-spacing: -2px;
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.brand-logo {
+  height: 40px;
+  width: auto;
+  display: block;
+}
+
+.brand-name {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   margin: 0;
-  background: linear-gradient(135deg, var(--text-primary) 0%, #e0e7ff 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--text-primary);
+  white-space: nowrap;
 }
 
-.engine-span {
-  background: linear-gradient(135deg, var(--neon-purple) 0%, var(--neon-blue) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.brand-engine {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  color: var(--accent-primary);
+}
+
+/* ============ Hero：左编辑部标题区 + 右大数字统计 ============ */
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 28px 56px;
+  align-items: end;
+}
+
+.eyebrow {
+  margin: 0 0 14px;
+  font-size: 0.75rem;
+  letter-spacing: 0.3em;
+  color: var(--accent-primary);
+}
+
+/* 发丝线眉标：结构线，非装饰光效 */
+.eyebrow::before {
+  content: '';
   display: inline-block;
+  width: 28px;
+  height: 1px;
+  background: var(--accent-primary);
+  vertical-align: middle;
+  margin-right: 10px;
 }
 
-.glow-line {
-  position: absolute;
-  bottom: -10px;
-  left: 0;
-  height: 3px;
-  width: 150px;
-  background: linear-gradient(to right, var(--neon-blue), var(--neon-purple), transparent);
-  filter: blur(2px);
+.hero-title {
+  margin: 0;
+  font-size: clamp(2rem, 3.6vw, 3.25rem);
+  font-weight: 900;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
 }
 
-.header-controls {
-  flex-shrink: 0;
-  min-width: fit-content;
+.hero-stats {
+  display: flex;
+  gap: clamp(24px, 4vw, 48px);
+}
+
+.stat-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+/* 全页尺度锚点：大数字对 0.9rem 正文 ≈ 5 倍对比 */
+.stat-hero-num {
+  font-size: clamp(2.75rem, 5vw, 4.5rem);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.stat-hero-label {
+  margin-top: 10px;
+  font-size: 0.72rem;
+  letter-spacing: 0.24em;
+  color: var(--text-muted);
 }
 
 .subtitle {
-  font-size: 1.2rem;
+  font-size: 0.9rem;
   color: var(--text-secondary);
-  margin: 20px 0 0 0;
+  margin: 14px 0 0;
 }
 
 .subtitle .highlight, .user-name {
   color: var(--neon-cyan);
   font-weight: 600;
-  text-shadow: 0 0 10px rgba(6, 182, 212, 0.4);
+}
+
+/* ============ 分节横规：标题 + 细线 + 计数徽章 ============ */
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .section-title {
-  font-size: 1.4rem;
-  font-weight: 700;
-  margin: 50px 0 30px 0;
-  letter-spacing: 2px;
-  text-transform: uppercase;
+  font-size: clamp(1.5rem, 2.4vw, 2rem);
+  font-weight: 800;
+  margin: 0;
+  letter-spacing: 0.08em;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.section-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--glass-border);
+}
+
+.section-count {
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  padding: 3px 12px;
 }
 
 /* ============ 加载状态 ============ */
@@ -555,7 +664,7 @@ onBeforeUnmount(() => {
 .spinner, .rag-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid rgba(59, 130, 246, 0.2);
+  border: 3px solid rgba(75, 139, 245, 0.22);
   border-top-color: var(--neon-blue);
   border-radius: 50%;
   animation: spin 1s linear infinite;
@@ -569,13 +678,41 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 35px;
-  margin-top: 30px;
+  margin-top: 18px;
 }
 .galaxy-grid.single-card {
   grid-template-columns: 1fr;
   max-width: 320px;
   margin-left: auto;
   margin-right: auto;
+}
+
+/* 分页「加载更多」 */
+.load-more-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 32px;
+}
+.load-more-btn {
+  padding: 10px 26px;
+  border-radius: 999px;
+  border: 1px solid var(--surface-glass-border, rgba(255, 255, 255, 0.12));
+  background: var(--surface-glass, rgba(255, 255, 255, 0.05));
+  color: var(--text-secondary, #9aa3b5);
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    border-color var(--dur, 240ms) var(--ease-out, ease-out),
+    color var(--dur, 240ms) var(--ease-out, ease-out);
+}
+.load-more-btn:hover:not(:disabled) {
+  border-color: rgba(75, 139, 245, 0.5);
+  color: var(--text-on-glass, #e8ecf5);
+}
+.load-more-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .empty-hint {
@@ -618,26 +755,13 @@ onBeforeUnmount(() => {
 }
 
 .novel-card {
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(75, 139, 245, 0.22);
 }
 
 .novel-card:hover {
-  border-color: var(--glass-border-hover);
-  box-shadow: var(--card-shadow), var(--glow-shadow);
+  border-color: rgba(75, 139, 245, 0.5);
+  box-shadow: var(--card-shadow);
   background: rgba(255, 255, 255, 0.08);
-}
-
-.card-glow {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
-  transform: translate(-50%, -50%);
-  opacity: 0;
-  transition: opacity 0.3s;
-  pointer-events: none;
 }
 
 /* 封面层 - 真实卡牌翻转动画 */
@@ -690,6 +814,12 @@ onBeforeUnmount(() => {
   object-fit: cover;
   border-radius: 24px;
   display: block;
+  transition: transform 0.5s ease;
+}
+
+/* hover 语义 = 「进入这个世界」：封面轻微推近 */
+.novel-card-wrapper:hover .novel-cover img {
+  transform: scale(1.04);
 }
 
 .card-content {
@@ -743,10 +873,7 @@ onBeforeUnmount(() => {
   font-size: 1.6rem;
   font-weight: 900;
   margin: 0 0 12px 0;
-  background: linear-gradient(135deg, var(--text-primary) 50%, #6b9ad3 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--text-primary);
   line-height: 1.3;
 }
 
@@ -790,8 +917,8 @@ onBeforeUnmount(() => {
 }
 
 .card-stats.expanded .stat {
-  background: rgba(99, 102, 241, 0.1);
-  border-color: rgba(99, 102, 241, 0.3);
+  background: rgba(75, 139, 245, 0.1);
+  border-color: rgba(75, 139, 245, 0.3);
 }
 
 .stat-icon, .btn-icon {
@@ -816,9 +943,9 @@ onBeforeUnmount(() => {
   width: 100%;
   padding: 12px 14px;
   border-radius: 12px;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(168, 85, 247, 0.1));
-  border: 1px solid rgba(59, 130, 246, 0.4);
-  color: var(--text-primary);
+  background: var(--accent-primary);
+  border: 1px solid transparent;
+  color: #fff;
   font-weight: 700;
   cursor: pointer;
   position: relative;
@@ -871,26 +998,27 @@ onBeforeUnmount(() => {
   opacity: 1;
 }
 
+/* 语义 hover 收敛为青（角色）/ 蓝（时间线）/ 红（删除），呼应蓝+青+中性色板 */
 .action-btn-sm.character-btn:hover,
 .action-btn-sm.character-btn:hover .btn-icon {
-  background: rgba(34, 197, 94, 0.15);
-  border-color: rgba(34, 197, 94, 0.4);
-  color: #22c55e;
+  background: rgba(6, 182, 212, 0.12);
+  border-color: rgba(6, 182, 212, 0.35);
+  color: var(--neon-cyan);
   opacity: 1;
 }
 
 .action-btn-sm.timeline-btn:hover,
 .action-btn-sm.timeline-btn:hover .btn-icon {
-  background: rgba(99, 102, 241, 0.15);
-  border-color: rgba(99, 102, 241, 0.4);
-  color: #6366f1;
+  background: rgba(75, 139, 245, 0.12);
+  border-color: rgba(75, 139, 245, 0.35);
+  color: var(--accent-primary);
   opacity: 1;
 }
 
 .action-btn-sm.delete-btn:hover,
 .action-btn-sm.delete-btn:hover .btn-icon {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
   color: #ef4444;
   opacity: 1;
 }
@@ -904,9 +1032,7 @@ onBeforeUnmount(() => {
 }
 
 .enter-btn:hover {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(168, 85, 247, 0.3));
-  border-color: var(--glass-border-hover);
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+  filter: brightness(1.12);
   transform: translateY(-2px);
 }
 
@@ -915,19 +1041,6 @@ onBeforeUnmount(() => {
   transform: translateX(0);
 }
 
-.card-border-gradient {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(to right, transparent, rgba(59, 130, 246, 0.5), transparent);
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-
-.novel-card:hover .card-border-gradient { opacity: 1; }
-
 /* ============ 创建卡片 ============ */
 .create-card {
   border: 2px dashed rgba(255, 255, 255, 0.2);
@@ -935,7 +1048,7 @@ onBeforeUnmount(() => {
 }
 
 .create-card:hover {
-  box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);
+  border-color: var(--neon-cyan);
 }
 
 .card-create-content {
@@ -1093,12 +1206,10 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   color: var(--neon-cyan);
-  filter: drop-shadow(0 0 15px rgba(6, 182, 212, 0.4));
   transition: all 0.3s;
 }
 
 .knowledge-sphere:hover .sphere-visual {
-  filter: drop-shadow(0 0 25px rgba(6, 182, 212, 0.6));
   transform: scale(1.1);
 }
 
@@ -1133,9 +1244,6 @@ onBeforeUnmount(() => {
 
 /* ============ 响应式 ============ */
 @media (max-width: 1400px) {
-  .main-stage {
-    padding: 60px 80px;
-  }
   .galaxy-grid {
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 25px;
@@ -1149,10 +1257,6 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1024px) {
-  .main-stage {
-    padding: 60px 60px;
-  }
-  .logo-text { font-size: 2.5rem; }
   .galaxy-grid { grid-template-columns: repeat(2, 1fr); }
   .galaxy-grid.single-card {
     grid-template-columns: 1fr;
@@ -1164,16 +1268,16 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 768px) {
-  .main-stage {
-    padding: 32px 16px;
-  }
-  /* 顶栏：桌面 3.5rem 大字 + 300px 最小宽会把右侧控制按钮挤出屏 */
-  .logo-wrapper { min-width: 0; }
-  .logo-img { max-height: 56px; min-width: 56px; }
-  .logo-text { font-size: 1.6rem; letter-spacing: -1px; }
-  .glow-line { width: 90px; }
-  .subtitle { font-size: 1rem; margin-top: 12px; }
-  .section-title { font-size: 1.05rem; letter-spacing: 1px; margin: 30px 0 18px; }
+  /* 顶栏：品牌字号与 logo 收窄，防止右侧控制被挤出屏 */
+  .brand-logo { height: 32px; }
+  .brand-name { font-size: 1rem; letter-spacing: 0.08em; }
+  .brand-engine { font-size: 0.6rem; letter-spacing: 0.2em; }
+  .subtitle { font-size: 0.85rem; }
+  /* Hero 纵向堆叠：标题区在上，统计行横排在下 */
+  .hero { grid-template-columns: 1fr; gap: 22px; }
+  .hero-stats { gap: 22px; flex-wrap: wrap; }
+  .stat-hero-num { font-size: clamp(2.25rem, 10vw, 3rem); }
+  .section-title { font-size: 1.25rem; }
 
   /* 手机上双列小卡，避免单列封面占满整屏 */
   .galaxy-grid {
@@ -1208,6 +1312,24 @@ onBeforeUnmount(() => {
     height: 80px;
     bottom: 20px;
     right: 20px;
+  }
+}
+
+/* 进入按钮图标：入场滑入 */
+@keyframes enterIconReveal {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* 触屏设备 / 移动端：图标常驻，只播一次动画后固定 */
+@media (hover: none), (max-width: 768px) {
+  .enter-btn .btn-icon,
+  .enter-btn:hover .btn-icon,
+  .enter-btn:active .btn-icon {
+    opacity: 1;
+    transform: translateX(0);
+    /* both = 延迟期保持 from（隐藏），结束后保持 to（固定显示） */
+    animation: enterIconReveal 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both;
   }
 }
 </style>

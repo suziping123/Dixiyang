@@ -1,6 +1,6 @@
 # motion-web 技能接入（opencode / Trae）
 
-> 最后更新: 2026-09-27
+> 最后更新: 2026-09-28
 
 ## 需求
 
@@ -49,6 +49,25 @@
 - **Trae**：设置中心 →「技能」面板应显示全局技能 `motion-web`；对话中匹配描述自动按需加载
 - 也可手动：对任意工具说「读 ~/.agents/skills/motion-web/SKILL.md 并按其 Build Order 执行」
 
+## Windows 修复（2026-09-28）
+
+**现象**：Windows 机器上 `.agents/skills/motion-web`、`.trae/skills/motion-web` 是 21 字节**普通文本文件**（内容仅为 `../../motion-web-main`），不是目录，opencode 扫描不到 `SKILL.md`，技能不出现在 `<available_skills>`。
+
+**根因**：Windows `core.symlinks=false`（git 默认），symlink 被 checkout 成"内容为目标路径"的普通文件。
+
+**修复**：删除两个文本文件，改建**目录联接（Junction）**（无需管理员权限、无需开发者模式，git 已忽略不入库）：
+
+```powershell
+Remove-Item -LiteralPath ".agents\skills\motion-web" -Force
+Remove-Item -LiteralPath ".trae\skills\motion-web" -Force
+New-Item -ItemType Junction -Path ".agents\skills\motion-web" -Target "$PWD\motion-web-main"
+New-Item -ItemType Junction -Path ".trae\skills\motion-web"  -Target "$PWD\motion-web-main"
+```
+
+不用纯复制：`SKILL.md` 内大量相对引用（`references/*.md`、`scripts/`、`data/`、`cases/`），只有联接整个目录才不断链。
+
+**适用范围**：仅修复项目级 2 处；`~/.agents/skills/`、`~/.trae-cn/skills/` 全局入口是 Linux 侧配置，Windows 上按需另行处理。
+
 ## 已知问题
 
 1. **Trae 对软链的解析未实测**：若 Trae 技能面板不显示，备选方案：将 `.trae/skills/motion-web` 改为真实目录复制（失去同步，需配同步脚本）
@@ -66,4 +85,11 @@ head -3 .agents/skills/motion-web/SKILL.md   # 应输出 name: motion-web
 # 2. opencode：退出重启，技能列表应出现 motion-web
 
 # 3. Trae：设置 → 技能面板应出现 motion-web（全局或项目）
+```
+
+```powershell
+# Windows（PowerShell）核对：LinkType 应为 Junction，SKILL.md / references 可读
+Get-Item .agents\skills\motion-web, .trae\skills\motion-web | Select-Object LinkType, Target
+Get-Content .agents\skills\motion-web\SKILL.md -TotalCount 3   # 应输出 name: motion-web
+Test-Path .agents\skills\motion-web\references\page-design.md   # 应为 True
 ```

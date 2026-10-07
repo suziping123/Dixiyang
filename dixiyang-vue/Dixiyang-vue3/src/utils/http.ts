@@ -1,6 +1,7 @@
 // src/utils/http.ts
 import axios from 'axios'
 import type { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios'
+import { ElMessage } from 'element-plus'
 import type { ApiResponse } from '@/api/types'
 import { clearAuth } from '@/utils/auth'
 
@@ -10,13 +11,23 @@ const http: AxiosInstance = axios.create({
 })
 
 // 401 统一处理：清登录态并跳登录页（防重复跳转）
+// message：后端透传的踢出/过期原因（如"账号已在其他设备登录"）
 let redirectingToLogin = false
-function handleUnauthorized() {
+export function handleUnauthorized(message?: string) {
   if (redirectingToLogin) return
   clearAuth()
   if (window.location.pathname === '/login') return
   redirectingToLogin = true
+  if (message) ElMessage.warning(message)
   window.location.href = '/login'
+}
+
+// 从后端 401 响应体提取提示文案（Java: msg / 旧filter: message / FastAPI: detail）
+function extract401Message(data: unknown): string | undefined {
+  if (!data || typeof data !== 'object') return undefined
+  const obj = data as Record<string, unknown>
+  const text = obj.msg ?? obj.message ?? obj.detail
+  return typeof text === 'string' && text.trim() ? text : undefined
 }
 
 // 请求拦截器：自动携带 Token
@@ -38,16 +49,16 @@ http.interceptors.response.use(
     }
     // 2. 业务码 401：统一清理并跳登录
     if (res && typeof res === 'object' && res.code === 401) {
-      handleUnauthorized()
+      handleUnauthorized(extract401Message(res))
       return Promise.reject(new Error(res.msg || '登录已过期'))
     }
     // 3. 对象直接返回，无论 code 是 200 还是 500，都由调用者自己判断
     return res
   },
   (error) => {
-    // HTTP 401（后端 JWT 校验失败）：统一清理并跳登录
+    // HTTP 401（后端 JWT 校验失败/被其他设备顶号）：统一清理并跳登录
     if (error.response?.status === 401) {
-      handleUnauthorized()
+      handleUnauthorized(extract401Message(error.response.data))
       return Promise.reject(new Error('登录已过期'))
     }
     // HTTP 状态码非 2xx（如 404、500、超时等）：这才是真正的网络/服务器异常
