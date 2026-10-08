@@ -174,8 +174,11 @@ def _build_stream_messages(req: ChatRequest, chain_dir: str) -> list[dict]:
     """构建流式聊天的完整消息列表"""
     mode = get_mode(req.conversation_mode)
 
-    # 历史消息
+    # 历史消息（重新生成：内存排除 regenerate_index 起的旧回答——
+    # 链截断延迟到生成成功后执行，保证取消/失败时旧回答不丢）
     history_msgs = load_chain_messages(chain_dir)
+    if req.regenerate_index >= 0:
+        history_msgs = history_msgs[:req.regenerate_index]
     history_text = format_history_for_prompt(history_msgs)
 
     # 编辑修正上下文
@@ -488,11 +491,8 @@ async def chat_regenerate(req: ChatRequest,
         chain_dir = _chain_dir(user_id, req.session_id)
         os.makedirs(chain_dir, exist_ok=True)
 
-        new_fname = truncate_chain(chain_dir, req.regenerate_index)
-        if new_fname:
-            new_hp = f"__file__:chat/{user_id}/{req.session_id}/{new_fname}"
-            _upsert_session(user_id, req.session_id, req.novel_id, new_hp)
-
+        # 链截断不再放在开头：延迟到生成成功/异常保存前原子执行，
+        # 客户端取消（断开）时旧回答保留在链上（本地亦保留，两端一致）
         mode = get_mode(req.conversation_mode)
         messages = _build_stream_messages(req, chain_dir)
         max_tokens = req.max_tokens or MODE_META[mode]["max_tokens"]
@@ -529,6 +529,8 @@ async def chat_regenerate(req: ChatRequest,
             if req.prev_answer_versions:
                 # 编辑提问重新生成：存档旧回答，与提问 versions 一一对齐
                 asst_msg["paired"] = list(req.prev_answer_versions)
+            # 成功完成才截断旧回答（与 append 原子相邻）
+            truncate_chain(chain_dir, req.regenerate_index)
             fname = save_chain_file(chain_dir, [asst_msg])
             hp = f"__file__:chat/{user_id}/{req.session_id}/{fname}"
             _upsert_session(user_id, req.session_id, req.novel_id, hp)
@@ -546,6 +548,8 @@ async def chat_regenerate(req: ChatRequest,
                         asst_msg["references"] = references
                     if req.prev_answer_versions:
                         asst_msg["paired"] = list(req.prev_answer_versions)
+                    # 异常部分保存：同样先截断再追加（与成功路径一致）
+                    truncate_chain(chain_dir, req.regenerate_index)
                     fname = save_chain_file(chain_dir, [asst_msg])
                     hp = f"__file__:chat/{user_id}/{req.session_id}/{fname}"
                     _upsert_session(user_id, req.session_id, req.novel_id, hp)

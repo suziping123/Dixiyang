@@ -25,3 +25,9 @@ class VersionRefRequest(BaseModel):
     message_index: int = Field(alias="messageIndex", default=-1)
     version_index: int = Field(alias="versionIndex", default=-1)
     field: str = "versions"
+
+
+class DeleteCurrentRequest(BaseModel):
+    """删除"当前版本"（最新格）并回退上一版。target: pair=提问成对回退 / self=本消息回退"""
+    message_index: int = Field(alias="messageIndex", default=-1)
+    target: str = "pair"

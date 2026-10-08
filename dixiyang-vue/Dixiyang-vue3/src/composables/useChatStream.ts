@@ -294,8 +294,9 @@ export function useChatStream(userId?: number) {
     const keepPaired = prevPaired ??
       (replaced?.role === 'assistant' ? replaced.paired : undefined)
 
-    // 截断本地消息（从 messageIndex 开始删除）
-    messages.value = messages.value.slice(0, messageIndex)
+    // 不预截断旧回答：生成期间保留旧回答气泡（切换立即可见旧对话）；
+    // 成功后原位替换，取消/失败时旧回答不丢（与后端"延迟截断"一致）
+    const slotIntact = () => messages.value[messageIndex] === replaced
 
     isStreaming.value = true
     currentContent.value = ''
@@ -369,18 +370,25 @@ export function useChatStream(userId?: number) {
         ...(keepPaired && keepPaired.length ? { paired: keepPaired } : {}),
         timestamp: new Date()
       }
-      messages.value.push(assistantMsg)
+      // 原位替换旧回答（会话被切换等导致槽位变化时不动新消息，防串会话）
+      if (slotIntact()) messages.value[messageIndex] = assistantMsg
+      else if (replaced === undefined && messages.value.length === messageIndex) messages.value.push(assistantMsg)
       currentContent.value = ''
       currentThinking.value = ''
       currentReferences.value = []
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
-        messages.value.push({
+        // 失败：原位保留/写入部分回答或错误提示（后端异常路径同样截断+保存，两端一致）
+        const fallback: ChatMessage = {
           role: 'assistant',
-          content: `重新生成失败：${friendlyError((error as Error).message, '请稍后再试')}`,
+          content: currentContent.value ||
+            `重新生成失败：${friendlyError((error as Error).message, '请稍后再试')}`,
           timestamp: new Date()
-        })
+        }
+        if (slotIntact()) messages.value[messageIndex] = fallback
+        else messages.value.push(fallback)
       }
+      // Abort（用户停止）：旧回答原样保留，本地与链一致
     } finally {
       isStreaming.value = false
       abortController = null
@@ -433,6 +441,45 @@ export function useChatStream(userId?: number) {
     return null
   }
 
+  // 删除当前版本（最新格）回退上一版。target: pair=提问+其后回答成对回退 / self=本消息回退
+  const deleteCurrent = async (index: number, target: 'pair' | 'self' = 'pair'): Promise<string | null> => {
+    const m = messages.value[index]
+    if (!m) return '消息不存在'
+    if (!currentSessionId.value || !userId) return '会话未就绪，请刷新后重试'
+    try {
+      const res = await http.post(`/chatHistory/delete-current/${currentSessionId.value}`, {
+        messageIndex: index, target
+      }) as unknown as { code?: number; msg?: string; data?: { content?: string; pairedContent?: string | null } }
+      if (res && typeof res === 'object' && typeof res.code === 'number' && res.code !== 200) {
+        return res.msg || '删除失败，请稍后再试'
+      }
+      const data = res?.data ?? {}
+      const popVersions = (list?: string[]) => {
+        const arr = [...(list ?? [])]
+        arr.pop()
+        return arr
+      }
+      messages.value[index] = {
+        ...m,
+        content: data.content ?? m.content,
+        versions: popVersions(m.versions)
+      }
+      if (target === 'pair') {
+        const ans = messages.value[index + 1]
+        if (ans?.role === 'assistant' && data.pairedContent != null) {
+          messages.value[index + 1] = {
+            ...ans,
+            content: data.pairedContent,
+            paired: popVersions(ans.paired)
+          }
+        }
+      }
+    } catch (e) {
+      return friendlyError((e as Error).message, '删除失败，请稍后再试')
+    }
+    return null
+  }
+
   const truncateMessages = (keepCount: number) => {
     if (keepCount < 0) return
     messages.value = messages.value.slice(0, keepCount)
@@ -476,6 +523,7 @@ export function useChatStream(userId?: number) {
     regenerateMessage,
     editMessage,
     deleteVersion,
+    deleteCurrent,
     truncateMessages
   }
 }

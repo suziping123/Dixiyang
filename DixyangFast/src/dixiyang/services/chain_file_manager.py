@@ -236,6 +236,42 @@ def restore_version(chain_dir: str, index: int, version_index: int, field: str =
     return messages[index]["content"]
 
 
+def delete_current(chain_dir: str, index: int, target: str = "pair") -> dict:
+    """
+    删除"当前版本"并回退上一版（最新格删除语义，规范 §2.4）。
+    - target="pair": 提问 content=versions.pop() 回退；其后回答 content=paired.pop() 成对回退
+    - target="self": 本消息 content=versions.pop() 回退（AI 铅笔条用）
+    单次 _rewrite_chain 原子执行；versions/pop 后编辑配额自动释放。
+    返回 {"content": 回退后内容, "pairedContent": 成对回退内容或 None}
+    """
+    if target not in ("pair", "self"):
+        raise IndexError(f"未知 target: {target}")
+    messages = read_chain(chain_dir)
+    if index < 0 or index >= len(messages):
+        raise IndexError(f"消息索引 {index} 越界，共 {len(messages)} 条")
+    m = messages[index]
+    versions = list(m.get("versions") or [])
+    if not versions:
+        raise IndexError("没有可删除的当前版本")
+
+    m["content"] = versions.pop()
+    m["versions"] = versions
+
+    paired_content = None
+    if target == "pair":
+        nxt = messages[index + 1] if index + 1 < len(messages) else None
+        if nxt and nxt.get("role") == "assistant":
+            paired = list(nxt.get("paired") or [])
+            if paired:
+                # 成对回退：回答同步回到与提问上一版对应的历史回答
+                paired_content = paired.pop()
+                nxt["content"] = paired_content
+                nxt["paired"] = paired
+
+    _rewrite_chain(chain_dir, messages)
+    return {"content": m["content"], "pairedContent": paired_content}
+
+
 def delete_version(chain_dir: str, index: int, version_index: int, field: str = "versions") -> list[str]:
     """
     删除 field 中一个历史条目（配额减一）。

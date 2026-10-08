@@ -17,6 +17,7 @@ from .chain_file_manager import (
     replace_message,
     restore_version,
     delete_version,
+    delete_current,
     read_edits,
     write_edit,
     read_summary,
@@ -197,6 +198,19 @@ class ChatHistoryService:
         except Exception as e:
             return Result.error(f"删除失败: {e}")
         return Result.success("删除成功", {"versions": versions})
+
+    def delete_current(self, user_id: int, session_id: str, message_index: int, target: str = "pair") -> dict:
+        """删除当前版本（最新格）并回退上一版：pair=提问+其后回答成对回退 / self=本消息回退"""
+        chain_dir = self._session_dir(user_id, session_id)
+        if not os.path.isdir(chain_dir):
+            return Result.error("会话目录不存在")
+        try:
+            data = delete_current(chain_dir, message_index, target)
+        except IndexError as e:
+            return Result.error(str(e))
+        except Exception as e:
+            return Result.error(f"删除失败: {e}")
+        return Result.success("删除成功", data)
 
     def generate_title(self, user_id: int, session_id: str) -> dict:
         session = self.db.query(ChatSession).filter(

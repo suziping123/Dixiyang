@@ -29,7 +29,12 @@
           <button type="button" class="vbtn" :disabled="isAtOldest" @click="prevVersion" title="更旧的版本">‹</button>
           <span class="vpos">{{ positionLabel }}</span>
           <button type="button" class="vbtn" :disabled="isAtNewest" @click="nextVersion" title="更新的版本">›</button>
-          <button v-if="browseIndex !== null" type="button" class="vbtn vbtn-del" @click="handleDelete" title="删除此版本（提问+回答成对删除）">删除</button>
+          <button
+            type="button"
+            class="vbtn vbtn-del"
+            @click="handleDelete"
+            :title="browseIndex !== null ? '删除此历史版本（提问+回答成对删除）' : '删除当前版本，回退到上一版'"
+          >删除</button>
         </div>
       </div>
       <div v-if="displayReferences.length > 0" class="references-block">
@@ -117,6 +122,8 @@ const emit = defineEmits<{
   extractSettings: [index: number]
   // 单参数：内联模板 $event 只取第一个 emit 参数，index 由父组件 v-for 提供
   deleteVersion: [versionIndex: number]
+  // 最新格删除：删当前版本回退上一版（无 versionIndex，由父组件按消息处理）
+  deleteCurrent: []
   'update:browseIndex': [index: number | null]
 }>()
 
@@ -179,12 +186,19 @@ const nextVersion = () => {
 }
 
 const handleDelete = async () => {
-  if (browseIndex.value === null) return
-  const versionIndex = browseIndex.value
-  const ok = await confirmDelete('删除该版本的提问和回答？编辑次数将减一', '警告')
+  // 历史格：删除该格（提问+回答成对）
+  if (browseIndex.value !== null) {
+    const versionIndex = browseIndex.value
+    const ok = await confirmDelete('删除该版本的提问和回答？编辑次数将减一', '警告')
+    if (!ok) return
+    emit('deleteVersion', versionIndex)
+    browseIndex.value = null
+    return
+  }
+  // 最新格（M/M）：删除当前版本，回退到上一版
+  const ok = await confirmDelete('删除当前版本，回退到上一版？编辑次数将减一', '警告')
   if (!ok) return
-  emit('deleteVersion', versionIndex)
-  browseIndex.value = null
+  emit('deleteCurrent')
 }
 
 // 版本列表变化（编辑新增/删除）后越界回退到当前（通知父组件）

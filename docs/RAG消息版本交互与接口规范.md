@@ -1,6 +1,6 @@
 # RAG 消息版本交互与接口规范
 
-> 版本：v1.36（2026-10-08）
+> 版本：v1.37（2026-10-08）
 > 地位：**本文件是版本切换/删除功能的唯一契约**。实现必须与本文一致；不一致即为 bug。
 > 历史演进见 [RAG编辑消息版本切换与原文不落盘](./RAG编辑消息版本切换与原文不落盘.md)（8.23）。
 
@@ -56,16 +56,25 @@
   - 紧随的 AI 回答显示 `assistant.paired[k-1]`（`k=M` 或 `paired` 缺失/越界 → 显示 AI `content`）。
 - **AI 铅笔条独立**：在 `assistant` 条切到 `k` 只改该 AI 气泡显示 `assistant.versions[k-1]`（`k=M` 显示 `content`），**提问不动**。
 - **互斥**：点提问条 → 清本对 AI 铅笔浏览态（AI 显示回到成对源）；点 AI 铅笔条 → AI 显示以铅笔历史为准（成对浏览态保留在提问侧、不回写 AI）。
+- **流式生成期间切换**（v1.37）：
+  - 生成（发送/编辑保存/重新生成）进行中可自由切换历史格，**看到的是该格旧内容，不显示三点/逐字加载**；
+  - 浏览任一历史格（`k<M`）期间**隐藏底部流式加载区**，生成在后台继续；切回最新格 `M/M` 恢复显示流式区；
+  - 切到历史格**自动滚动**到该消息（平滑居中）；切回最新格滚动到底部；
+  - 重新生成期间旧回答气泡**保留**（不预截断），成功后原位替换，取消后旧回答不丢。
 - 刷新/切会话/编辑/重新生成 → 一切浏览态回 `k=M`（最新）。
 
 ### 2.4 删除
 
-- 删除按钮仅在**历史格**（`k < M`）显示；最新格（`k=M`）无删除。
+- 删除按钮在**所有版本条**显示（历史格与最新格`M/M`均有，v1.37 起最新格可删）。
 - 点击弹确认（`confirmDelete`，禁回车触发），确认后：
-  1. **提问条删除格 i**：删 `user.versions[i]` **和** `assistant.paired[i]`（两次 DELETE，成对编排）；
-  2. **AI 铅笔条删除格 i**：仅删 `assistant.versions[i]`（`field=versions`，AI 自己），**不联动提问**；
-  3. 删除后该消息及联动消息浏览态回最新格（`k=M-1`，即新的 `M/M`）——「回到最近一次的回答」。
-- 删除同时释放 1 个编辑配额（`EDIT_VERSION_LIMIT` 判断在 `replace_message` 内）。
+  1. **提问条历史格 i（`k<M`）**：删 `user.versions[i]` **和** `assistant.paired[i]`（两次 DELETE，成对编排）；
+  2. **AI 铅笔条历史格 i**：仅删 `assistant.versions[i]`（`field=versions`，AI 自己），**不联动提问**；
+  3. **最新格（`k=M`）删除 = 删当前版、回退上一版**（v1.37 新增）：
+     - 提问条 → `target=pair` 单次原子调用：`user.content = versions.pop()` **且** `assistant.content = paired.pop()`（其后回答成对回退）；
+     - AI 铅笔条 → `target=self`：仅 `assistant.content = versions.pop()`（AI 自己回退，提问/`paired` 不动）；
+     - **消息不删除**，只回退内容与版本栈；可一路删到 `1/1`（`versions` 空后再删 → `code!=200`）；
+  4. 删除后该消息及联动消息浏览态回最新格（`k=M-1`，即新的 `M/M`）——「回到最近一次的回答」。
+- 删除同时释放 1 个编辑配额（`EDIT_VERSION_LIMIT` 判断在 `replace_message` 内；`delete-current` pop 后同效）。
 
 ### 2.5 不再存在的行为
 
@@ -91,6 +100,7 @@ resp: { "code": 0, "msg": "success" }   // 失败 code!=200
 
 - `role=user`：改前快照 append → `user.versions`；`truncateAfter=true` 时删除该索引及之后消息（新回答由前端随后写入）。
 - `role=assistant`：改前快照 append → 该 AI 的 `versions`（铅笔历史），不动 `paired`。
+- **当前前端一律传 `truncateAfter=false`**（v1.37）：编辑保存只改提问，**旧回答保留在链上**；重新生成成功后才由后端延迟截断（见 §3.3）。失败/取消时本地与链均为「新提问 + 旧回答」，不再出现"全部消失"。
 
 ### 3.2 删除版本格
 
@@ -104,13 +114,36 @@ resp: { "code": 0, "msg": "..." }
 - 提问格删除 = 前端顺序调用两次：`{userIdx, i, versions}` + `{aiIdx, i, paired}`（非原子，失败可重试，见 §4）。
 - `versionIndex` 越界 → `code!=200`（`msg` 含"越界"，实际 `code=500`）。
 
-### 3.3 废弃端点
+### 3.3 删除当前版本（最新格回退，v1.37）
+
+```
+POST /api/chatHistory/delete-current/{sessionId}
+body: { "messageIndex": int, "target": "pair"|"self" }
+resp: { "code": 200, "data": { "content": str, "pairedContent": str|null } }
+```
+
+- `target=pair`（提问条最新格）：**单次原子 rewrite** —— `user.content = versions.pop()` 且其后 `assistant.content = paired.pop()`（`paired` 为空/AI 缺失时降级只回退提问，`pairedContent=null`）。
+- `target=self`（AI 铅笔条最新格）：仅 `assistant.content = versions.pop()`，提问/`paired` 不动。
+- **消息不删除**，仅回退内容与版本栈；pop 后配额释放（快照数 -1）。
+- 错误：`messageIndex<0` → "参数不完整"；越界 / `versions` 空 / `target` 非法 → `code!=200`，**失败不改写文件**。
+
+### 3.4 重新生成的截断时序（v1.37）
+
+```
+POST /api/chat/stream （带 regenerateIndex 时 = 重新生成）
+```
+
+- **开流不截断链**：`_build_stream_messages` 在内存中排除 `history[:regenerateIndex]` 构建 prompt；
+- **成功保存前**才 `truncateChain(regenerateIndex)` 再追加新回答（异常部分保存路径同样先截断）；
+- 前端配合：`regenerateMessage` 不再预截断本地消息，成功后**原位替换** `messages[messageIndex]`（槽位被切换会话等破坏时不写入）；取消（Abort）不改本地 → 旧回答不丢。
+
+### 3.5 废弃端点
 
 ```
 POST /api/chatHistory/restore-version/{sessionId}   // DEPRECATED：前端不调用，保留兼容旧数据
 ```
 
-### 3.4 只读与造数
+### 3.6 只读与造数
 
 ```
 GET  /api/chatHistory/session/{sessionId}   // 消息列表（验收读取）
@@ -118,10 +151,10 @@ POST /api/chatHistory/batchSave             // 原样落链（聊天主流程不
      body: { sessionId, messages: [{role, content, versions?, paired?, ...}] }
 ```
 
-### 3.5 编辑配额
+### 3.7 编辑配额
 
-- 每会话每用户 `EDIT_VERSION_LIMIT = 6`；超限 `PUT message` 返回 `code!=200` + `msg="已达到最大编辑次数（6次）"`。
-- 每次 `DELETE version` 释放 1 配额（由快照总数 `versions+paired+AI.versions` 计数）。
+- 每会话每用户 `EDIT_VERSION_LIMIT = 6`；超限 `PUT message` 返回 `code!=200` + `msg="修改次数已达上限（6次），删除历史版本后可继续修改"`。
+- 每次 `DELETE version` 或 `POST delete-current` 释放 1 配额（由快照总数 `versions+paired+AI.versions` 计数）。
 
 ---
 
@@ -133,7 +166,9 @@ POST /api/chatHistory/batchSave             // 原样落链（聊天主流程不
 | 旧会话 `content == versions[i]`（历史恢复遗留） | 显示重复格（数据不解清洗）；验收用新建会话 |
 | 成对删除两次请求第二次失败 | `versions`/`paired` 暂不等长（I1 破）→ 重试删 `paired[i]`；浏览越界按 §2.3 兜底 |
 | AI 有 `paired` 无铅笔 `versions` | AI 无条；成对切换由提问条驱动（I3） |
-| 浏览历史格时发送新消息 | 链数据始终是最新版（浏览不落盘）；发送/重新生成用链上 `content`（最新格） |
+| 浏览历史格时发送新消息 | 链数据始终是最新版（浏览不落盘）；发送/重新生成用链上 `content`（最新格）；流式区在浏览态隐藏（§2.3） |
+| 编辑保存后取消重新生成（过渡态） | 本地与链 =「新提问 + 旧回答」，`u.versions` 比 `a.paired` 多 1（I1 暂破）；此状态下 `delete-current pair` 降级只回退提问（`pairedContent=null`），重新生成完成后 I1 自然恢复 |
+| 生成期间切换会话 | `regenerateMessage` 成功时按对象引用校验槽位，会话已切换则丢弃新回答不写入（防串会话） |
 
 ---
 
@@ -153,6 +188,18 @@ POST /api/chatHistory/batchSave             // 原样落链（聊天主流程不
 
 **实测结果（2026-10-08）**：`test_version_api.py` 对 8084 运行中服务、账号 11111 实测 **30/30 PASS**（登录、A1-A7 全矩阵、两会话测后即删）。脚本存于 `C:\Users\Lenovo\AppData\Local\Temp\opencode\test_version_api.py`。
 
+#### v1.37 增补（`test_v137_api.py`）
+
+| # | 步骤 | 断言 |
+|---|------|------|
+| B0 | 无 token 调 `delete-current` | HTTP 401/403/422 拒绝 |
+| B1 | `PUT message` `truncateAfter=false` → GET | 链长不变、旧回答保留、`versions` push、`content` 更新 |
+| B2 | `POST delete-current` `target=pair` ×2 → GET | 每次 `data.content/pairedContent` 为上一版；两数组同步 pop 仍等长（I1）；铅笔不受影响；消息数不变；第 3 次 `versions` 空 → `code!=200` 且状态不变；越界/`target=bad`/`messageIndex=-1` 拒绝 |
+| B3 | `POST delete-current` `target=self` | 仅 AI `content/versions` 回退；`paired` 与提问完全不动；`pairedContent=null` |
+| B4 | 编辑至第 7 次被拒 → `delete-current` → 再编辑 | 拒绝 msg 含"上限"；回退后配额释放，编辑恢复 200 |
+
+**实测结果（2026-10-08）**：`test_v137_api.py` **29/29 PASS**（回归 `test_version_api.py` 同轮 **30/30 PASS**）。脚本存于 `C:\Users\Lenovo\AppData\Local\Temp\opencode\test_v137_api.py`。
+
 ### 5.2 UI 验收（测试账号手测）
 
 | # | 步骤 | 预期 |
@@ -165,6 +212,10 @@ POST /api/chatHistory/batchSave             // 原样落链（聊天主流程不
 | U6 | 提问条切到历史 + 点 AI 铅笔条切换 | AI 显示以铅笔条为准；点回铅笔条最新格 → AI 回到与提问条一致的成对内容 |
 | U7 | 刷新页面 | 所有条回最新格（`M/M`），内容为最新版 |
 | U8 | 未编辑过提问的会话 | 你消息上无条；AI 铅笔编辑过才有 AI 条 |
+| U9 | AI 回答生成中（三点/逐字）立刻 `‹` 切历史格 | **立即看到旧对话内容，不出现加载动画**；底部流式区隐藏；自动滚动到该消息；生成完成后切回最新格看到新回答 |
+| U10 | 编辑提问保存后点重新生成，生成中点"停止" | 旧回答仍在（不消失、不空白）；链两端一致 |
+| U11 | 最新格 `M/M` 点删除（确认） | 提问+回答内容同时回退上一版（消息不消失、条变 `M-1/M-1`）；可继续删到 `1/1`，再删提示错误 |
+| U12 | AI 铅笔条最新格点删除 | 仅 AI 内容回退，你的提问完全不动 |
 
 ---
 
@@ -172,9 +223,10 @@ POST /api/chatHistory/batchSave             // 原样落链（聊天主流程不
 
 | 文件 | 职责 |
 |------|------|
-| `dixiyang-vue/Dixiyang-vue3/src/components/chat/ChatMessage.vue` | 版本条渲染条件、`k/M` 标签、线性 ‹›、删除按钮（无恢复） |
-| `dixiyang-vue/Dixiyang-vue3/src/views/RagAssistantView.vue` | `pairBrowse`/`aiOwnBrowse` 双状态、成对联动、成对删除编排 |
-| `dixiyang-vue/Dixiyang-vue3/src/composables/useChatStream.ts` | `editMessage`/`deleteVersion`（code 检查）；**无 restore** |
-| `DixyangFast/src/dixiyang/routers/chat_history.py` | 编辑/删除/废弃 restore 端点 |
-| `DixyangFast/src/dixiyang/services/chat_content_file_service.py` | `replace_message`/`restore_version`/`delete_version` 快照语义 |
-| `DixyangFast/src/dixiyang/services/chain_file_manager.py` | 链文件追加/截断/改写 |
+| `dixiyang-vue/Dixiyang-vue3/src/components/chat/ChatMessage.vue` | 版本条渲染条件、`k/M` 标签、线性 ‹›、删除按钮（历史格+最新格，无恢复） |
+| `dixiyang-vue/Dixiyang-vue3/src/views/RagAssistantView.vue` | `pairBrowse`/`aiOwnBrowse` 双状态、成对联动、成对删除编排、`isBrowsingHistory` 隐藏流式区、`scrollBrowseTarget`、`handleDeleteCurrent` |
+| `dixiyang-vue/Dixiyang-vue3/src/composables/useChatStream.ts` | `editMessage`（恒 `truncateAfter=false`）/`deleteVersion`/`deleteCurrent`（code 检查）；`regenerateMessage` 原位替换+防串会话；**无 restore** |
+| `DixyangFast/src/dixiyang/routers/chat_history.py` | 编辑/删除/`delete-current`/废弃 restore 端点 |
+| `DixyangFast/src/dixiyang/routers/chat.py` | `_build_stream_messages` 内存排除 `regenerateIndex`；成功/异常保存前 `truncateChain`（延迟截断） |
+| `DixyangFast/src/dixiyang/services/chat_history_service.py` | `delete_current` 服务编排（越界/配额/原子改写） |
+| `DixyangFast/src/dixiyang/services/chain_file_manager.py` | 链文件追加/截断/改写；`replace_message`/`restore_version`/`delete_version` 快照语义；`delete_current`（pair/self 回退，原子单次改写） |

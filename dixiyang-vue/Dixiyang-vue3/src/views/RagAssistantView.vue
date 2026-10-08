@@ -196,11 +196,12 @@
               @userEditCancel="cancelUserEdit"
               @extractSettings="handleExtractSettings(index)"
               @deleteVersion="handleDeleteVersion(index, $event)"
+              @deleteCurrent="handleDeleteCurrent(index)"
               class="message-item-wrapper"
             />
 
-            <!-- 正在流式输出的消息 -->
-            <template v-if="isStreaming">
+            <!-- 正在流式输出的消息（浏览历史时隐藏：历史视图无加载干扰，生成后台继续） -->
+            <template v-if="isStreaming && !isBrowsingHistory">
               <ChatMessage
                 v-if="currentContent || currentThinking"
                 :message="{ role: 'assistant', content: '', timestamp: new Date() }"
@@ -266,7 +267,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useChatStream } from '@/composables/useChatStream'
 import { useUserStore } from '@/stores/UserStore'
@@ -289,7 +290,7 @@ const {
   currentSessionId, sessions,
   sendMessage, cancelStream, loadSessions, loadSessionMessages,
   newSession, deleteSession, regenerateMessage,
-  editMessage, deleteVersion
+  editMessage, deleteVersion, deleteCurrent
 } = useChatStream(userId)
 
 // 单条消息编辑配额：最多 6 个版本，满额拦截入口
@@ -330,6 +331,7 @@ const setBrowse = (index: number, v: number | null) => {
     // AI 条（仅铅笔历史消息会渲染）：只改 AI 自己，提问不动；成对态保留供切回
     aiOwnBrowse[index] = v
   }
+  scrollBrowseTarget(index, v)
 }
 // 受控浏览值：AI=铅笔优先，否则成对；user=成对
 const browseIndexOf = (index: number): number | null => {
@@ -345,6 +347,26 @@ const browseSourceOf = (index: number): 'versions' | 'paired' => {
     return (m.paired?.length ?? 0) > 0 ? 'paired' : 'versions'
   }
   return 'versions'
+}
+// 浏览任一历史格：隐藏底部流式加载区（生成后台继续，切回最新格恢复显示）——
+// 修复"提问时切换后还看到三点/逐字加载"
+const isBrowsingHistory = computed(() =>
+  Object.values(pairBrowse).some(v => v != null) ||
+  Object.values(aiOwnBrowse).some(v => v != null)
+)
+// 切换后滚动到目标消息（历史格居中；回最新格滚到底部）
+const scrollBrowseTarget = (index: number, v: number | null) => {
+  nextTick(() => {
+    const container = messagesRef.value
+    if (!container) return
+    if (v === null) {
+      container.scrollTop = container.scrollHeight
+      return
+    }
+    const els = container.querySelectorAll('.message-item-wrapper')
+    const el = els[index] as HTMLElement | undefined
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  })
 }
 
 // RAG 视图所需数据形状（后端返回结构，仅取用到的字段）
@@ -548,8 +570,9 @@ const handleUserEditSave = async (content: string) => {
   const prevPaired = oldAnswer?.role === 'assistant'
     ? [...(oldAnswer.paired ?? []), oldAnswer.content]
     : undefined
-  // 持久化到后端（含链截断），失败则中止不改本地
-  const errMsg = await editMessage(idx, content, 'user', true)
+  // 持久化到后端（不预截断：旧回答保留到 regenerate 成功后由后端延迟截断，
+  // 取消/失败时本地与链均为"新提问+旧回答"，不再全部消失）
+  const errMsg = await editMessage(idx, content, 'user', false)
   if (errMsg) {
     ElMessage.error(errMsg)
     return
@@ -606,6 +629,19 @@ const handleDeleteVersion = async (index: number, versionIndex: number) => {
   // 删除后回最新格（"回到最近一次的回答"），分母随历史减一
   clearBrowse()
   ElMessage.success('已删除该版本，修改次数减一')
+}
+
+// 删除当前版本（最新格 M/M，规范 §2.4）：pair=提问成对回退 / self=AI 铅笔条自己回退
+const handleDeleteCurrent = async (index: number) => {
+  const m = messages.value[index]
+  if (!m) return
+  const errMsg = await deleteCurrent(index, m.role === 'user' ? 'pair' : 'self')
+  if (errMsg) {
+    ElMessage.error(errMsg)
+    return
+  }
+  clearBrowse()
+  ElMessage.success('已删除当前版本，回退到上一版')
 }
 
 const handleRegenerate = async (index: number) => {
