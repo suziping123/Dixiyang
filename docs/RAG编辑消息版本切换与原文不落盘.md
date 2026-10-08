@@ -11,7 +11,7 @@
 3. 每条消息最多 **6 个版本**（= 最多改 6 次）；删除 1 个版本配额减一，可继续编辑
 4. 用户提问编辑**持久化**（原为纯本地改+截断重发，刷新丢失、链不截断）
 5. 编辑提问后**历史回答不丢失**（第四轮）：切换提问第 i 版时，下方回答同步显示第 i 次编辑时生成的回答；删除/恢复提问版本时回答**成对**操作
-6. **单一版本切换器**（第五轮）：提问与回答只在**回答侧**出一个版本条（用户反馈"两个切换条一个就行"），提问由 `browseIndex` 联动高亮切换；杜绝同一回答在链中出现两份（双写）；流式完成后加载指示器立即消失
+6. **单一版本切换器**（第五、六轮）：版本条只挂在**用户消息**上（第六轮用户反馈：不应在 AI 消息上、应在自己发的消息上；第五轮曾在回答侧），AI 消息不出条、内容随 `browseIndex` 联动切换+描边；**计数与实际格数一致**（第六轮："看似2个却能切3个"= 显示历史数 N 实际 N+1 格 → 总数含当前 = N+1，显示 `当前 1/3 → 2/3 → 3/3`）；杜绝同一回答双写；流式完成后加载指示器立即消失
 
 ## 数据模型
 
@@ -45,7 +45,7 @@
 | 文件 | 改动 |
 |------|------|
 | `composables/useChatStream.ts` | `ChatMessage.versions?: string[]`；`editMessage` 改返回 `string \| null`（错误信息/成功），支持 `(index, content, role, truncateAfter)`；新增 `restoreVersion`/`deleteVersion`（历史与当前解耦，**第四轮加 `field` 参数**）；删除死代码 `replaceUserMessage`；**第四轮**：`ChatMessage.paired?: string[]`、`regenerateMessage` 加 `prevPaired` 参数（body `prevAnswerVersions`，不传则原样保留被截断回答的 paired）、load/save 映射 paired；**第五轮**：**删除 `saveToBackend`/batchSave 双写**（发送与重新生成两处调用点，落盘以后端为唯一写入点）、`sendStreamMessage` push 完成消息后**立即复位 `isStreaming`**（标题生成/会话刷新移出解锁关键路径，修 typing 指示器残留）、`editMessage`/`restoreVersion`/`deleteVersion` **检查业务返回码**（拦截器对 code≠200 也 resolve，失败不再静默改本地） |
-| `components/chat/ChatMessage.vue` | 去掉「已编辑」「vN」徽章；`versions≥1` 时气泡底部常显版本条 `‹ 当前·N个版本 ›`，浏览态出「恢复此版本」「删除（confirmDelete 确认，禁回车）」；`displayContent` computed 驱动气泡正文切换；`is-browsing` 描边；**第四轮**：`browseIndex` 改**受控**（props + `update:browseIndex`），新增 `browseSource`（`paired` 优先 / `versions` 兜底）决定版本条内容源；**第五轮**：版本条渲染加 `role==='assistant'` 条件 → **单一切换器**（提问侧不再出条，仅联动高亮） |
+| `components/chat/ChatMessage.vue` | 去掉「已编辑」「vN」徽章；`versions≥1` 时气泡底部常显版本条 `‹ 当前·N个版本 ›`，浏览态出「恢复此版本」「删除（confirmDelete 确认，禁回车）」；`displayContent` computed 驱动气泡正文切换；`is-browsing` 描边；**第四轮**：`browseIndex` 改**受控**（props + `update:browseIndex`），新增 `browseSource`（`paired` 优先 / `versions` 兜底）决定版本条内容源；**第五轮**：版本条渲染加单侧条件 → **单一切换器**；**第六轮**：条件改 `role==='user'`（版本条挂用户消息，AI 消息不出条、仍随 `browseMap` 联动），`positionLabel` 总数 = 历史 N+1（含当前），`当前 1/k → k/…` 与实际可切换格数一致 |
 | `components/chat/EditMessageModal.vue` | 删「原始回答」对照面板 → 单 textarea 全宽（720px） |
 | `views/RagAssistantView.vue` | 编辑入口（AI 回答 + 用户提问）先查配额满 6 → `ElMessage.warning` 拦截；`handleEditSave` 适配新返回值；`handleUserEditSave` 先 `editMessage(idx, content, 'user', true)` 持久化+后端截断，成功后改走 `regenerateMessage(idx+1, buildRegenContext())`（只生成回答，不重复写提问）；接线 `@restoreVersion/@deleteVersion`（单参数 `$event`=versionIndex）；**第四轮**：`handleUserEditSave` 抓旧回答组 `prevPaired` 传入 regenerate；`browseMap`+`setBrowse` 维护提问↔回答**成对浏览联动**；恢复/删除按角色**成对编排**（提问 ↔ 回答 `field='paired'`）；切会话/编辑/重新生成时 `clearBrowse()` |
 
@@ -66,7 +66,9 @@
 - **存量脏数据不自动清洗**：以上两 bug 已产生的重复消息/脏链无法可靠识别（"编辑前+编辑后"内容不同、无标记），修复只保证以后不再产生；当前受影响会话建议删除重聊
 - **同一回答双写（已修复，第五轮）**：`/chat/stream`、`/chat/regenerate` 流完成时后端写链，前端 `saveToBackend→batchSave` 又追加一份 → 链里每轮回答两份（本地链文件实证：后端 naive 时间 + 前端 UTC 时间同秒两条），后续编辑/版本操作按索引只改其中一份 → 出现"一条有版本条、一条没有"的截图现象 → **删除前端两处 `saveToBackend` 调用及函数，后端为聊天唯一写入点**（`batchSave` 端点保留兼容，主流程不再调用）
 - **加载态残留（已修复，第五轮）**：`sendStreamMessage` 完成后 `isStreaming=false` 要等 `finally`，中间串行 await 标题生成/会话刷新 → 已完成回答下方 typing 三点指示器残留数秒（"明明还在却显示在加载"）→ push 完成消息后立即复位 `isStreaming`
-- **双版本条冗余（已修复，第五轮）**：提问侧+回答侧各渲染一个版本条 → 版本条加 `role==='assistant'` 条件，仅回答侧保留，提问随 `browseIndex` 联动切换与高亮（业界单导航器惯例）
+- **双版本条冗余（已修复，第五、六轮）**：提问侧+回答侧各渲染一个版本条 → 第五轮先收敛为单侧（回答侧），第六轮按用户反馈改挂**用户消息**（"切换不应该在 AI 消息上面，应该在我发的消息上面"）：版本条 `role==='user'` 渲染，AI 消息不出条、内容随 `browseMap` 联动切换与描边
+- **版本计数与实际不符（已修复，第六轮）**：显示"N个版本"（=历史数 N）但实际可切换 N+1 格（当前+N历史）→ "看似只有两个却有3个" → `positionLabel` 总数改为 **N+1（含当前）**：`当前 1/3`、`2/3`、`3/3`，数字与格数自洽
+- **AI 回答独立编辑历史暂无浏览入口（第六轮限制）**：版本条移至用户消息后，仅编辑过 AI 回答（铅笔）而从未编辑过提问的会话无切换入口（提问 versions 为空不出条）；恢复/删除逻辑仍支持 `field='versions'`，待后续决定入口形态
 - **编辑/恢复/删除静默失败（已修复，第五轮）**：`http.ts` 拦截器对业务错误（code≠200）也 resolve，调用方不检查 code → 后端替换/截断失败时本地照改造成分叉 → 三个方法显式检查 `res.code`，失败返回错误信息并中止后续操作
 - **旧数据 content 混入 thinking（不回溯）**：修复前后端把 thinking 拼进 content 落链，老消息的思考文本仍显示在正文；新数据起 thinking 独立字段存储
 - **旧数据残留**：历史链文件里的 `originalContent` 字段不主动清洗，读取时过滤不下发，下次编辑时随重写自然消失
@@ -105,6 +107,6 @@ npx vite build       # ✓ built
 10. **（第四轮）删除/恢复提问版本 → 回答成对变化**；提问与回答两条版本条索引始终一致
 11. **（第四轮）手动点重新生成 → `paired` 不变**（再编辑提问后联动仍对齐）
 12. **（第五轮）发送一条消息 → 会话目录链文件内该轮问答只有一份**（无同秒双份）；编辑提问/重新生成后同样无重复回答
-13. **（第五轮）提问气泡不再显示版本条，仅回答侧一个**；回答侧 ‹ n/N › 切换时提问内容与 `is-browsing` 描边同步联动
+13. **（第五、六轮）版本条只在用户消息上**；AI 消息无条但内容随切换联动、`is-browsing` 描边同步；计数显示 `当前 1/3 → 2/3 → 3/3`（总数=历史+当前，与实际格数一致）
 14. **（第五轮）流式生成结束瞬间 typing 三点指示器立即消失**（不再残留到标题生成/会话刷新完成）
 15. **（第五轮）带 thinking 的新回答刷新后**：思考文本在「思考过程」折叠区、不在正文（老数据正文含思考属已知不回溯）

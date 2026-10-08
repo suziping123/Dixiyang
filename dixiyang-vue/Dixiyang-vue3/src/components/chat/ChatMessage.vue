@@ -24,8 +24,8 @@
           @input="editDraft = ($event.target as HTMLTextAreaElement).value"
           placeholder="输入要修改的内容..."
         ></textarea>
-        <!-- 单一切换器：仅回答侧渲染；提问侧由 browseIndex 联动高亮，不再单独出条 -->
-        <div v-if="message.role === 'assistant' && versionCount > 0 && !isEditing" class="version-bar">
+        <!-- 单一切换器：挂在用户消息上；AI 消息不出条，由 browseMap 联动切换内容+描边 -->
+        <div v-if="message.role === 'user' && versionCount > 0 && !isEditing" class="version-bar">
           <button type="button" class="vbtn" @click="prevVersion" title="上一个版本">‹</button>
           <span class="vpos">{{ positionLabel }}</span>
           <button type="button" class="vbtn" @click="nextVersion" title="下一个版本">›</button>
@@ -143,9 +143,13 @@ const displayContent = computed(() => {
   return versionList.value[browseIndex.value] ?? props.message.content
 })
 
+// 总位置数 = 历史版本数 + 当前（显示数字必须与实际可切换格数一致，否则"看似2个却能切3个"）
+const totalSlots = computed(() => versionCount.value + 1)
+
 const positionLabel = computed(() => {
-  if (browseIndex.value === null) return `当前 · ${versionCount.value}个版本`
-  return `浏览 ${browseIndex.value + 1}/${versionCount.value}`
+  if (browseIndex.value === null) return `当前 1/${totalSlots.value}`
+  // 序列：第1格=当前，第2格=最近改前，…，末格=最早原文
+  return `${browseIndex.value + 2}/${totalSlots.value}`
 })
 
 const prevVersion = () => {
