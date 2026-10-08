@@ -179,26 +179,32 @@
               </div>
             </div>
 
-            <ChatMessage
+            <!-- streamingHiddenIndex: 重新生成加载期临时隐藏该条旧回答（一个提问一个气泡），
+                 浏览历史时强制显示以保证成对切换可见 -->
+            <template
               v-for="(msg, index) in messages"
               :key="index"
-              :message="msg"
-              :index="index"
-              :is-editing="isUserEditing && editedUserMessageIndex === index"
-              :on-edit="(idx: number) => openEditModal(idx)"
-              :browse-index="browseIndexOf(index)"
-              :browse-source="browseSourceOf(index)"
-              :pair-browse-active="msg.role === 'assistant' && (pairBrowse[index] ?? null) !== null"
-              @update:browse-index="setBrowse(index, $event)"
-              @regenerate="handleRegenerate(index)"
-              @userEdit="handleUserEdit(index, $event)"
-              @userEditSave="handleUserEditSave"
-              @userEditCancel="cancelUserEdit"
-              @extractSettings="handleExtractSettings(index)"
-              @deleteVersion="handleDeleteVersion(index, $event)"
-              @deleteCurrent="handleDeleteCurrent(index)"
-              class="message-item-wrapper"
-            />
+            >
+              <ChatMessage
+                v-if="streamingHiddenIndex !== index || isBrowsingHistory"
+                :message="msg"
+                :index="index"
+                :is-editing="isUserEditing && editedUserMessageIndex === index"
+                :on-edit="(idx: number) => openEditModal(idx)"
+                :browse-index="browseIndexOf(index)"
+                :browse-source="browseSourceOf(index)"
+                :pair-browse-active="msg.role === 'assistant' && (pairBrowse[index] ?? null) !== null"
+                @update:browse-index="setBrowse(index, $event)"
+                @regenerate="handleRegenerate(index)"
+                @userEdit="handleUserEdit(index, $event)"
+                @userEditSave="handleUserEditSave"
+                @userEditCancel="cancelUserEdit"
+                @extractSettings="handleExtractSettings(index)"
+                @deleteVersion="handleDeleteVersion(index, $event)"
+                @deleteCurrent="handleDeleteCurrent(index)"
+                class="message-item-wrapper"
+              />
+            </template>
 
             <!-- 正在流式输出的消息（浏览历史时隐藏：历史视图无加载干扰，生成后台继续） -->
             <template v-if="isStreaming && !isBrowsingHistory">
@@ -287,6 +293,7 @@ const userId = userStore.userId || (() => {
 
 const {
   messages, currentContent, currentThinking, currentReferences, isStreaming,
+  streamingHiddenIndex,
   currentSessionId, sessions,
   sendMessage, cancelStream, loadSessions, loadSessionMessages,
   newSession, deleteSession, regenerateMessage,

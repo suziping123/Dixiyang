@@ -1,6 +1,6 @@
 # RAG 消息版本交互与接口规范
 
-> 版本：v1.37（2026-10-08）
+> 版本：v1.38（2026-10-08）
 > 地位：**本文件是版本切换/删除功能的唯一契约**。实现必须与本文一致；不一致即为 bug。
 > 历史演进见 [RAG编辑消息版本切换与原文不落盘](./RAG编辑消息版本切换与原文不落盘.md)（8.23）。
 
@@ -56,11 +56,12 @@
   - 紧随的 AI 回答显示 `assistant.paired[k-1]`（`k=M` 或 `paired` 缺失/越界 → 显示 AI `content`）。
 - **AI 铅笔条独立**：在 `assistant` 条切到 `k` 只改该 AI 气泡显示 `assistant.versions[k-1]`（`k=M` 显示 `content`），**提问不动**。
 - **互斥**：点提问条 → 清本对 AI 铅笔浏览态（AI 显示回到成对源）；点 AI 铅笔条 → AI 显示以铅笔历史为准（成对浏览态保留在提问侧、不回写 AI）。
-- **流式生成期间切换**（v1.37）：
+- **流式生成期间切换**（v1.37/v1.38）：
   - 生成（发送/编辑保存/重新生成）进行中可自由切换历史格，**看到的是该格旧内容，不显示三点/逐字加载**；
   - 浏览任一历史格（`k<M`）期间**隐藏底部流式加载区**，生成在后台继续；切回最新格 `M/M` 恢复显示流式区；
   - 切到历史格**自动滚动**到该消息（平滑居中）；切回最新格滚动到底部；
-  - 重新生成期间旧回答气泡**保留**（不预截断），成功后原位替换，取消后旧回答不丢。
+  - **一个提问一个气泡**（v1.38）：重新生成加载期，该条旧回答**临时隐藏**（`streamingHiddenIndex`），提问下方只有流式气泡；成功原位替换、失败原位替换为部分/错误、取消恢复旧回答显示（数据始终不丢）；浏览历史格时旧回答强制显示（保证成对切换可见）；
+  - 数据层面旧回答不预截断（v1.37），成功后原位替换，取消后本地与链一致。
 - 刷新/切会话/编辑/重新生成 → 一切浏览态回 `k=M`（最新）。
 
 ### 2.4 删除
@@ -213,7 +214,7 @@ POST /api/chatHistory/batchSave             // 原样落链（聊天主流程不
 | U7 | 刷新页面 | 所有条回最新格（`M/M`），内容为最新版 |
 | U8 | 未编辑过提问的会话 | 你消息上无条；AI 铅笔编辑过才有 AI 条 |
 | U9 | AI 回答生成中（三点/逐字）立刻 `‹` 切历史格 | **立即看到旧对话内容，不出现加载动画**；底部流式区隐藏；自动滚动到该消息；生成完成后切回最新格看到新回答 |
-| U10 | 编辑提问保存后点重新生成，生成中点"停止" | 旧回答仍在（不消失、不空白）；链两端一致 |
+| U10 | 编辑提问保存后点重新生成，生成中点"停止" | 加载期提问下方**只有一个气泡**（旧回答隐藏）；点停止后旧回答恢复（不消失、不空白） |
 | U11 | 最新格 `M/M` 点删除（确认） | 提问+回答内容同时回退上一版（消息不消失、条变 `M-1/M-1`）；可继续删到 `1/1`，再删提示错误 |
 | U12 | AI 铅笔条最新格点删除 | 仅 AI 内容回退，你的提问完全不动 |
 
@@ -225,7 +226,7 @@ POST /api/chatHistory/batchSave             // 原样落链（聊天主流程不
 |------|------|
 | `dixiyang-vue/Dixiyang-vue3/src/components/chat/ChatMessage.vue` | 版本条渲染条件、`k/M` 标签、线性 ‹›、删除按钮（历史格+最新格，无恢复） |
 | `dixiyang-vue/Dixiyang-vue3/src/views/RagAssistantView.vue` | `pairBrowse`/`aiOwnBrowse` 双状态、成对联动、成对删除编排、`isBrowsingHistory` 隐藏流式区、`scrollBrowseTarget`、`handleDeleteCurrent` |
-| `dixiyang-vue/Dixiyang-vue3/src/composables/useChatStream.ts` | `editMessage`（恒 `truncateAfter=false`）/`deleteVersion`/`deleteCurrent`（code 检查）；`regenerateMessage` 原位替换+防串会话；**无 restore** |
+| `dixiyang-vue/Dixiyang-vue3/src/composables/useChatStream.ts` | `editMessage`（恒 `truncateAfter=false`）/`deleteVersion`/`deleteCurrent`（code 检查）；`regenerateMessage` 原位替换+防串会话+`streamingHiddenIndex`（加载期隐藏旧回答）；**无 restore** |
 | `DixyangFast/src/dixiyang/routers/chat_history.py` | 编辑/删除/`delete-current`/废弃 restore 端点 |
 | `DixyangFast/src/dixiyang/routers/chat.py` | `_build_stream_messages` 内存排除 `regenerateIndex`；成功/异常保存前 `truncateChain`（延迟截断） |
 | `DixyangFast/src/dixiyang/services/chat_history_service.py` | `delete_current` 服务编排（越界/配额/原子改写） |

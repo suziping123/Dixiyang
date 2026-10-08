@@ -53,6 +53,9 @@ export function useChatStream(userId?: number) {
   const currentThinking = ref('')
   const currentReferences = ref<RagReference[]>([])
   const isStreaming = ref(false)
+  // 重新生成期间临时隐藏的旧回答索引（"一个问题一个气泡"：加载期旧回答让位，
+  // 成功原位替换/失败替换/取消恢复后再显示；浏览历史时强制显示供成对切换）
+  const streamingHiddenIndex = ref<number | null>(null)
   const currentSessionId = ref('')
   const sessions = ref<ChatSession[]>([])
   let abortController: AbortController | null = null
@@ -294,11 +297,12 @@ export function useChatStream(userId?: number) {
     const keepPaired = prevPaired ??
       (replaced?.role === 'assistant' ? replaced.paired : undefined)
 
-    // 不预截断旧回答：生成期间保留旧回答气泡（切换立即可见旧对话）；
-    // 成功后原位替换，取消/失败时旧回答不丢（与后端"延迟截断"一致）
+    // 不预截断旧回答：成功后原位替换，取消/失败时数据不丢（与后端"延迟截断"一致）；
+    // 渲染上加载期临时隐藏旧回答（streamingHiddenIndex），避免"一个提问两个气泡"
     const slotIntact = () => messages.value[messageIndex] === replaced
 
     isStreaming.value = true
+    streamingHiddenIndex.value = messageIndex
     currentContent.value = ''
     currentThinking.value = ''
     currentReferences.value = []
@@ -391,6 +395,7 @@ export function useChatStream(userId?: number) {
       // Abort（用户停止）：旧回答原样保留，本地与链一致
     } finally {
       isStreaming.value = false
+      streamingHiddenIndex.value = null
       abortController = null
       currentReferences.value = []
     }
@@ -511,6 +516,7 @@ export function useChatStream(userId?: number) {
     currentThinking: readonly(currentThinking),
     currentReferences: readonly(currentReferences),
     isStreaming: readonly(isStreaming),
+    streamingHiddenIndex: readonly(streamingHiddenIndex),
     currentSessionId: readonly(currentSessionId),
     sessions: readonly(sessions),
     sendMessage,
