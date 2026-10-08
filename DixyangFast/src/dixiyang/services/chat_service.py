@@ -34,6 +34,9 @@ def get_chat_model(
             base_url=DEEPSEEK_BASE_URL,
             temperature=temperature,
             max_tokens=max_tokens,
+            # 本地 27B 模型长 prompt 首 token 延迟可超 120s（langchain 默认值），
+            # 会抛 StreamChunkTimeoutError；放宽到 600s，仍保留死连接保护
+            stream_chunk_timeout=600,
         )
     return _llm_cache[key]
 

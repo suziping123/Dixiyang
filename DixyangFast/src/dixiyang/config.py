@@ -40,3 +40,4 @@ CHAT_MAX_FILE_SIZE = int(os.getenv("CHAT_MAX_FILE_SIZE", "102400"))
 
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.qq.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+

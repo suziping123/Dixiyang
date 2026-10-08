@@ -109,6 +109,13 @@ uv run --no-sync .\src\dixiyang\main.py
 
 ## 六、已知问题
 
+0. **`StreamChunkTimeoutError: No streaming chunk received for 120.0s`（2026-09-28 已修）**：
+   langchain_openai 默认 `stream_chunk_timeout=120s`，本地 27B 模型长 prompt
+   （角色卡+故事节点+历史）首 token 延迟可超 120s，且 `chunks_received=1`
+   （只收到流首个 role chunk）即被掐断。
+   **修复**：`chat_service.py:get_chat_model()` 加 `stream_chunk_timeout=600`。
+   若仍超时，说明 llama-kvmem 侧真卡死，排查模型服务而非调大此值。
+
 1. **本地模型质量/速度**：27B PTQ 模型，单 token 约 13 tok/s，长回复明显慢于云端
 2. **`_llm_cache` 缓存**：`chat_service.py:26` 按 `temperature:max_tokens` 缓存
    `ChatOpenAI` 实例，**不含 model/base_url** → 同一进程内切换 `.env` 后
