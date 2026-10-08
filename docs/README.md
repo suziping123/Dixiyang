@@ -458,15 +458,15 @@
 
 ---
 
-### 8.25 [点子库与创意社区策划](./点子库与创意社区策划.md) ✨ 新增（策划评审稿）
+### 8.25 [点子库与创意社区策划](./点子库与创意社区策划.md) ✨ 新增（策划评审稿 v1.1）
 **位置**: `docs/点子库与创意社区策划.md`
 
 **内容**:
-- 新功能策划（待实施）：私有点子草稿 + 公开创意社区（帖子），帖子可附**只读对话快照卡片**（发布时复制链为 `storage/community/.../snapshot.json`，原对话删除不影响）
-- 范围：草稿 CRUD、发布（强制预览确认）、广场（热门/最新/点赞排序+标签筛选+搜索）、点赞/平铺评论/收藏、我的（帖子/收藏/点赞）
-- 技术：Python FastAPI 单栈 + MySQL（5 张新表，长文本按 `__file__:` 存文件）+ **Redis**（计数缓存、`idea:hot` ZSET 热门榜、发帖/评论频控、60s 计数回写、10min ZSET 重建、不可用降级回 DB）
-- 交付：API 契约（`/api/idea/*`）、前端 6 组件文件清单、里程碑 P0-P3、自动化测试计划与 UI 手测清单、风险表
-- 前置：需 `pip install redis` + 探测 `REDIS_URL` 服务
+- 新功能策划（待实施）：私有点子草稿 + 公开创意社区（帖子），**五分区**（点子灵感/角色/设定/时间线/技术分享）+ **四类结构化只读附件**（对话链/角色卡/设定集/时间线视图，发布时从现有数据复制为 `storage/community/.../attach_*.json`，原数据删除不影响）+ **角色附件一键导入到我的小说**（复制行+extra 文件、vector_id 置空）
+- 互动：点赞/平铺评论/收藏/标签关联表筛选/热门排序（Redis ZSET `idea:hot` + 60s 计数回写 + 频控 + 降级回 DB）
+- 数据库补强（v1.1）：时间统一 `create_time`、`idea_attachment` 多态附件表、`idea_post_tag` 关联表、评论 `Text`、组合索引、`app_user` 加 `avatar_url`/`pen_name`
+- 技术：Python FastAPI 单栈 + MySQL 7 表 + Redis（前置 `pip install redis`）；API 契约 `/api/idea/*`、前端 6 组件、里程碑 P0-P3、测试计划
+- **§8 功能路线图**：本期范围 / 二期候选（Chroma `idea_posts` 相似推荐、设定/时间线导入、投票征集、每日灵感、作者主页、存入知识库）/ 远期；同类产品调研依据（SillyTavern、DZMM、造物纪、饼次元、LitMemo、云作者等）
 
 **适用人群**: 产品、前端开发者、后端开发者、测试
 
@@ -703,6 +703,9 @@
 ---
 
 ## 版本变更记录
+
+### v1.43 (2026-10-08)
+- **策划扩展**: [点子库与创意社区策划](./点子库与创意社区策划.md) 升级 **v1.1** — 用户四项决策落地：① **五分区**（点子/角色/设定/时间线/技术，`idea_post.category`）+ **四类结构化附件**（`idea_attachment` 多态表替代单 snapshot_path；对话/角色/设定/时间线从现有表导出只读快照）+ **角色附件一键导入到我的小说**（复制行+extra、vector_id 置空，频控 10s）；② 数据库补强：时间统一 `create_time`（对齐全库/Java 惯例）、标签改 `idea_post_tag` 关联表、评论 `Text`、组合索引、`app_user` 加可空 `avatar_url`/`pen_name`；③ §8 功能路线图：ChromaDB（非 Qdrant）`idea_posts` 相似推荐、设定/时间线导入、投票征集、存入知识库等二期候选 + 同类产品调研依据（SillyTavern/DZMM/造物纪/饼次元/LitMemo/云作者）；④ Java 双栈保留、稳健版清理等决策同步落实（见 v1.42）
 
 ### v1.42 (2026-10-08)
 - **清理**: [项目清理记录](./项目清理记录.md) — 稳健版项目清理两批次：① 代码批次 `aebe648`（-459 行）删 `colorUtils.ts`、assets 6 大图+2 logo（约14MB）、空文件、`md2docx.py`、Python 4 个死函数、Java 2 个零端点空 Controller，修 `NovelController` delete 路由缺斜杠（原 `/noveldelete` 不可达）；② 归档与文档批次：daily-log 一代原型 34 文件出库（`.gitignore`+`--cached`，本地保留）、docs README **12 条断链全修复（41/41）**、`功能完成状态.md`/`前后端接口对照分析.md`/双端 `AGENTS.md` 加勘误修正过期结论（NovelEditorView 已为完整编辑器、4 个 Controller 非空、9 个不存在文件移出目录树）；验证 type-check 9/lint 8 基线、py_compile、grep 零引用、链接校验 broken=0；README 登记 8.26
