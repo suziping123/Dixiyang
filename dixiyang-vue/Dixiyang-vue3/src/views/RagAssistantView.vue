@@ -186,15 +186,15 @@
               :index="index"
               :is-editing="isUserEditing && editedUserMessageIndex === index"
               :on-edit="(idx: number) => openEditModal(idx)"
-              :browse-index="browseMap[index] ?? null"
+              :browse-index="browseIndexOf(index)"
               :browse-source="browseSourceOf(index)"
+              :pair-browse-active="msg.role === 'assistant' && (pairBrowse[index] ?? null) !== null"
               @update:browse-index="setBrowse(index, $event)"
               @regenerate="handleRegenerate(index)"
               @userEdit="handleUserEdit(index, $event)"
               @userEditSave="handleUserEditSave"
               @userEditCancel="cancelUserEdit"
               @extractSettings="handleExtractSettings(index)"
-              @restoreVersion="handleRestoreVersion(index, $event)"
               @deleteVersion="handleDeleteVersion(index, $event)"
               class="message-item-wrapper"
             />
@@ -289,7 +289,7 @@ const {
   currentSessionId, sessions,
   sendMessage, cancelStream, loadSessions, loadSessionMessages,
   newSession, deleteSession, regenerateMessage,
-  editMessage, restoreVersion, deleteVersion
+  editMessage, deleteVersion
 } = useChatStream(userId)
 
 // 单条消息编辑配额：最多 6 个版本，满额拦截入口
@@ -308,31 +308,43 @@ const editingUserMessageContent = ref<string>('')
 const editedUserMessageIndex = ref<number>(-1)
 const isUserEditing = ref<boolean>(false)
 
-// 成对浏览态：提问 ↔ 其后回答 同步切换（key=消息索引，null=当前内容）
-const browseMap = reactive<Record<number, number | null>>({})
+// 双浏览态（规范 §2.3）：pairBrowse=提问条驱动（提问+成对回答）；aiOwnBrowse=AI 铅笔条驱动（仅 AI 内容）
+const pairBrowse = reactive<Record<number, number | null>>({})
+const aiOwnBrowse = reactive<Record<number, number | null>>({})
 const clearBrowse = () => {
-  for (const k of Object.keys(browseMap)) delete browseMap[Number(k)]
+  for (const k of Object.keys(pairBrowse)) delete pairBrowse[Number(k)]
+  for (const k of Object.keys(aiOwnBrowse)) delete aiOwnBrowse[Number(k)]
 }
 const setBrowse = (index: number, v: number | null) => {
-  browseMap[index] = v
   const m = messages.value[index]
   if (m?.role === 'user') {
+    // 提问条：成对联动（提问 + 其后回答），并清掉 AI 铅笔浏览态（互斥）
+    pairBrowse[index] = v
     const ans = messages.value[index + 1]
-    if (ans?.role === 'assistant' && (ans.paired?.length ?? 0) > 0) {
-      // 越界回退到当前（回答显示 content 兜底）
-      browseMap[index + 1] = v === null || v < (ans.paired?.length ?? 0) ? v : null
+    if (ans?.role === 'assistant') {
+      delete aiOwnBrowse[index + 1]
+      // 越界回退到最新（回答显示 content 兜底）
+      pairBrowse[index + 1] = v === null || v < (ans.paired?.length ?? 0) ? v : null
     }
-  } else if (m?.role === 'assistant' && (m.paired?.length ?? 0) > 0) {
-    const q = messages.value[index - 1]
-    if (q?.role === 'user') {
-      browseMap[index - 1] = v === null || v < (q.versions?.length ?? 0) ? v : null
-    }
+  } else if (m?.role === 'assistant') {
+    // AI 条（仅铅笔历史消息会渲染）：只改 AI 自己，提问不动；成对态保留供切回
+    aiOwnBrowse[index] = v
   }
 }
-// 回答的版本条内容源：有成对存档用 paired（联动），否则独立编辑历史
+// 受控浏览值：AI=铅笔优先，否则成对；user=成对
+const browseIndexOf = (index: number): number | null => {
+  const m = messages.value[index]
+  if (m?.role === 'assistant') return aiOwnBrowse[index] ?? pairBrowse[index] ?? null
+  return pairBrowse[index] ?? null
+}
+// 气泡显示数据源：AI 铅笔浏览中→versions；否则有成对存档→paired；user 恒 versions
 const browseSourceOf = (index: number): 'versions' | 'paired' => {
   const m = messages.value[index]
-  return m?.role === 'assistant' && (m.paired?.length ?? 0) > 0 ? 'paired' : 'versions'
+  if (m?.role === 'assistant') {
+    if ((aiOwnBrowse[index] ?? null) !== null) return 'versions'
+    return (m.paired?.length ?? 0) > 0 ? 'paired' : 'versions'
+  }
+  return 'versions'
 }
 
 // RAG 视图所需数据形状（后端返回结构，仅取用到的字段）
@@ -575,42 +587,11 @@ const handleEditSave = async (newContent: string) => {
   editingMessageIndex.value = -1
 }
 
-// 恢复历史版本为当前对话内容（提问与其成对回答一起恢复）
-const handleRestoreVersion = async (index: number, versionIndex: number) => {
-  const m = messages.value[index]
-  if (!m) return
-  const usePaired = m.role === 'assistant' && (m.paired?.length ?? 0) > 0
-  const errMsg = usePaired
-    ? await restoreVersion(index, versionIndex, 'paired')
-    : await restoreVersion(index, versionIndex)
-  if (errMsg) {
-    ElMessage.error(errMsg)
-    return
-  }
-  // 成对：恢复提问时同步恢复当时回答；恢复回答时同步恢复提问
-  if (m.role === 'user') {
-    const ans = messages.value[index + 1]
-    if (ans?.role === 'assistant' && (ans.paired?.length ?? 0) > versionIndex) {
-      await restoreVersion(index + 1, versionIndex, 'paired')
-    }
-  } else if (usePaired) {
-    const q = messages.value[index - 1]
-    if (q?.role === 'user' && (q.versions?.length ?? 0) > versionIndex) {
-      await restoreVersion(index - 1, versionIndex)
-    }
-  }
-  clearBrowse()
-  ElMessage.success('已恢复该版本')
-}
-
-// 删除历史版本（编辑配额减一，提问与其成对回答一起删）
+// 删除历史版本（规范 §2.4）：提问条=成对删（提问快照+该格回答）；AI 铅笔条=仅删自己的铅笔历史
 const handleDeleteVersion = async (index: number, versionIndex: number) => {
   const m = messages.value[index]
   if (!m) return
-  const usePaired = m.role === 'assistant' && (m.paired?.length ?? 0) > 0
-  const errMsg = usePaired
-    ? await deleteVersion(index, versionIndex, 'paired')
-    : await deleteVersion(index, versionIndex)
+  const errMsg = await deleteVersion(index, versionIndex, 'versions')
   if (errMsg) {
     ElMessage.error(errMsg)
     return
@@ -618,14 +599,11 @@ const handleDeleteVersion = async (index: number, versionIndex: number) => {
   if (m.role === 'user') {
     const ans = messages.value[index + 1]
     if (ans?.role === 'assistant' && (ans.paired?.length ?? 0) > versionIndex) {
-      await deleteVersion(index + 1, versionIndex, 'paired')
-    }
-  } else if (usePaired) {
-    const q = messages.value[index - 1]
-    if (q?.role === 'user' && (q.versions?.length ?? 0) > versionIndex) {
-      await deleteVersion(index - 1, versionIndex)
+      const err2 = await deleteVersion(index + 1, versionIndex, 'paired')
+      if (err2) ElMessage.error(err2)
     }
   }
+  // 删除后回最新格（"回到最近一次的回答"），分母随历史减一
   clearBrowse()
   ElMessage.success('已删除该版本，修改次数减一')
 }

@@ -24,15 +24,12 @@
           @input="editDraft = ($event.target as HTMLTextAreaElement).value"
           placeholder="输入要修改的内容..."
         ></textarea>
-        <!-- 单一切换器：挂在用户消息上；AI 消息不出条，由 browseMap 联动切换内容+描边 -->
-        <div v-if="message.role === 'user' && versionCount > 0 && !isEditing" class="version-bar">
-          <button type="button" class="vbtn" @click="prevVersion" title="上一个版本">‹</button>
+        <!-- 版本切换条（规范 §2.2）：user=成对历史导航；assistant=仅铅笔历史导航（成对浏览中隐藏，导航在提问条） -->
+        <div v-if="showVersionBar" class="version-bar">
+          <button type="button" class="vbtn" :disabled="isAtOldest" @click="prevVersion" title="更旧的版本">‹</button>
           <span class="vpos">{{ positionLabel }}</span>
-          <button type="button" class="vbtn" @click="nextVersion" title="下一个版本">›</button>
-          <template v-if="browseIndex !== null">
-            <button type="button" class="vbtn vbtn-restore" @click="handleRestore" title="恢复此版本为对话内容">恢复此版本</button>
-            <button type="button" class="vbtn vbtn-del" @click="handleDelete" title="删除此版本（编辑次数减一）">删除</button>
-          </template>
+          <button type="button" class="vbtn" :disabled="isAtNewest" @click="nextVersion" title="更新的版本">›</button>
+          <button v-if="browseIndex !== null" type="button" class="vbtn vbtn-del" @click="handleDelete" title="删除此版本（提问+回答成对删除）">删除</button>
         </div>
       </div>
       <div v-if="displayReferences.length > 0" class="references-block">
@@ -103,6 +100,8 @@ interface Props {
   browseIndex?: number | null
   // 版本条内容源：paired=与提问成对的存档（回答默认优先）/ versions=独立编辑历史
   browseSource?: 'versions' | 'paired'
+  // 本对正在成对浏览（提问条驱动）时：AI 铅笔条隐藏，导航归提问条（规范 §2.3 互斥）
+  pairBrowseActive?: boolean
 }
 
 import { ref, watch, computed } from 'vue'
@@ -117,7 +116,6 @@ const emit = defineEmits<{
   userEditCancel: []
   extractSettings: [index: number]
   // 单参数：内联模板 $event 只取第一个 emit 参数，index 由父组件 v-for 提供
-  restoreVersion: [versionIndex: number]
   deleteVersion: [versionIndex: number]
   'update:browseIndex': [index: number | null]
 }>()
@@ -130,54 +128,60 @@ const browseIndex = computed<number | null>({
   set: (v) => emit('update:browseIndex', v)
 })
 
-// 版本条内容源：回答有 paired（编辑提问产生的成对存档）时优先，否则用独立编辑历史
-const versionList = computed<string[]>(() => {
+// 版本条导航数据：始终是本消息自己的 versions（user=提问历史 / assistant=铅笔历史）
+const barList = computed<string[]>(() => props.message.versions ?? [])
+// 气泡显示数据：按浏览源取（成对浏览=paired，否则 versions）
+const displayList = computed<string[]>(() => {
   if (props.browseSource === 'paired') return props.message.paired ?? []
   return props.message.versions ?? []
 })
 
-const versionCount = computed(() => versionList.value.length)
+const versionCount = computed(() => barList.value.length)
+
+// 条渲染条件（规范 §2.2）：本消息有历史 + 非编辑态 +（AI 未成对浏览中）
+const showVersionBar = computed(() => {
+  if (props.isEditing) return false
+  if (versionCount.value <= 0) return false
+  if (props.message.role === 'assistant' && props.pairBrowseActive) return false
+  return true
+})
 
 const displayContent = computed(() => {
   if (browseIndex.value === null) return props.message.content
-  return versionList.value[browseIndex.value] ?? props.message.content
+  return displayList.value[browseIndex.value] ?? props.message.content
 })
 
-// 总位置数 = 历史版本数 + 当前（显示数字必须与实际可切换格数一致，否则"看似2个却能切3个"）
+// 格数 = 历史 + 最新；分母恒定（规范 §2.1 I4：只有删除减一）
 const totalSlots = computed(() => versionCount.value + 1)
 
-const positionLabel = computed(() => {
-  if (browseIndex.value === null) return `当前 1/${totalSlots.value}`
-  // 序列：第1格=当前，第2格=最近改前，…，末格=最早原文
-  return `${browseIndex.value + 2}/${totalSlots.value}`
-})
+// k ∈ [1, M]：null=最新（M/M）；i → k=i+1（i=0 最旧）
+const currentSlot = computed(() => (browseIndex.value === null ? totalSlots.value : browseIndex.value + 1))
 
+const positionLabel = computed(() => `${currentSlot.value}/${totalSlots.value}`)
+
+const isAtOldest = computed(() => currentSlot.value <= 1)
+const isAtNewest = computed(() => currentSlot.value >= totalSlots.value)
+
+// 线性移动、端点停止（规范 §2.3）：‹ 向旧，› 向新，不循环
 const prevVersion = () => {
-  const n = versionCount.value
-  if (!n) return
-  if (browseIndex.value === null) browseIndex.value = n - 1
-  else if (browseIndex.value > 0) browseIndex.value--
-  else browseIndex.value = null
+  const k = currentSlot.value
+  if (k <= 1) return
+  // k-1 仍是历史格 → 索引 k-2；k-1==M 仅当 k==M+1 不可能 → 不会落到 null
+  browseIndex.value = k - 2
 }
 
 const nextVersion = () => {
-  const n = versionCount.value
-  if (!n) return
-  if (browseIndex.value === null) browseIndex.value = 0
-  else if (browseIndex.value < n - 1) browseIndex.value++
-  else browseIndex.value = null
-}
-
-const handleRestore = () => {
-  if (browseIndex.value === null) return
-  emit('restoreVersion', browseIndex.value)
-  browseIndex.value = null
+  const k = currentSlot.value
+  const m = totalSlots.value
+  if (k >= m) return
+  // 下一格是最新（k+1==M）→ null，否则索引 k
+  browseIndex.value = k === m - 1 ? null : k
 }
 
 const handleDelete = async () => {
   if (browseIndex.value === null) return
   const versionIndex = browseIndex.value
-  const ok = await confirmDelete('删除该历史版本？编辑次数将减一，可继续修改', '警告')
+  const ok = await confirmDelete('删除该版本的提问和回答？编辑次数将减一', '警告')
   if (!ok) return
   emit('deleteVersion', versionIndex)
   browseIndex.value = null
@@ -530,16 +534,13 @@ details[open] > .thinking-toggle::before { transform: rotate(90deg); }
   display: inline-flex; align-items: center; justify-content: center;
   transition: all 0.15s;
 }
-.vbtn:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+.vbtn:hover:not(:disabled) { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+.vbtn:disabled { opacity: 0.3; cursor: not-allowed; }
 .vpos {
   font-size: 0.75rem; color: var(--text-muted);
-  min-width: 96px; text-align: center;
+  min-width: 44px; text-align: center;
+  font-variant-numeric: tabular-nums;
 }
-.vbtn-restore {
-  color: var(--neon-cyan, #28c4d4);
-  border-color: rgba(40,196,212,0.35);
-}
-.vbtn-restore:hover { background: rgba(40,196,212,0.12); color: var(--neon-cyan, #28c4d4); }
 .vbtn-del {
   color: var(--danger, #f56c6c);
   border-color: rgba(245,108,108,0.35);

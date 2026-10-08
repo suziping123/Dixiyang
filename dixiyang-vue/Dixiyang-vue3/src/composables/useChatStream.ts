@@ -411,26 +411,6 @@ export function useChatStream(userId?: number) {
     return null
   }
 
-  // 恢复历史版本为当前对话内容（不占编辑配额）。field: versions=独立历史 / paired=成对回答存档
-  const restoreVersion = async (index: number, versionIndex: number, field: 'versions' | 'paired' = 'versions'): Promise<string | null> => {
-    const m = messages.value[index]
-    const src = (field === 'paired' ? m?.paired : m?.versions) ?? []
-    if (!m || versionIndex < 0 || versionIndex >= src.length) return '版本不存在'
-    if (!currentSessionId.value || !userId) return '会话未就绪，请刷新后重试'
-    try {
-      const res = await http.post(`/chatHistory/restore-version/${currentSessionId.value}`, {
-        messageIndex: index, versionIndex, field
-      }) as unknown as { code?: number; msg?: string }
-      if (res && typeof res === 'object' && typeof res.code === 'number' && res.code !== 200) {
-        return res.msg || '恢复失败，请稍后再试'
-      }
-    } catch (e) {
-      return friendlyError((e as Error).message, '恢复失败，请稍后再试')
-    }
-    messages.value[index] = { ...m, content: src[versionIndex] ?? m.content }
-    return null
-  }
-
   // 删除一个历史版本（编辑配额减一）。历史与当前内容解耦，删除不影响 content（与后端一致）
   const deleteVersion = async (index: number, versionIndex: number, field: 'versions' | 'paired' = 'versions'): Promise<string | null> => {
     const m = messages.value[index]
@@ -495,7 +475,6 @@ export function useChatStream(userId?: number) {
     deleteSession,
     regenerateMessage,
     editMessage,
-    restoreVersion,
     deleteVersion,
     truncateMessages
   }
