@@ -450,6 +450,7 @@
 - 消息级版本模型：`versions[]` 只存改后快照 ≤6（= 最多改 6 次），气泡底部版本条 `‹ 当前·N个版本 ›` 左右浏览、恢复（不占配额）、删除（confirmDelete 确认、配额减一、删当前回退上一版、删空保 content）
 - 新接口：`POST /chatHistory/restore-version/{sid}`、`DELETE /chatHistory/version/{sid}`；PUT 加 `truncateAfter`（用户提问编辑后链同步截断，修复刷新丢编辑/旧问答复现）
 - 编辑入口配额满 6 拦截；中途 `displayContent` 未定义导致气泡全空白的回归已修复
+- **第二轮（截图反馈）**：① 编辑提问后走 `sendStreamMessage` 重发通道导致同一提问本地+链各重复一份（"多个对话"）→ 改走 `regenerateMessage(idx+1)` 只生成回答；② emit 双参数被 Vue 内联 `$event` 截成第一个（消息序号）→ 第 2+ 条消息恢复/删除报「版本不存在」→ 改 emit 单参数 versionIndex + 守卫改长度判断；存量脏链不自动清洗（删会话重聊）
 - 验证：后端逻辑单测全绿（配额/恢复/删除回退/越界）、py_compile ✓、type-check/lint 无新增、`vite build` ✓
 
 **适用人群**: 前端开发者、后端开发者
@@ -700,6 +701,9 @@
 ---
 
 ## 版本变更记录
+
+### v1.31 (2026-10-08)
+- **修复**: [RAG编辑消息版本切换与原文不落盘](./RAG编辑消息版本切换与原文不落盘.md) 第二轮 — 编辑提问重复对话（`sendStreamMessage` 重发把同一提问本地+链双写）→ 改走 `regenerateMessage(idx+1)` 只生成回答；恢复/删除「版本不存在」误报（Vue 内联 `$event` 只取 emit 第一个参数，消息序号被当 versionIndex 越界）→ emit 改单参数 versionIndex；存量脏链需删会话重聊
 
 ### v1.30 (2026-10-08)
 - **新增**: [RAG编辑消息版本切换与原文不落盘](./RAG编辑消息版本切换与原文不落盘.md) — 编辑消息改前原文全部不落盘（链/edits.json/弹窗对照），AI 学习只存 keyPoint；消息级版本切换条（左右浏览/恢复/删除），上限 6 次、删 1 减 1 配额；用户提问编辑改持久化 + 后端链截断（修刷新丢编辑）；修复中途 `displayContent` 未定义致气泡空白回归

@@ -41,7 +41,7 @@
 | `composables/useChatStream.ts` | `ChatMessage.versions?: string[]`；`editMessage` 改返回 `string \| null`（错误信息/成功），支持 `(index, content, role, truncateAfter)`；新增 `restoreVersion`/`deleteVersion`（本地回退规则镜像后端）；删除死代码 `replaceUserMessage` |
 | `components/chat/ChatMessage.vue` | 去掉「已编辑」「vN」徽章；`versions≥1` 时气泡底部常显版本条 `‹ 当前·N个版本 ›`，浏览态出「恢复此版本」「删除（confirmDelete 确认，禁回车）」；`displayContent` computed 驱动气泡正文切换；`is-browsing` 描边 |
 | `components/chat/EditMessageModal.vue` | 删「原始回答」对照面板 → 单 textarea 全宽（720px） |
-| `views/RagAssistantView.vue` | 编辑入口（AI 回答 + 用户提问）先查配额满 6 → `ElMessage.warning` 拦截；`handleEditSave` 适配新返回值；`handleUserEditSave` 改为先 `editMessage(idx, content, 'user', true)` 持久化+后端截断，成功才本地截断+重发；接线 `@restoreVersion/@deleteVersion` |
+| `views/RagAssistantView.vue` | 编辑入口（AI 回答 + 用户提问）先查配额满 6 → `ElMessage.warning` 拦截；`handleEditSave` 适配新返回值；`handleUserEditSave` 先 `editMessage(idx, content, 'user', true)` 持久化+后端截断，成功后改走 `regenerateMessage(idx+1, buildRegenContext())`（只生成回答，不重复写提问）；接线 `@restoreVersion/@deleteVersion`（单参数 `$event`=versionIndex） |
 
 ## 改动文件
 
@@ -52,6 +52,9 @@
 ## 已知问题
 
 - **中途空白回归（已修复）**：ChatMessage template 先行改用 `displayContent` 但 script 未补完时，气泡渲染 `undefined` → 全部消息空白（用户截图反馈）；补全 computed/方法后恢复
+- **编辑提问产生重复对话（已修复，第二轮）**：`handleUserEditSave` 在 PUT+截断后又调 `sendStreamMessage()`，其内部 `sendMessage` 把同一条提问再 push 本地、`/chat/stream` 再 append 一遍 → 链里同一提问出现两次（截图"多个对话"）→ 改走 `regenerateMessage(idx+1)` 通道（截断到提问、只 append 回答，复用现有重新生成机制，零后端改动）
+- **「版本不存在」误报（已修复，第二轮）**：emit 是双参数 `(index, versionIndex)`，Vue 内联模板 `$event` 只取第一个参数 → 第 2/3 条消息把"消息序号"当 versionIndex 传入越界 → 改为 emit 单参数 `versionIndex`（index 由父组件 v-for 提供）；守卫同步改长度判断（防空字符串误判）
+- **存量脏数据不自动清洗**：以上两 bug 已产生的重复消息/脏链无法可靠识别（"编辑前+编辑后"内容不同、无标记），修复只保证以后不再产生；当前受影响会话建议删除重聊
 - **旧数据残留**：历史链文件里的 `originalContent` 字段不主动清洗，读取时过滤不下发，下次编辑时随重写自然消失
 - **AI 学习退化**：edits.json 不再存原文后，无 keyPoint 的旧记录不再注入 prompt（符合"只存要点"决策）
 - **用户提问编辑链截断**：`truncate_after` 失败仅记 warning（前端本地仍截断），极端情况刷新后旧问答复现——低概率，后续可加重试

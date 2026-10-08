@@ -67,6 +67,8 @@ export function useChatStream(userId?: number) {
           content: m.content,
           thinking: m.thinking ?? null,
           references: m.references ?? null,
+          versions: m.versions ?? null,
+          edited: m.edited ?? null,
           createTime: m.timestamp.toISOString()
         }))
       })
@@ -412,7 +414,7 @@ export function useChatStream(userId?: number) {
   // 恢复历史版本为当前对话内容（不占编辑配额）
   const restoreVersion = async (index: number, versionIndex: number): Promise<string | null> => {
     const m = messages.value[index]
-    if (!m?.versions?.[versionIndex]) return '版本不存在'
+    if (!m?.versions || versionIndex < 0 || versionIndex >= m.versions.length) return '版本不存在'
     if (!currentSessionId.value || !userId) return '会话未就绪，请刷新后重试'
     try {
       await http.post(`/chatHistory/restore-version/${currentSessionId.value}`, {
@@ -428,7 +430,7 @@ export function useChatStream(userId?: number) {
   // 删除一个历史版本（编辑配额减一）。本地回退规则与后端一致
   const deleteVersion = async (index: number, versionIndex: number): Promise<string | null> => {
     const m = messages.value[index]
-    if (!m?.versions?.[versionIndex]) return '版本不存在'
+    if (!m?.versions || versionIndex < 0 || versionIndex >= m.versions.length) return '版本不存在'
     if (!currentSessionId.value || !userId) return '会话未就绪，请刷新后重试'
     try {
       await http.delete(`/chatHistory/version/${currentSessionId.value}`, {

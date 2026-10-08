@@ -286,7 +286,7 @@ const {
   currentSessionId, sessions,
   sendMessage, cancelStream, loadSessions, loadSessionMessages,
   newSession, deleteSession, regenerateMessage,
-  editMessage, restoreVersion, deleteVersion, truncateMessages
+  editMessage, restoreVersion, deleteVersion
 } = useChatStream(userId)
 
 // 单条消息编辑配额：最多 6 个版本，满额拦截入口
@@ -485,6 +485,17 @@ const handleUserEdit = (index: number, content: string) => {
   isUserEditing.value = true
 }
 
+// 重新生成/编辑后重答所需的上下文参数
+const buildRegenContext = () => ({
+  useRag: options.value.useRag,
+  novelId: selectedNovel.value?.id,
+  characterIds: selectedCharacters.value,
+  storyNodeIds: selectedNodes.value,
+  includeCharacters: options.value.includeCharacters,
+  includeStory: options.value.includeStory,
+  conversationMode: options.value.conversationMode
+})
+
 const handleUserEditSave = async (content: string) => {
   const idx = editedUserMessageIndex.value
   if (idx < 0 || !content.trim()) return
@@ -494,11 +505,12 @@ const handleUserEditSave = async (content: string) => {
     ElMessage.error(errMsg)
     return
   }
-  truncateMessages(idx + 1)
   isUserEditing.value = false
   editedUserMessageIndex.value = -1
-  inputMessage.value = content
-  await sendStreamMessage()
+  scrollToBottom()
+  // 只重新生成回答：复用 regenerate 通道（截断到提问并仅追加回答），
+  // 不再走 sendStreamMessage——它会把同一条提问重复 push 本地并重复写链
+  await regenerateMessage(idx + 1, buildRegenContext())
 }
 
 const cancelUserEdit = () => {
@@ -541,15 +553,7 @@ const handleDeleteVersion = async (index: number, versionIndex: number) => {
 
 const handleRegenerate = async (index: number) => {
   scrollToBottom()
-  await regenerateMessage(index, {
-    useRag: options.value.useRag,
-    novelId: selectedNovel.value?.id,
-    characterIds: selectedCharacters.value,
-    storyNodeIds: selectedNodes.value,
-    includeCharacters: options.value.includeCharacters,
-    includeStory: options.value.includeStory,
-    conversationMode: options.value.conversationMode
-  })
+  await regenerateMessage(index, buildRegenContext())
   scrollToBottom()
 }
 

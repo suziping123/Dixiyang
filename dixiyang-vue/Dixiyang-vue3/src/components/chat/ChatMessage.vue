@@ -110,8 +110,9 @@ const emit = defineEmits<{
   userEditSave: [content: string]
   userEditCancel: []
   extractSettings: [index: number]
-  restoreVersion: [index: number, versionIndex: number]
-  deleteVersion: [index: number, versionIndex: number]
+  // 单参数：内联模板 $event 只取第一个 emit 参数，index 由父组件 v-for 提供
+  restoreVersion: [versionIndex: number]
+  deleteVersion: [versionIndex: number]
 }>()
 
 const editDraft = ref('')
@@ -148,16 +149,17 @@ const nextVersion = () => {
 }
 
 const handleRestore = () => {
-  if (browseIndex.value === null || props.index === undefined) return
-  emit('restoreVersion', props.index, browseIndex.value)
+  if (browseIndex.value === null) return
+  emit('restoreVersion', browseIndex.value)
   browseIndex.value = null
 }
 
 const handleDelete = async () => {
-  if (browseIndex.value === null || props.index === undefined) return
+  if (browseIndex.value === null) return
+  const versionIndex = browseIndex.value
   const ok = await confirmDelete('删除该历史版本？编辑次数将减一，可继续修改', '警告')
   if (!ok) return
-  emit('deleteVersion', props.index, browseIndex.value)
+  emit('deleteVersion', versionIndex)
   browseIndex.value = null
 }
 
