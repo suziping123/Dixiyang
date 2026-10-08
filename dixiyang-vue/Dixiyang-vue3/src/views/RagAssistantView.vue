@@ -4,13 +4,6 @@
 
     <FloatingNav />
 
-    <header class="page-header">
-      <div class="header-content">
-        <h1 class="page-title">RAG 智能创作助手</h1>
-        <p class="page-subtitle">基于你的创作宇宙，智能生成与角色相关的故事内容</p>
-      </div>
-    </header>
-
     <div class="rag-container">
       <!-- 最左侧：历史会话 -->
       <aside class="session-panel" :class="{ 'drawer-open': showSessions }">
@@ -713,41 +706,13 @@ onMounted(async () => {
   to { transform: rotate(360deg); }
 }
 
-.page-header {
-  z-index: 10;
-  padding: 30px 40px;
-  border-bottom: 1px solid var(--glass-border);
-  background: rgba(10, 10, 12, 0.8);
-}
-
-.header-content {
-  max-width: 1600px;
-  margin: 0 auto;
-}
-
-.page-title {
-  font-size: 2rem;
-  font-weight: 900;
-  margin: 0;
-  background: linear-gradient(135deg, var(--neon-cyan) 0%, var(--neon-blue) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.page-subtitle {
-  margin: 8px 0 0 0;
-  color: var(--text-secondary);
-  font-size: 0.95rem;
-}
-
 .rag-container {
   position: relative;
   z-index: 1;
   display: flex;
   max-width: 1600px;
   margin: 0 auto;
-  height: calc(100vh - 120px);
+  height: calc(100vh - 40px);
   padding: 20px;
   gap: 12px;
 }
@@ -1472,7 +1437,6 @@ onMounted(async () => {
 }
 
 @media (max-width: 768px) {
-  .page-header { padding: 20px; }
   .rag-container { padding: 10px; }
   /* 居中：历史/上下文按钮远离左右缘（左侧桌面热区 / 右侧中部悬浮球），不被遮挡 */
   .chat-header { flex-direction: column; align-items: center; gap: 12px; }

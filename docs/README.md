@@ -718,6 +718,9 @@
 
 ## 版本变更记录
 
+### v1.40 (2026-10-08)
+- **删除**: RAG 助手页顶栏 — 需求"page-header 太麻烦，直接删掉"→ `RagAssistantView.vue` 删除顶部 `<header class="page-header">`（"RAG 智能创作助手"标题+副标题）及配套样式（`.page-header`/`.header-content`/`.page-title`/`.page-subtitle`、移动端媒体查询项），`.rag-container` 高度预算 `100vh-120px → 100vh-40px`（原 120px 为页眉预留）；聊天区直接满屏；type-check 9/lint 8 基线、build ✓、`page-header` 相关标识 0 残留
+
 ### v1.39 (2026-10-08)
 - **修复**: [RAG消息版本交互与接口规范](./RAG消息版本交互与接口规范.md) 第十轮 — 反馈"现在都是流式了，为什么暂停不能停在流式状态？没加载出来就给个错误页"→ 停止语义从"恢复旧回答"改为**停在流式状态**：前端 `regenerateMessage`/`sendStreamMessage` 取消与失败统一原位替换为**已流出部分内容**，一字未出显示占位「未生成回答内容」；后端 `_save_pair`/`_save_reply` 三出口统一落盘（成功/`Exception`/`GeneratorExit`+`CancelledError` 取消），取消路径同步执行截断+追加（旧回答进 `paired` 存档不丢、I1 等长保持），占位句前后端同一 `STOP_TEXT` 保证刷新一致；实测 `test_v139_api.py` **8/8 PASS**（真 LLM 流 2s 断开）+ 回归 30/30+29/29、type-check 9/lint 8 基线、build ✓
 
