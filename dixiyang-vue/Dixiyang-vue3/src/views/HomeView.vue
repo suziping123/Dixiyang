@@ -114,11 +114,18 @@
             <CreateCard @create-success="() => fetchNovels()" />
           </div>
 
-          <!-- 分页：还有未加载的宇宙时提供「加载更多」 -->
+          <!-- 分页：还有未加载的宇宙时提供「加载更多」+ 触底自动加载哨兵 -->
           <div v-if="hasMore" class="load-more-row">
-            <button class="load-more-btn" type="button" :disabled="loadingMore" @click="loadMore">
-              {{ loadingMore ? '加载中…' : `加载更多（${novels.length} / ${total}）` }}
+            <button
+              class="load-more-btn"
+              :class="{ 'is-error': loadError }"
+              type="button"
+              :disabled="loadingMore"
+              @click="loadMore"
+            >
+              {{ loadMoreLabel }}
             </button>
+            <span ref="sentinel" class="load-sentinel" aria-hidden="true"></span>
           </div>
         </template>
 
@@ -179,7 +186,7 @@
 
 <script setup lang="ts">
 // 核心导入（统一放在顶部）
-import { computed, onMounted, onBeforeUnmount, ref, nextTick } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { gsap } from 'gsap'
 // 组件导入
@@ -229,6 +236,31 @@ const page = ref(1)
 const total = ref(0)
 const loadingMore = ref(false)
 const hasMore = computed(() => novels.value.length < total.value)
+// 追加加载连续失败态（按钮显示「加载失败，点击重试」）
+const loadError = ref(false)
+// 触底自动加载哨兵（IntersectionObserver 目标）
+const sentinel = ref<HTMLElement | null>(null)
+// 列表操作互斥锁：触底自动加载与删除后对齐重拉不可并发写 novels
+let listLocked = false
+const withListLock = async (fn: () => Promise<void>) => {
+  let wait = 0
+  while (listLocked && wait < 40) {
+    await new Promise((r) => setTimeout(r, 50))
+    wait++
+  }
+  listLocked = true
+  try {
+    await fn()
+  } finally {
+    listLocked = false
+  }
+}
+// 按钮文案（加载中 / 失败重试 / 常规进度）
+const loadMoreLabel = computed(() => {
+  if (loadingMore.value) return '加载中…'
+  if (loadError.value) return '加载失败，点击重试'
+  return `加载更多（${novels.value.length} / ${total.value}）`
+})
 const flippedCards = ref<Set<string | number>>(new Set())
 const clickTimers = new Map<string | number, ReturnType<typeof setTimeout>>()
 
@@ -298,20 +330,17 @@ async function deleteNovel(novel: Novel) {
       return
     }
 
-    http.post(`/novel/delete/${novel.id}`)
-      .then(() => {
-        novels.value = novels.value.filter(n => n.id !== novel.id)
-        // 同步总数（分页计数口径）
-        total.value = Math.max(novels.value.length, total.value - 1)
+    await http.post(`/novel/delete/${novel.id}`)
+    novels.value = novels.value.filter(n => n.id !== novel.id)
 
-        if (selectedNovel.value?.id === novel.id) {
-          showRag.value = false
-          selectedNovel.value = null
-        }
-      })
-      .catch(() => {})
+    if (selectedNovel.value?.id === novel.id) {
+      showRag.value = false
+      selectedNovel.value = null
+    }
+    // 删除使服务端数据前移，客户端页码/total 失去一致性 → 对齐重拉当前窗口
+    await realignList()
   } catch {
-    // 用户取消确认
+    // 取消确认或请求失败（失败时列表未动，保持原状）
   }
 }
 
@@ -328,29 +357,31 @@ const goToRagAssistant = () => {
 // 存储之前的小说数量，用于判断是否是新卡片
 const prevNovelCount = ref(0)
 
-// 数据请求：获取小说列表
-// append=true 为「加载更多」追加下一页；失败回退 page，避免跳页
-const fetchNovels = async (append = false) => {
+// 数据请求：获取小说列表；返回本次写入条数（loadMore 据此判断空页兜底）
+// append=true 为「加载更多」追加下一页；失败回退 page 并置 loadError，避免跳页
+const fetchNovels = async (append = false): Promise<number> => {
   if (append) loadingMore.value = true
   else isLoading.value = true
   let ok = false
+  let written = 0
   try {
     const res = await http.get('/novel/listall', {
       params: { page: append ? page.value : 1, page_size: PAGE_SIZE },
     })
     // 401 已由拦截器统一跳登录；其它业务失败直接返回，避免读空 data
     const apiRes = assertApiResponse<{ records?: Novel[]; total?: number } | Novel[] | null>(res)
-    if (apiRes.code !== 200 || !apiRes.data) return
+    if (apiRes.code !== 200 || !apiRes.data) return 0
     const data = apiRes.data
     const records = Array.isArray(data) ? data : (data.records || [])
     if (!Array.isArray(data) && typeof data.total === 'number') total.value = data.total
     novels.value = append ? [...novels.value, ...records] : records
+    written = records.length
     ok = true
 
     if (append) {
       // 追加页不重播全列表入场动画，仅重启悬浮（纳入新卡片）
       nextTick(() => startFloatAnimation())
-      return
+      return written
     }
 
     // 判断是否有新卡片增加
@@ -373,24 +404,90 @@ const fetchNovels = async (append = false) => {
         startFloatAnimation()
       }
     });
+    return written
   } catch {
     // 获取小说列表失败（401 已由拦截器跳转登录）
+    return written
   } finally {
     if (append) {
       loadingMore.value = false
-      if (!ok) page.value -= 1 // 追加失败回退页码，下次点击不跳页
+      if (!ok) {
+        page.value -= 1 // 追加失败回退页码，下次点击不跳页
+        loadError.value = true
+      }
     } else {
       isLoading.value = false
     }
   }
 }
 
-// 「加载更多」：翻页并追加
+// 对齐重拉（不加锁内核，供锁外与锁内复用）：
+// 按已加载条数重拉服务端前 pages 页并覆盖本地 → 本地 = 服务端前 N 页，页码/total 归位
+const realignImpl = async () => {
+  loadingMore.value = true
+  try {
+    const loaded = novels.value.length
+    const pages = Math.max(1, Math.ceil(loaded / PAGE_SIZE))
+    const results = await Promise.all(
+      Array.from({ length: pages }, (_, i) =>
+        http.get('/novel/listall', { params: { page: i + 1, page_size: PAGE_SIZE } })
+      )
+    )
+    const records: Novel[] = []
+    let lastTotal: number | null = null
+    for (const res of results) {
+      const apiRes = assertApiResponse<{ records?: Novel[]; total?: number } | Novel[] | null>(res)
+      if (apiRes.code !== 200 || !apiRes.data) throw new Error('realign failed')
+      const d = apiRes.data
+      if (Array.isArray(d)) records.push(...d)
+      else {
+        records.push(...(d.records || []))
+        if (typeof d.total === 'number') lastTotal = d.total
+      }
+    }
+    novels.value = records
+    page.value = pages
+    total.value = lastTotal ?? records.length
+    loadError.value = false
+    nextTick(() => startFloatAnimation())
+  } catch {
+    loadError.value = true
+  } finally {
+    loadingMore.value = false
+  }
+}
+
+// 对齐入口（带列表锁）：删除后调用
+const realignList = () => withListLock(realignImpl)
+
+// 「加载更多」：翻页并追加；空页但仍有未加载 → 数据不一致，自动对齐兜底
 const loadMore = () => {
   if (loadingMore.value || !hasMore.value) return
-  page.value += 1
-  fetchNovels(true)
+  void withListLock(async () => {
+    if (!hasMore.value) return // 排队等待期间状态可能已变化
+    loadError.value = false
+    page.value += 1
+    const added = await fetchNovels(true)
+    if (added === 0 && hasMore.value) await realignImpl()
+  })
 }
+
+// 触底自动加载：哨兵进入视口（提前 200px 预载）自动 loadMore，与按钮共用守卫
+let io: IntersectionObserver | null = null
+const setupSentinelObserver = () => {
+  io?.disconnect()
+  io = null
+  if (!hasMore.value || !sentinel.value) return
+  io = new IntersectionObserver(
+    (entries) => {
+      if (entries.some((e) => e.isIntersecting)) loadMore()
+    },
+    { rootMargin: '200px 0px' }
+  )
+  io.observe(sentinel.value)
+}
+// hasMore 变化驱动挂/卸（哨兵是 v-if="hasMore" 渲染，需等 DOM 更新）
+watch(hasMore, () => nextTick(setupSentinelObserver))
 
 // 保存悬浮动画实例
 let floatAnimation: gsap.core.Tween[] = []
@@ -433,6 +530,8 @@ onMounted(async () => {
 // 生命周期：卸载（清理定时器和动画）
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', onScroll)
+  io?.disconnect()
+  io = null
   clickTimers.forEach(timer => clearTimeout(timer))
   clickTimers.clear()
   // 清理悬浮动画
@@ -713,6 +812,29 @@ onBeforeUnmount(() => {
 .load-more-btn:disabled {
   opacity: 0.6;
   cursor: default;
+}
+/* 连续失败态：按钮变警示色，点击重试 */
+.load-more-btn.is-error {
+  border-color: rgba(229, 84, 75, 0.55);
+  color: var(--danger, #e5544b);
+}
+/* 触底自动加载哨兵：1px 不占视觉空间，仅作 IntersectionObserver 目标 */
+.load-sentinel {
+  display: block;
+  width: 100%;
+  height: 1px;
+}
+
+/* 移动端：加大触摸目标、收紧间距，375 宽不溢出 */
+@media (max-width: 768px) {
+  .load-more-row {
+    margin-top: 24px;
+  }
+  .load-more-btn {
+    min-height: 44px;
+    padding: 12px 28px;
+    font-size: 0.9rem;
+  }
 }
 
 .empty-hint {
