@@ -16,3 +16,11 @@ class EditMessageRequest(BaseModel):
     message_index: int = Field(alias="messageIndex", default=-1)
     role: str = "user"
     content: str = ""
+    # 用户提问编辑：置 true 时后端同步截断其后的问答
+    truncate_after: bool = Field(alias="truncateAfter", default=False)
+
+
+class VersionRefRequest(BaseModel):
+    """版本恢复/删除请求"""
+    message_index: int = Field(alias="messageIndex", default=-1)
+    version_index: int = Field(alias="versionIndex", default=-1)

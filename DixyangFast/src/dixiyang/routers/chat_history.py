@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from ..utils.auth_deps import get_current_user_id
 from ..utils.database import get_db
 from ..services.chat_history_service import ChatHistoryService
-from ..schemas.chat_history import CreateSessionRequest, BatchSaveRequest, EditMessageRequest
+from ..schemas.chat_history import CreateSessionRequest, BatchSaveRequest, EditMessageRequest, VersionRefRequest
 from ..utils.response import Result
 
 router = APIRouter(prefix="/chatHistory", tags=["聊天历史模块"])
@@ -34,7 +34,21 @@ async def batch_save(req: BatchSaveRequest, user_id: int = Depends(get_current_u
 async def edit_message(session_id: str, req: EditMessageRequest, user_id: int = Depends(get_current_user_id), svc: ChatHistoryService = Depends()):
     if req.message_index < 0 or not req.content:
         return Result.error("参数不完整")
-    return svc.edit_message(user_id, session_id, req.message_index, req.role, req.content)
+    return svc.edit_message(user_id, session_id, req.message_index, req.role, req.content, truncate_after=req.truncate_after)
+
+
+@router.post("/restore-version/{session_id}")
+async def restore_version(session_id: str, req: VersionRefRequest, user_id: int = Depends(get_current_user_id), svc: ChatHistoryService = Depends()):
+    if req.message_index < 0 or req.version_index < 0:
+        return Result.error("参数不完整")
+    return svc.restore_version(user_id, session_id, req.message_index, req.version_index)
+
+
+@router.delete("/version/{session_id}")
+async def delete_version(session_id: str, req: VersionRefRequest, user_id: int = Depends(get_current_user_id), svc: ChatHistoryService = Depends()):
+    if req.message_index < 0 or req.version_index < 0:
+        return Result.error("参数不完整")
+    return svc.delete_version(user_id, session_id, req.message_index, req.version_index)
 
 
 @router.post("/generate-title/{session_id}")

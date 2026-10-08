@@ -10,6 +10,16 @@ from datetime import datetime
 
 log = logging.getLogger(__name__)
 
+# 单条消息可保留的编辑版本数 = 最多编辑次数（删 1 个减 1 次）
+EDIT_VERSION_LIMIT = 6
+
+
+class EditQuotaExceeded(Exception):
+    """单条消息编辑次数超限"""
+    def __init__(self, limit: int = EDIT_VERSION_LIMIT):
+        self.limit = limit
+        super().__init__(f"编辑次数已达上限（{limit}次）")
+
 
 def _now_iso() -> str:
     return datetime.now().isoformat()
@@ -157,28 +167,12 @@ def truncate_chain(chain_dir: str, keep_count: int) -> str | None:
     return fname
 
 
-def replace_message(chain_dir: str, index: int, role: str, content: str) -> tuple[str, str]:
-    """
-    替换链中指定索引的消息内容。
-    返回 (original_content, edited_content)
-    Spring 兼容：替换前将原内容存入消息的 originalContent 字段
-    """
-    messages = read_chain(chain_dir)
-    if index < 0 or index >= len(messages):
-        raise IndexError(f"消息索引 {index} 越界，共 {len(messages)} 条")
-
-    original = messages[index].get("content", "")
-    # Spring 兼容：保留原始内容到 originalContent 字段
-    messages[index]["originalContent"] = original
-    messages[index]["role"] = role
-    messages[index]["content"] = content
-
-    # 清除所有链文件，重写
+def _rewrite_chain(chain_dir: str, messages: list[dict]) -> str:
+    """原子重写整条链（清旧链文件后写入单一新文件），返回新文件名"""
     json_files = [
         f for f in os.listdir(chain_dir)
         if f.endswith(".json") and f not in ("edits.json", "summary.json")
     ]
-
     fname = _make_filename()
     tmp_name = fname + ".tmp"
     tmp_path = os.path.join(chain_dir, tmp_name)
@@ -192,9 +186,73 @@ def replace_message(chain_dir: str, index: int, role: str, content: str) -> tupl
         except Exception:
             pass
 
-    final_path = os.path.join(chain_dir, fname)
-    os.rename(tmp_path, final_path)
+    os.rename(tmp_path, os.path.join(chain_dir, fname))
+    return fname
+
+
+def replace_message(chain_dir: str, index: int, role: str, content: str) -> tuple[str, str]:
+    """
+    替换链中指定索引的消息内容，并追加版本快照。
+    - 不落盘改前原文：versions 只存"改之后"的内容，最多 EDIT_VERSION_LIMIT 个
+    - 版本数已达上限时抛 EditQuotaExceeded
+    返回 (original_content, edited_content)，original 仅供编辑瞬间提取要点，不写入文件
+    """
+    messages = read_chain(chain_dir)
+    if index < 0 or index >= len(messages):
+        raise IndexError(f"消息索引 {index} 越界，共 {len(messages)} 条")
+
+    original = messages[index].get("content", "")
+    versions = list(messages[index].get("versions") or [])
+    if len(versions) >= EDIT_VERSION_LIMIT:
+        raise EditQuotaExceeded(EDIT_VERSION_LIMIT)
+
+    versions.append(content)
+    messages[index]["versions"] = versions
+    messages[index]["role"] = role
+    messages[index]["content"] = content
+    messages[index]["edited"] = True
+
+    _rewrite_chain(chain_dir, messages)
     return original, content
+
+
+def restore_version(chain_dir: str, index: int, version_index: int) -> str:
+    """
+    把 versions[version_index] 恢复为当前 content（不占用编辑配额，versions 不变）。
+    """
+    messages = read_chain(chain_dir)
+    if index < 0 or index >= len(messages):
+        raise IndexError(f"消息索引 {index} 越界")
+    versions = messages[index].get("versions") or []
+    if version_index < 0 or version_index >= len(versions):
+        raise IndexError(f"版本索引 {version_index} 越界，共 {len(versions)} 个")
+
+    messages[index]["content"] = versions[version_index]
+    _rewrite_chain(chain_dir, messages)
+    return messages[index]["content"]
+
+
+def delete_version(chain_dir: str, index: int, version_index: int) -> list[str]:
+    """
+    删除一个历史版本（配额减一）。
+    - 若被删的是当前内容 → 回退到最后一个剩余版本
+    - 版本删空则保留 content（对话内容不能为空），仅清空历史
+    返回删除后的 versions 列表
+    """
+    messages = read_chain(chain_dir)
+    if index < 0 or index >= len(messages):
+        raise IndexError(f"消息索引 {index} 越界")
+    versions = list(messages[index].get("versions") or [])
+    if version_index < 0 or version_index >= len(versions):
+        raise IndexError(f"版本索引 {version_index} 越界，共 {len(versions)} 个")
+
+    deleted = versions.pop(version_index)
+    if messages[index].get("content") == deleted and versions:
+        messages[index]["content"] = versions[-1]
+
+    messages[index]["versions"] = versions
+    _rewrite_chain(chain_dir, messages)
+    return versions
 
 
 def read_edits(chain_dir: str) -> list[dict]:

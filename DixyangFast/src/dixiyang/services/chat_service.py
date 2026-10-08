@@ -134,22 +134,22 @@ def save_chain_file(chain_dir: str, messages: list[dict], title: str = "") -> st
 # ==================== 编辑修正 ====================
 
 def load_edit_context(chain_dir: str) -> str:
-    """读取 edits.json 构建修正 prompt"""
+    """读取 edits.json 构建修正 prompt（只注入修正要点，绝不注入改前原文）"""
     from .chain_file_manager import read_edits
     edits = read_edits(chain_dir)
     if not edits:
         return ""
-    lines = ["以下是用户对之前回答的修正记录，请学习这些修正，避免再犯同样错误："]
+    lines = ["以下是用户对之前回答的修正要点，请学习这些修正，避免再犯同样错误："]
     for e in edits:
-        key_point = e.get("keyPoint", "")
+        key_point = (e.get("keyPoint") or "").strip()
+        if not key_point:
+            # 无要点（含旧记录原文字段）一律跳过，不再回退引用原文
+            continue
         error_type = e.get("errorType", "")
-        orig = e.get("originalContent", "")
-        edited = e.get("editedContent", "")
         idx = e.get("messageIndex", "?")
-        if key_point:
-            lines.append(f"- 修正 #{idx} [{error_type}]: {key_point}")
-        else:
-            lines.append(f"- 修正 #{idx}: 原文「{orig[:80]}」→ 修正版「{edited[:80]}」")
+        lines.append(f"- 修正 #{idx} [{error_type}]: {key_point}")
+    if len(lines) == 1:
+        return ""
     return "\n".join(lines)
 
 

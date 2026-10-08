@@ -191,6 +191,8 @@
               @userEditSave="handleUserEditSave"
               @userEditCancel="cancelUserEdit"
               @extractSettings="handleExtractSettings(index)"
+              @restoreVersion="handleRestoreVersion(index, $event)"
+              @deleteVersion="handleDeleteVersion(index, $event)"
               class="message-item-wrapper"
             />
 
@@ -284,8 +286,19 @@ const {
   currentSessionId, sessions,
   sendMessage, cancelStream, loadSessions, loadSessionMessages,
   newSession, deleteSession, regenerateMessage,
-  editMessage, replaceUserMessage, truncateMessages
+  editMessage, restoreVersion, deleteVersion, truncateMessages
 } = useChatStream(userId)
+
+// 单条消息编辑配额：最多 6 个版本，满额拦截入口
+const EDIT_QUOTA = 6
+const checkEditQuota = (index: number): boolean => {
+  const msg = messages.value[index]
+  if ((msg?.versions?.length ?? 0) >= EDIT_QUOTA) {
+    ElMessage.warning(`该消息修改次数已达上限（${EDIT_QUOTA}次），删除历史版本后可继续修改`)
+    return false
+  }
+  return true
+}
 
 const editingMessageIndex = ref<number>(-1)
 const editingUserMessageContent = ref<string>('')
@@ -466,6 +479,7 @@ const handleSelectSession = async (sessionId: string) => {
 const handleUserEdit = (index: number, content: string) => {
   const msg = messages.value[index]
   if (!msg || msg.role !== 'user') return
+  if (!checkEditQuota(index)) return
   editedUserMessageIndex.value = index
   editingUserMessageContent.value = content
   isUserEditing.value = true
@@ -474,7 +488,12 @@ const handleUserEdit = (index: number, content: string) => {
 const handleUserEditSave = async (content: string) => {
   const idx = editedUserMessageIndex.value
   if (idx < 0 || !content.trim()) return
-  replaceUserMessage(idx, content)
+  // 持久化到后端（含链截断），失败则中止不改本地
+  const errMsg = await editMessage(idx, content, 'user', true)
+  if (errMsg) {
+    ElMessage.error(errMsg)
+    return
+  }
   truncateMessages(idx + 1)
   isUserEditing.value = false
   editedUserMessageIndex.value = -1
@@ -490,6 +509,7 @@ const cancelUserEdit = () => {
 const openEditModal = (index: number) => {
   const msg = messages.value[index]
   if (!msg || msg.role !== 'assistant') return
+  if (!checkEditQuota(index)) return
   editingMessageIndex.value = index
   editModalRef.value?.open(msg.content)
 }
@@ -497,8 +517,26 @@ const openEditModal = (index: number) => {
 const handleEditSave = async (newContent: string) => {
   const idx = editingMessageIndex.value
   if (idx < 0) return
-  const ok = await editMessage(idx, newContent)
-  if (ok) editingMessageIndex.value = -1
+  const errMsg = await editMessage(idx, newContent)
+  if (errMsg) {
+    ElMessage.error(errMsg)
+    return
+  }
+  editingMessageIndex.value = -1
+}
+
+// 恢复历史版本为当前对话内容
+const handleRestoreVersion = async (index: number, versionIndex: number) => {
+  const errMsg = await restoreVersion(index, versionIndex)
+  if (errMsg) ElMessage.error(errMsg)
+  else ElMessage.success('已恢复该版本')
+}
+
+// 删除历史版本（编辑配额减一）
+const handleDeleteVersion = async (index: number, versionIndex: number) => {
+  const errMsg = await deleteVersion(index, versionIndex)
+  if (errMsg) ElMessage.error(errMsg)
+  else ElMessage.success('已删除该版本，修改次数减一')
 }
 
 const handleRegenerate = async (index: number) => {

@@ -30,6 +30,7 @@ export interface ChatMessage {
   timestamp: Date
   edited?: boolean
   version?: number
+  versions?: string[] // 编辑版本历史（只存改后内容，≤6，可浏览/恢复/删除）
   editing?: boolean  // 前端编辑态
   editDraft?: string // 临时编辑草稿
 }
@@ -98,14 +99,15 @@ export function useChatStream(userId?: number) {
     currentSessionId.value = sessionId
     try {
       const res = await http.get(`/chatHistory/session/${sessionId}`)
-      messages.value = (res.data ?? []).map((m: { role: string; content: string; thinking?: string; references?: RagReference[]; createTime?: string; edited?: boolean; version?: number }) => ({
+      messages.value = (res.data ?? []).map((m: { role: string; content: string; thinking?: string; references?: RagReference[]; createTime?: string; edited?: boolean; version?: number; versions?: string[] }) => ({
         role: m.role,
         content: m.content,
         thinking: m.thinking ?? undefined,
         references: m.references ?? undefined,
         timestamp: m.createTime ? new Date(m.createTime) : new Date(),
         edited: m.edited ?? undefined,
-        version: m.version ?? undefined
+        version: m.version ?? undefined,
+        versions: Array.isArray(m.versions) ? m.versions : undefined
       }))
     } catch { messages.value = [] }
   }
@@ -390,35 +392,57 @@ export function useChatStream(userId?: number) {
     }
   }
 
-  const editMessage = async (index: number, newContent: string) => {
-    if (!currentSessionId.value || !userId) return false
+  // 编辑消息（AI 回答/提问均持久化）。返回 null=成功，否则为错误提示
+  const editMessage = async (index: number, newContent: string, role: 'user' | 'assistant' = 'assistant', truncateAfter = false): Promise<string | null> => {
+    if (!currentSessionId.value || !userId) return '会话未就绪，请刷新后重试'
     const m = messages.value[index]
-    if (!m) return false
+    if (!m) return '消息不存在'
     try {
       await http.put(`/chatHistory/message/${currentSessionId.value}`, {
-        messageIndex: index, role: 'assistant', content: newContent
+        messageIndex: index, role, content: newContent, truncateAfter
       })
-      messages.value[index] = {
-        role: m.role, content: newContent,
-        thinking: m.thinking, timestamp: m.timestamp,
-        edited: true, version: (m.version ?? 0) + 1
-      }
-      return true
-    } catch {
-      return false
+    } catch (e) {
+      return friendlyError((e as Error).message, '编辑失败，请稍后再试')
     }
+    const versions = [...(m.versions ?? []), newContent]
+    messages.value[index] = { ...m, content: newContent, edited: true, versions }
+    return null
   }
 
-  const replaceUserMessage = (index: number, newContent: string) => {
-    if (index < 0 || index >= messages.value.length) return false
+  // 恢复历史版本为当前对话内容（不占编辑配额）
+  const restoreVersion = async (index: number, versionIndex: number): Promise<string | null> => {
     const m = messages.value[index]
-    if (!m || m.role !== 'user') return false
-    messages.value[index] = {
-      ...m,
-      content: newContent,
-      edited: true
+    if (!m?.versions?.[versionIndex]) return '版本不存在'
+    if (!currentSessionId.value || !userId) return '会话未就绪，请刷新后重试'
+    try {
+      await http.post(`/chatHistory/restore-version/${currentSessionId.value}`, {
+        messageIndex: index, versionIndex
+      })
+    } catch (e) {
+      return friendlyError((e as Error).message, '恢复失败，请稍后再试')
     }
-    return true
+    messages.value[index] = { ...m, content: m.versions[versionIndex] ?? m.content }
+    return null
+  }
+
+  // 删除一个历史版本（编辑配额减一）。本地回退规则与后端一致
+  const deleteVersion = async (index: number, versionIndex: number): Promise<string | null> => {
+    const m = messages.value[index]
+    if (!m?.versions?.[versionIndex]) return '版本不存在'
+    if (!currentSessionId.value || !userId) return '会话未就绪，请刷新后重试'
+    try {
+      await http.delete(`/chatHistory/version/${currentSessionId.value}`, {
+        data: { messageIndex: index, versionIndex }
+      })
+    } catch (e) {
+      return friendlyError((e as Error).message, '删除失败，请稍后再试')
+    }
+    const versions = [...m.versions]
+    const deleted = versions.splice(versionIndex, 1)[0] ?? ''
+    let content = m.content
+    if (content === deleted && versions.length) content = versions[versions.length - 1] ?? content
+    messages.value[index] = { ...m, content, versions }
+    return null
   }
 
   const truncateMessages = (keepCount: number) => {
@@ -463,7 +487,8 @@ export function useChatStream(userId?: number) {
     deleteSession,
     regenerateMessage,
     editMessage,
-    replaceUserMessage,
+    restoreVersion,
+    deleteVersion,
     truncateMessages
   }
 }

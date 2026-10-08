@@ -5,7 +5,7 @@
       <el-icon v-else><MagicStick /></el-icon>
     </div>
     <div class="message-body">
-      <div class="message-bubble">
+      <div class="message-bubble" :class="{ 'is-browsing': browseIndex !== null }">
         <div v-if="message.thinking || streamingThinking" class="thinking-block">
           <details :open="isStreaming && !!streamingThinking">
             <summary class="thinking-toggle">
@@ -16,7 +16,7 @@
             <div class="thinking-content" v-html="renderMarkdown(message.thinking || streamingThinking || '')"></div>
           </details>
         </div>
-        <div class="message-content" v-if="!isEditing" v-html="renderMarkdown(message.content || streamingContent || '')"></div>
+        <div class="message-content" v-if="!isEditing" v-html="renderMarkdown(displayContent || streamingContent || '')"></div>
         <textarea
           v-else
           class="user-edit-textarea"
@@ -24,7 +24,15 @@
           @input="editDraft = ($event.target as HTMLTextAreaElement).value"
           placeholder="输入要修改的内容..."
         ></textarea>
-        <div v-if="message.edited" class="edited-badge">已编辑</div>
+        <div v-if="versionCount > 0 && !isEditing" class="version-bar">
+          <button type="button" class="vbtn" @click="prevVersion" title="上一个版本">‹</button>
+          <span class="vpos">{{ positionLabel }}</span>
+          <button type="button" class="vbtn" @click="nextVersion" title="下一个版本">›</button>
+          <template v-if="browseIndex !== null">
+            <button type="button" class="vbtn vbtn-restore" @click="handleRestore" title="恢复此版本为对话内容">恢复此版本</button>
+            <button type="button" class="vbtn vbtn-del" @click="handleDelete" title="删除此版本（编辑次数减一）">删除</button>
+          </template>
+        </div>
       </div>
       <div v-if="displayReferences.length > 0" class="references-block">
         <div class="references-title">
@@ -58,7 +66,6 @@
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
           </button>
         </div>
-        <span v-if="message.version && message.version > 1" class="version-badge">v{{ message.version }}</span>
       </div>
       <div v-if="isEditing" class="user-edit-actions">
         <button class="user-edit-btn-confirm" @click="$emit('userEditSave', editDraft)">确认</button>
@@ -81,6 +88,7 @@ interface Props {
     timestamp: Date
     edited?: boolean
     version?: number
+    versions?: string[]
   }
   index?: number
   streamingContent?: string
@@ -92,6 +100,7 @@ interface Props {
 }
 
 import { ref, watch, computed } from 'vue'
+import { confirmDelete } from '@/utils/confirm'
 
 const props = defineProps<Props>()
 const emit = defineEmits<{
@@ -101,9 +110,61 @@ const emit = defineEmits<{
   userEditSave: [content: string]
   userEditCancel: []
   extractSettings: [index: number]
+  restoreVersion: [index: number, versionIndex: number]
+  deleteVersion: [index: number, versionIndex: number]
 }>()
 
 const editDraft = ref('')
+
+// 版本浏览：browseIndex=null 表示查看当前内容，否则查看 versions[i]
+const browseIndex = ref<number | null>(null)
+
+const versionCount = computed(() => props.message.versions?.length ?? 0)
+
+const displayContent = computed(() => {
+  if (browseIndex.value === null) return props.message.content
+  return props.message.versions?.[browseIndex.value] ?? props.message.content
+})
+
+const positionLabel = computed(() => {
+  if (browseIndex.value === null) return `当前 · ${versionCount.value}个版本`
+  return `浏览 ${browseIndex.value + 1}/${versionCount.value}`
+})
+
+const prevVersion = () => {
+  const n = versionCount.value
+  if (!n) return
+  if (browseIndex.value === null) browseIndex.value = n - 1
+  else if (browseIndex.value > 0) browseIndex.value--
+  else browseIndex.value = null
+}
+
+const nextVersion = () => {
+  const n = versionCount.value
+  if (!n) return
+  if (browseIndex.value === null) browseIndex.value = 0
+  else if (browseIndex.value < n - 1) browseIndex.value++
+  else browseIndex.value = null
+}
+
+const handleRestore = () => {
+  if (browseIndex.value === null || props.index === undefined) return
+  emit('restoreVersion', props.index, browseIndex.value)
+  browseIndex.value = null
+}
+
+const handleDelete = async () => {
+  if (browseIndex.value === null || props.index === undefined) return
+  const ok = await confirmDelete('删除该历史版本？编辑次数将减一，可继续修改', '警告')
+  if (!ok) return
+  emit('deleteVersion', props.index, browseIndex.value)
+  browseIndex.value = null
+}
+
+// 版本列表变化（编辑新增/删除）后越界回退到当前
+watch(versionCount, (n) => {
+  if (browseIndex.value !== null && browseIndex.value >= n) browseIndex.value = null
+})
 
 const displayReferences = computed(() => {
   return props.streamingReferences && props.streamingReferences.length > 0
@@ -307,12 +368,6 @@ details[open] > .thinking-toggle::before { transform: rotate(90deg); }
 .thinking-content :deep(pre) { background: rgba(0,0,0,0.2); }
 .thinking-content :deep(code) { background: rgba(168,85,247,0.1); }
 
-.edited-badge {
-  display: inline-block; font-size: 0.75rem; color: var(--neon-cyan, #28c4d4);
-  margin-top: 8px; padding: 2px 8px;
-  background: rgba(40, 196, 212, 0.1); border-radius: 8px;
-}
-
 .references-block {
   margin-top: 12px;
   padding-top: 10px;
@@ -439,8 +494,34 @@ details[open] > .thinking-toggle::before { transform: rotate(90deg); }
 
 .extract-btn:hover svg { animation: none; color: var(--neon-cyan, #28c4d4); }
 
-.version-badge {
-  font-size: 0.7rem; color: var(--text-muted);
-  background: rgba(255,255,255,0.05); padding: 0 6px; border-radius: 4px;
+/* 版本切换条：编辑过（versions≥1）的气泡底部常显 */
+.version-bar {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin-top: 10px; padding-top: 8px;
+  border-top: 1px dashed rgba(255,255,255,0.12);
 }
+.vbtn {
+  min-width: 26px; height: 26px; padding: 0 8px;
+  border: 1px solid rgba(255,255,255,0.14); border-radius: 6px;
+  background: rgba(255,255,255,0.04); color: var(--text-secondary);
+  cursor: pointer; font-size: 0.8rem; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.vbtn:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+.vpos {
+  font-size: 0.75rem; color: var(--text-muted);
+  min-width: 96px; text-align: center;
+}
+.vbtn-restore {
+  color: var(--neon-cyan, #28c4d4);
+  border-color: rgba(40,196,212,0.35);
+}
+.vbtn-restore:hover { background: rgba(40,196,212,0.12); color: var(--neon-cyan, #28c4d4); }
+.vbtn-del {
+  color: var(--danger, #f56c6c);
+  border-color: rgba(245,108,108,0.35);
+}
+.vbtn-del:hover { background: rgba(245,108,108,0.12); color: var(--danger, #f56c6c); }
+.is-browsing { outline: 1px solid rgba(40,196,212,0.45); }
 </style>

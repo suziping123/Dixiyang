@@ -15,11 +15,15 @@ from ..utils.response import Result
 from .chain_file_manager import (
     read_chain,
     replace_message,
+    restore_version,
+    delete_version,
     read_edits,
     write_edit,
     read_summary,
     write_summary,
     truncate_chain,
+    EditQuotaExceeded,
+    EDIT_VERSION_LIMIT,
 )
 from .chat_service import save_chain_file
 
@@ -97,6 +101,8 @@ class ChatHistoryService:
         now = datetime.now().isoformat()
         for m in messages:
             m.setdefault("createTime", now)
+            # 旧数据残留的改前原文一律不下发（新版本不再写入该字段）
+            m.pop("originalContent", None)
         return Result.success("获取成功", messages)
 
     def batch_save(self, user_id: int, session_id: str, novel_id: int | None, messages: list) -> dict:
@@ -106,24 +112,32 @@ class ChatHistoryService:
         self._upsert_session(user_id, session_id, novel_id, head_path)
         return Result.success("保存成功")
 
-    def edit_message(self, user_id: int, session_id: str, message_index: int, role: str, content: str) -> dict:
+    def edit_message(self, user_id: int, session_id: str, message_index: int, role: str, content: str,
+                     truncate_after: bool = False) -> dict:
         chain_dir = self._session_dir(user_id, session_id)
         if not os.path.isdir(chain_dir):
             return Result.error("会话目录不存在")
 
         try:
             original, edited = replace_message(chain_dir, message_index, role, content)
+        except EditQuotaExceeded:
+            return Result.error(f"修改次数已达上限（{EDIT_VERSION_LIMIT}次），删除历史版本后可继续修改")
         except IndexError:
             return Result.error("消息索引越界")
         except Exception as e:
             return Result.error(f"编辑失败: {e}")
 
-        # 记录到 edits.json（Spring 兼容格式：camelCase 字段名）
+        # 用户提问编辑：同步截断其后的问答，保证链与前端一致（防刷新后旧回复复现）
+        if truncate_after:
+            try:
+                truncate_chain(chain_dir, message_index + 1)
+            except Exception as e:
+                log.warning("编辑后截断失败: %s", e)
+
+        # 记录到 edits.json（只存修正要点，不存改前原文；Spring 兼容 camelCase 字段名）
         edits = read_edits(chain_dir)
         record = {
             "messageIndex": message_index,
-            "originalContent": original,
-            "editedContent": edited,
             "role": role,
             "timestamp": datetime.now().isoformat(),
             "version": len(edits) + 1,
@@ -131,7 +145,7 @@ class ChatHistoryService:
             "errorType": "OTHER",
         }
 
-        # 异步提取修正要点（fire-and-forget）
+        # 异步提取修正要点（fire-and-forget；原文仅在内存瞬时使用，不落盘）
         try:
             from .chat_service import extract_keypoint_async
             future = extract_keypoint_async(original, edited)
@@ -157,6 +171,30 @@ class ChatHistoryService:
 
         write_edit(chain_dir, record)
         return Result.success("编辑成功")
+
+    def restore_version(self, user_id: int, session_id: str, message_index: int, version_index: int) -> dict:
+        chain_dir = self._session_dir(user_id, session_id)
+        if not os.path.isdir(chain_dir):
+            return Result.error("会话目录不存在")
+        try:
+            content = restore_version(chain_dir, message_index, version_index)
+        except IndexError as e:
+            return Result.error(str(e))
+        except Exception as e:
+            return Result.error(f"恢复失败: {e}")
+        return Result.success("恢复成功", {"content": content})
+
+    def delete_version(self, user_id: int, session_id: str, message_index: int, version_index: int) -> dict:
+        chain_dir = self._session_dir(user_id, session_id)
+        if not os.path.isdir(chain_dir):
+            return Result.error("会话目录不存在")
+        try:
+            versions = delete_version(chain_dir, message_index, version_index)
+        except IndexError as e:
+            return Result.error(str(e))
+        except Exception as e:
+            return Result.error(f"删除失败: {e}")
+        return Result.success("删除成功", {"versions": versions})
 
     def generate_title(self, user_id: int, session_id: str) -> dict:
         session = self.db.query(ChatSession).filter(
