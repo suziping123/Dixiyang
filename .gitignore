@@ -159,3 +159,9 @@ chroma_data/
 motion-web-main/
 .agents/
 .trae/
+
+# 一次性调试探针（定位完即弃，2026-10-08 清理）
+scripts/_probe-*.mjs
+
+# opencode 本地配置（agent 定义与个人模型偏好，不入项目库）
+opencode.json
