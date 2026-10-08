@@ -26,15 +26,12 @@ src/
 │   ├── timelineApi.ts     # 时间线相关API
 │   └── types.ts           # 类型定义
 ├── assets/           # 静态资源
-│   ├── logo.svg
 │   └── main.css
 ├── components/       # 可复用组件
 │   ├── BackgroundControl.vue    # 背景控制组件
 │   ├── CreateCard.vue           # 创建卡片组件
-│   ├── CreateNovelModal.vue     # 创建小说模态框
 │   ├── FloatingNav.vue          # 浮动导航组件
 │   ├── FontControl.vue          # 字体控制组件
-│   ├── NovelCard.vue            # 小说卡片组件
 │   ├── NovelPageHeader.vue      # 小说页面共享头部（封面+标题+换封面）
 │   ├── SettingsSection.vue      # 设置部分组件
 │   └── TextColorCustomizer.vue  # 文本颜色定制组件
@@ -42,24 +39,18 @@ src/
 │   ├── useAuth.ts               # 认证相关
 │   ├── useBackgroundConfig.ts   # 背景配置
 │   ├── useFontConfig.ts         # 字体配置
-│   ├── useTextColorAdapter.ts   # 文本颜色适配器
 │   ├── useTextColorCustomizer.ts # 文本颜色定制
-│   ├── useThemeSystem.ts        # 主题系统
 │   └── useUser.ts               # 用户相关
 ├── images/           # 图片资源
 ├── router/           # 路由配置
 │   └── index.ts
 ├── stores/           # 状态管理
 │   ├── UserStore.ts             # 用户状态
-│   ├── novelStore.ts            # 小说信息共享状态
-│   └── counter.ts               # 计数器示例
+│   └── novelStore.ts            # 小说信息共享状态
 ├── utils/            # 工具函数
-│   ├── colorUtils.ts            # 颜色工具
 │   ├── confirm.ts               # 确认对话框
-│   ├── http.ts                  # HTTP客户端封装
-│   └── textColorAdaptationDemo.ts # 文本颜色适配演示
+│   └── http.ts                  # HTTP客户端封装
 ├── views/            # 页面视图
-│   ├── AboutView.vue            # 关于页面
 │   ├── CharacterManagerView.vue # 角色管理页面
 │   ├── HomeView.vue             # 首页
 │   ├── LoginView.vue            # 登录页面
@@ -278,13 +269,15 @@ npm run test:unit
 
 ## 功能完成状态对照
 
+> ⚠️ **勘误（2026-10-08）**：本区状态为 2026-05/06 快照，已按现状修正以下条目——① `NovelEditorView` 现为**完整编辑器**（非占位）；② `FileController`/`UserConfigController`/`TimelineController`/`StoryNodeController` 均**已实现**（非"为空"）；③ `NovelRelationController` 为零端点空类**已删除**（`novel_relation` 模型待实现）；④ `CreateNovelModal.vue`/`NovelCard.vue` 等目录树残留项已从上文移除。后续以根目录 `docs/README.md` 版本变更记录为准。
+
 ### ✅ 前端已完成 + 后端已实现
 
 | 功能模块 | 前端实现 | 后端接口 | 状态 |
 |---------|---------|---------|------|
 | **用户认证** | ✅ LoginView.vue<br>✅ useAuth.ts | ✅ POST /auth/login<br>✅ POST /auth/register | ✅ 完成 |
 | **小说列表** | ✅ HomeView.vue<br>✅ novelApi.ts | ✅ GET /novel/listall | ✅ 完成 |
-| **创建小说** | ✅ CreateNovelModal.vue<br>✅ novelApi.ts | ✅ POST /novel/create | ✅ 完成 |
+| **创建小说** | ✅ HomeView.vue<br>✅ novelApi.ts | ✅ POST /novel/create | ✅ 完成 |
 | **删除小说** | ✅ HomeView.vue<br>✅ novelApi.ts | ✅ POST /novel/delete/{id} | ✅ 完成 |
 | **角色列表** | ✅ CharacterManagerView.vue<br>✅ characterApi.ts | ✅ GET /novelCharacter/list/{id}<br>✅ GET /novelCharacter/all/{id} | ✅ 完成 |
 | **角色详情** | ✅ CharacterManagerView.vue<br>✅ characterApi.ts | ✅ GET /novelCharacter/{id} | ✅ 完成 |
@@ -298,7 +291,7 @@ npm run test:unit
 
 | 功能模块 | 前端实现 | 后端状态 | 缺失内容 |
 |---------|---------|---------|----------|
-| **小说编辑** | ⚠️ NovelEditorView.vue (占位页面) | ❌ 无完整实现 | 需要实现编辑器相关接口 |
+| **小说编辑** | ✅ NovelEditorView.vue (完整编辑器) | ✅ /chapters、/volumes、/ai/completion（Python 侧） | ✅ 完成（见勘误） |
 | **故事节点CRUD** | ⚠️ RagAssistantView.vue (仅查询) | ❌ 缺少 CRUD | 需要实现：<br>- POST /storyNode/create<br>- POST /storyNode/update/{id}<br>- POST /storyNode/delete/{id} |
 | **时间线管理** | ⚠️ SettingsView.vue (配置项) | ❌ 完全未实现 | 需要实现：<br>- GET /timeline/list/{novelId}<br>- POST /timeline/create<br>- POST /timeline/update/{id}<br>- POST /timeline/delete/{id} |
 
@@ -306,9 +299,9 @@ npm run test:unit
 
 | 功能模块 | 前端状态 | 后端状态 | 说明 |
 |---------|---------|---------|------|
-| **文件上传** | ❌ 未实现 | ❌ FileController为空 | 需要实现：<br>- 前端：上传组件<br>- 后端：POST /upload/novel-cover |
-| **用户配置** | ⚠️ SettingsView.vue (UI完成) | ❌ UserConfigController为空 | 需要实现：<br>- GET /userConfig/get<br>- POST /userConfig/update |
-| **小说关系** | ❌ 未实现 | ❌ NovelRelationController为空 | 需要实现前后端完整功能 |
+| **文件上传** | ⚠️ 已对接封面/背景上传 | ✅ FileController 已实现 | 仅剩图片格式扩展等优化项 |
+| **用户配置** | ⚠️ SettingsView.vue (UI完成) | ✅ UserConfigController 已实现 | 见 8.16 单点登录与登录风控 |
+| **小说关系** | ❌ 未实现 | ❌ Controller 空类已删除 | 待需求明确后实现前后端完整功能 |
 | **小说更新** | ⚠️ 前端有需求 | ✅ POST /novel/update/{id} | 前端需要添加更新界面 |
 
 ### 📊 完成度统计

@@ -165,3 +165,6 @@ scripts/_probe-*.mjs
 
 # opencode 本地配置（agent 定义与个人模型偏好，不入项目库）
 opencode.json
+
+# 一代 Flask+聊天原型（历史归档，仅本地保留，2026-10-08 出库）
+DixyangFast/daily-log/

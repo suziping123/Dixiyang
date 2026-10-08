@@ -40,13 +40,11 @@ src/main/java/com/dixiyang/server/
 │   ├── SecurityConfig.java           # 安全配置
 │   └── WebMvcConfig.java             # Web MVC 配置
 ├── Controller/      # 控制器层
-│   ├── AppUserController.java        # 用户控制器
 │   ├── AuthController.java           # 认证控制器
 │   ├── ChatController.java           # 聊天控制器（RAG系统）
 │   ├── FileController.java           # 文件控制器
 │   ├── NovelCharacterController.java # 角色控制器
 │   ├── NovelController.java          # 小说控制器
-│   ├── NovelRelationController.java  # 关系控制器
 │   ├── StoryNodeController.java      # 故事节点控制器
 │   ├── TimelineController.java       # 时间线控制器
 │   ├── UserConfigController.java     # 用户配置控制器
@@ -255,19 +253,11 @@ src/main/java/com/dixiyang/server/
 
 ### ❌ 后端未实现 + 前端有需求
 
-| 功能模块 | 后端状态 | 前端需求 | 需要实现的接口 |
+> ⚠️ **勘误（2026-10-08）**：本区为 2026-05/06 快照——File/UserConfig/Timeline/StoryNode Controller 均**已实现**（非"为空"）；`NovelRelationController` 零端点空类**已删除**（`NovelRelation` 实体/Mapper/Service 保留待需求）；实际进度以 Python 侧 `src/dixiyang/routers/`（14 个 router 全挂载）与根目录 `docs/README.md` 版本变更记录为准。
+
+| 功能模块 | 后端状态 | 前端状态 | 需要实现的接口 |
 |---------|---------|---------|------------------|
-| **文件上传** | ❌ FileController为空 | ❌ 前端需要封面上传 | - POST /upload/novel-cover |
-| **用户配置获取** | ❌ UserConfigController为空 | ⚠️ SettingsView.vue需要 | - GET /userConfig/get |
-| **用户配置更新** | ❌ UserConfigController为空 | ⚠️ SettingsView.vue需要 | - POST /userConfig/update |
-| **故事节点创建** | ❌ StoryNodeController缺少 | ⚠️ 编辑器需要 | - POST /storyNode/create |
-| **故事节点更新** | ❌ StoryNodeController缺少 | ⚠️ 编辑器需要 | - POST /storyNode/update/{id} |
-| **故事节点删除** | ❌ StoryNodeController缺少 | ⚠️ 编辑器需要 | - POST /storyNode/delete/{id} |
-| **时间线列表** | ❌ TimelineController为空 | ⚠️ SettingsView.vue配置项 | - GET /timeline/list/{novelId} |
-| **时间线创建** | ❌ TimelineController为空 | ⚠️ 编辑器需要 | - POST /timeline/create |
-| **时间线更新** | ❌ TimelineController为空 | ⚠️ 编辑器需要 | - POST /timeline/update/{id} |
-| **时间线删除** | ❌ TimelineController为空 | ⚠️ 编辑器需要 | - POST /timeline/delete/{id} |
-| **小说关系管理** | ❌ NovelRelationController为空 | ❌ 前端未实现 | - 完整的CRUD接口 |
+| **小说关系管理** | ❌ Controller 空类已删除 | ❌ 前端未实现 | - 完整的CRUD接口 |
 
 ### 📊 完成度统计
 
@@ -339,7 +329,7 @@ src/main/java/com/dixiyang/server/
 
 5. **小说关系管理** 🟡
    - **影响**: 无法建立小说间的关联
-   - **需要实现**: NovelRelationController
+   - **需要实现**: 重新实现 NovelRelationController（原空类已删除）
    - **工作量**: 中（3-4天）
 
 #### 低优先级（后续优化）
