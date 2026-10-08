@@ -6,3 +6,5 @@ from .story_node import StoryNode
 from .file import File
 from .user_config import UserConfig
 from .novel_relation import NovelRelation
+from .volume import Volume
+from .chapter import Chapter

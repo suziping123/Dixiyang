@@ -19,7 +19,9 @@ from dixiyang.models.file import File
 from dixiyang.models.user_config import UserConfig
 from dixiyang.models.novel_relation import NovelRelation
 from dixiyang.models.chat_session import ChatSession
-from dixiyang.routers import auth, novel, character, story_node, timeline, file, user, chat, user_config, chat_history, rag
+from dixiyang.models.volume import Volume
+from dixiyang.models.chapter import Chapter
+from dixiyang.routers import auth, novel, character, story_node, timeline, file, user, chat, user_config, chat_history, rag, volume, chapter, ai
 from dixiyang.utils.database import Base, engine
 from dixiyang.config import UPLOAD_DIR
 
@@ -56,6 +58,9 @@ app.include_router(chat.router, prefix="/api")
 app.include_router(user_config.router, prefix="/api")
 app.include_router(chat_history.router, prefix="/api")
 app.include_router(rag.router, prefix="/api")
+app.include_router(volume.router, prefix="/api")
+app.include_router(chapter.router, prefix="/api")
+app.include_router(ai.router, prefix="/api")
 
 
 @app.get("/")
