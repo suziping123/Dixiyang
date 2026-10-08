@@ -47,7 +47,7 @@ public class NovelController {
         return Result.success("创建成功", novelVO);
     }
 
-    @PostMapping("delete/{novelId}")
+    @PostMapping("/delete/{novelId}")
     public Result<String> delete(@RequestAttribute(value = "userId", required = false) Long userId, // 改为非必填
                                   @PathVariable Long novelId) {
         // 如果 userId 为空，可以给个默认值测试

@@ -20,8 +20,6 @@ from .chain_file_manager import (
     delete_current,
     read_edits,
     write_edit,
-    read_summary,
-    write_summary,
     truncate_chain,
     EditQuotaExceeded,
     EDIT_VERSION_LIMIT,
@@ -257,67 +255,6 @@ class ChatHistoryService:
         session.title = title
         self.db.commit()
         return Result.success("标题生成成功", title)
-
-    def maybe_summarize(self, user_id: int, session_id: str):
-        """
-        自动历史摘要：消息超过 12 条时，异步取前 6 条生成摘要并截断。
-        """
-        import threading
-
-        def _run():
-            try:
-                chain_dir = self._session_dir(user_id, session_id)
-                messages = read_chain(chain_dir)
-                if len(messages) < 12:
-                    return
-
-                summary_data = read_summary(chain_dir)
-                last_idx = summary_data.get("lastMessageIndex", 0) if summary_data else 0
-
-                # 距上次摘要不足 6 条则跳过
-                if len(messages) - last_idx < 6:
-                    return
-
-                # 取前 6 条生成摘要
-                to_summarize = messages[:6]
-                conv = []
-                for m in to_summarize:
-                    role = m.get("role", "user")
-                    content = m.get("content", "")
-                    label = "用户" if role == "user" else "AI"
-                    conv.append(f"{label}：{content[:300]}")
-
-                prev_summary = summary_data["summary"] if summary_data else ""
-                from .prompt_templates import build_summarize_prompt
-                prompt = build_summarize_prompt(prev_summary, "\n".join(conv))
-
-                from .chat_service import call_llm
-                new_summary = call_llm(
-                    [{"role": "user", "content": prompt}],
-                    temperature=0.3,
-                    max_tokens=256,
-                ).strip()
-
-                if new_summary:
-                    write_summary(chain_dir, new_summary, len(messages))
-                    new_fname = truncate_chain(chain_dir, 6)
-                    if new_fname:
-                        session = self.db.query(ChatSession).filter(
-                            ChatSession.session_id == session_id,
-                            ChatSession.user_id == user_id,
-                        ).first()
-                        if session:
-                            session.head_path = f"__file__:chat/{user_id}/{session_id}/{new_fname}"
-                            self.db.commit()
-                    log.info("历史摘要完成: session=%s, summary=%s", session_id, new_summary[:50])
-            except Exception as e:
-                log.warning("历史摘要失败: session=%s, %s", session_id, e)
-
-        threading.Thread(target=_run, daemon=True).start()
-
-    def get_summary(self, user_id: int, session_id: str) -> dict | None:
-        chain_dir = self._session_dir(user_id, session_id)
-        return read_summary(chain_dir)
 
     def delete_session(self, user_id: int, session_id: str) -> dict:
         self.db.query(ChatSession).filter(

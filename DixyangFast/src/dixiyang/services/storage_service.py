@@ -103,36 +103,3 @@ def delete_json(subdir: str, record_id: int, db_value) -> None:
             log.info("已删除文件: %s", file_path)
         except FileNotFoundError:
             pass
-
-
-def list_files(subdir: str) -> list[int]:
-    """列出某子目录下所有记录 ID"""
-    dir_path = os.path.join(STORAGE_ROOT, subdir)
-    if not os.path.isdir(dir_path):
-        return []
-    return [
-        int(f.replace(".json", ""))
-        for f in os.listdir(dir_path)
-        if f.endswith(".json")
-    ]
-
-
-def migrate_db_value_to_file(subdir: str, record_id: int, db_value) -> str | None:
-    """
-    迁移：将 DB 中的 JSON 值迁移到文件系统
-    用于一次性迁移旧数据
-    """
-    if db_value is None:
-        return None
-
-    # 如果已经是路径引用，跳过
-    if isinstance(db_value, str) and db_value.startswith("__file__:"):
-        return db_value
-
-    # 解析现有数据
-    data = load_json(subdir, record_id, db_value)
-    if data is None:
-        return None
-
-    # 保存到文件
-    return save_json(subdir, record_id, data)
