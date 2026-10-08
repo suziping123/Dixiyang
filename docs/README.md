@@ -453,7 +453,8 @@
 - **第二轮（截图反馈）**：① 编辑提问后走 `sendStreamMessage` 重发通道导致同一提问本地+链各重复一份（"多个对话"）→ 改走 `regenerateMessage(idx+1)` 只生成回答；② emit 双参数被 Vue 内联 `$event` 截成第一个（消息序号）→ 第 2+ 条消息恢复/删除报「版本不存在」→ 改 emit 单参数 versionIndex + 守卫改长度判断；存量脏链不自动清洗（删会话重聊）
 - **第三轮**：切换永远显示最新（versions 初版只存改后内容，改1次时与 content 相同）→ 改为编辑前快照改前内容，`versions=[原文,改1前,…]`、content 恒最新，删除与 content 解耦
 - **第四轮**：切提问版本回答永远是最新 → 编辑提问三重截断把旧回答物理删除 → 新增回答 `paired` 成对存档（regenerate 请求体 `prevAnswerVersions` 携带旧回答写入链）、`browseMap` 提问↔回答浏览联动、恢复/删除成对编排（restore/delete 加 `field` 参数）；**旧会话已删回答无法找回需删会话重聊**
-- 验证：后端逻辑单测全绿（配额/恢复/删除回退/越界）、py_compile ✓、type-check/lint 无新增、`vite build` ✓
+- **第五轮（截图反馈）**：① 同一回答**双写**（后端 `/chat/stream`、`/chat/regenerate` 写链 + 前端 `saveToBackend→batchSave` 又追加一份，链文件实证同秒两份、编辑只改其中一条致"一条有版本条一条没有"）→ 删除前端两处 `saveToBackend` 及函数，**后端为聊天唯一写入点**；② 已完成回答下 typing 指示器残留（`isStreaming` 复位被标题生成/会话刷新阻塞）→ push 后立即复位；③ 提问+回答双版本条冗余 → 版本条加 `role==='assistant'` 条件，**仅回答侧一个**、提问联动高亮；④ `editMessage`/`restore`/`delete` 不检查业务返回码（拦截器对 code≠200 也 resolve）→ 显式检查并中止；⑤ 后端 thinking 不再拼进 content（分开累计独立字段落链）
+- 验证：后端逻辑单测全绿（第五轮链语义 15/15：追加/截断/快照/成对恢复删除/越界）、py_compile ✓、type-check 9/lint 8 基线无新增、`vite build` ✓
 
 **适用人群**: 前端开发者、后端开发者
 
@@ -703,6 +704,9 @@
 ---
 
 ## 版本变更记录
+
+### v1.34 (2026-10-08)
+- **修复**: [RAG编辑消息版本切换与原文不落盘](./RAG编辑消息版本切换与原文不落盘.md) 第五轮 — 截图三问题根因：① **回答双写**（后端流完成写链 + 前端 batchSave 再追加，本地链文件实证同秒两份，版本操作只改其一）→ 删前端 `saveToBackend` 两处调用及函数，后端唯一写入；② **加载态残留**（`isStreaming` 复位被 generateTitle/loadSessions 阻塞 → typing 指示器挂在已完成回答下）→ push 后立即复位；③ **双版本条冗余** → 版本条仅回答侧渲染（`role==='assistant'`），提问随 browseIndex 联动；附带：`editMessage`/`restore`/`delete` 显式检查业务返回码（拦截器 code≠200 也 resolve 的静默分叉）、后端 thinking 拆独立字段不混 content；链语义单测 15/15、type-check 9/lint 8 基线、build ✓；历史重复消息不清洗（删测试会话重聊）
 
 ### v1.33 (2026-10-08)
 - **修复**: [RAG编辑消息版本切换与原文不落盘](./RAG编辑消息版本切换与原文不落盘.md) 第四轮 — 切提问版本回答永远是最新：编辑提问时三重截断物理删除旧回答 → 新增回答 `paired` 与提问 versions 成对存档（`/chat/regenerate` 请求体 `prevAnswerVersions` 落链）、ChatMessage browseIndex 受控 + RagAssistantView `browseMap` 提问↔回答联动切换、恢复/删除按 `field` 参数成对编排；旧会话已删回答不可找回（删会话重聊）；后端 paired 单测全绿、type-check 9/lint 8 基线、build 通过

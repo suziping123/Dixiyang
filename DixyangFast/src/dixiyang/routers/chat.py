@@ -412,13 +412,16 @@ async def chat_stream(req: ChatRequest,
         max_tokens = req.max_tokens or MODE_META[mode]["max_tokens"]
         temperature = req.temperature or 0.7
 
-        full_content = ""
+        content_parts: list[str] = []
+        thinking_parts: list[str] = []
         references: list[dict] = []
         saved = False
         try:
             async for type_, delta in _stream_with_tool_loop(messages, temperature, max_tokens, novel_id=req.novel_id or 0):
-                if type_ in ("content", "thinking"):
-                    full_content += delta
+                if type_ == "content":
+                    content_parts.append(delta)
+                elif type_ == "thinking":
+                    thinking_parts.append(delta)
                 if type_ == "tool_start":
                     yield _sse("tool_start", {"tool": delta})
                 elif type_ == "tool_result":
@@ -431,7 +434,11 @@ async def chat_stream(req: ChatRequest,
                     yield _sse(type_, {"delta": delta})
             now = datetime.now().isoformat()
             user_msg = {"role": "user", "content": req.message, "createTime": now}
-            asst_msg = {"role": "assistant", "content": full_content, "createTime": now}
+            asst_msg = {"role": "assistant", "content": "".join(content_parts), "createTime": now}
+            thinking_text = "".join(thinking_parts)
+            if thinking_text:
+                # thinking 独立字段存储（与前端加载渲染对齐），不混入 content
+                asst_msg["thinking"] = thinking_text
             if references:
                 asst_msg["references"] = references
             fname = save_chain_file(chain_dir, [user_msg, asst_msg])
@@ -444,7 +451,10 @@ async def chat_stream(req: ChatRequest,
                 try:
                     now = datetime.now().isoformat()
                     user_msg = {"role": "user", "content": req.message, "createTime": now}
-                    asst_msg = {"role": "assistant", "content": full_content, "createTime": now}
+                    asst_msg = {"role": "assistant", "content": "".join(content_parts), "createTime": now}
+                    thinking_text = "".join(thinking_parts)
+                    if thinking_text:
+                        asst_msg["thinking"] = thinking_text
                     if references:
                         asst_msg["references"] = references
                     fname = save_chain_file(chain_dir, [user_msg, asst_msg])
@@ -488,13 +498,16 @@ async def chat_regenerate(req: ChatRequest,
         max_tokens = req.max_tokens or MODE_META[mode]["max_tokens"]
         temperature = req.temperature or 0.7
 
-        full_content = ""
+        content_parts: list[str] = []
+        thinking_parts: list[str] = []
         references: list[dict] = []
         saved = False
         try:
             async for type_, delta in _stream_with_tool_loop(messages, temperature, max_tokens, novel_id=req.novel_id or 0):
-                if type_ in ("content", "thinking"):
-                    full_content += delta
+                if type_ == "content":
+                    content_parts.append(delta)
+                elif type_ == "thinking":
+                    thinking_parts.append(delta)
                 if type_ == "tool_start":
                     yield _sse("tool_start", {"tool": delta})
                 elif type_ == "tool_result":
@@ -506,7 +519,11 @@ async def chat_regenerate(req: ChatRequest,
                 elif type_ in ("content", "thinking"):
                     yield _sse(type_, {"delta": delta})
             now = datetime.now().isoformat()
-            asst_msg = {"role": "assistant", "content": full_content, "createTime": now}
+            asst_msg = {"role": "assistant", "content": "".join(content_parts), "createTime": now}
+            thinking_text = "".join(thinking_parts)
+            if thinking_text:
+                # thinking 独立字段存储（与前端加载渲染对齐），不混入 content
+                asst_msg["thinking"] = thinking_text
             if references:
                 asst_msg["references"] = references
             if req.prev_answer_versions:
@@ -521,7 +538,10 @@ async def chat_regenerate(req: ChatRequest,
             if not saved:
                 try:
                     now = datetime.now().isoformat()
-                    asst_msg = {"role": "assistant", "content": full_content, "createTime": now}
+                    asst_msg = {"role": "assistant", "content": "".join(content_parts), "createTime": now}
+                    thinking_text = "".join(thinking_parts)
+                    if thinking_text:
+                        asst_msg["thinking"] = thinking_text
                     if references:
                         asst_msg["references"] = references
                     if req.prev_answer_versions:

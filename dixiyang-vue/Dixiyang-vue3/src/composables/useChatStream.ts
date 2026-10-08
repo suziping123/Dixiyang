@@ -57,25 +57,8 @@ export function useChatStream(userId?: number) {
   const sessions = ref<ChatSession[]>([])
   let abortController: AbortController | null = null
 
-  const saveToBackend = async (msgs: ChatMessage[], novelId?: string | number) => {
-    if (!currentSessionId.value || !userId) return
-    try {
-      await http.post('/chatHistory/batchSave', {
-        sessionId: currentSessionId.value,
-        novelId: novelId ?? null,
-        messages: msgs.map(m => ({
-          role: m.role,
-          content: m.content,
-          thinking: m.thinking ?? null,
-          references: m.references ?? null,
-          versions: m.versions ?? null,
-          paired: m.paired ?? null,
-          edited: m.edited ?? null,
-          createTime: m.timestamp.toISOString()
-        }))
-      })
-    } catch { /* silent */ }
-  }
+  // 聊天落盘以后端为唯一写入点（/chat/stream、/chat/regenerate 流完成时写链），
+  // 前端不再调 batchSave 追加，避免同一回答双写导致重复消息/版本条状态分叉
 
   const loadSessions = async (novelId?: string | number) => {
     if (!novelId) return
@@ -241,9 +224,11 @@ export function useChatStream(userId?: number) {
       currentContent.value = ''
       currentThinking.value = ''
       currentReferences.value = []
+      // 立即解锁流式态：标题生成/会话列表刷新不再让 typing 指示器残留在已完成回答下方
+      isStreaming.value = false
+      abortController = null
 
       const isFirstExchange = messages.value.filter(m => m.role === 'assistant').length === 1
-      await saveToBackend([userMsg, assistantMsg], context.novelId)
       if (isFirstExchange) {
         await generateTitle(context.novelId)
       }
@@ -388,8 +373,6 @@ export function useChatStream(userId?: number) {
       currentContent.value = ''
       currentThinking.value = ''
       currentReferences.value = []
-
-      saveToBackend([assistantMsg], context.novelId)
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
         messages.value.push({
@@ -411,9 +394,14 @@ export function useChatStream(userId?: number) {
     const m = messages.value[index]
     if (!m) return '消息不存在'
     try {
-      await http.put(`/chatHistory/message/${currentSessionId.value}`, {
+      const res = await http.put(`/chatHistory/message/${currentSessionId.value}`, {
         messageIndex: index, role, content: newContent, truncateAfter
-      })
+      }) as unknown as { code?: number; msg?: string }
+      // 拦截器对业务错误也 resolve（code≠200），必须显式检查——
+      // 否则后端替换/截断失败时本地照改，导致本地与链索引分叉
+      if (res && typeof res === 'object' && typeof res.code === 'number' && res.code !== 200) {
+        return res.msg || '编辑保存失败，请稍后再试'
+      }
     } catch (e) {
       return friendlyError((e as Error).message, '编辑失败，请稍后再试')
     }
@@ -430,9 +418,12 @@ export function useChatStream(userId?: number) {
     if (!m || versionIndex < 0 || versionIndex >= src.length) return '版本不存在'
     if (!currentSessionId.value || !userId) return '会话未就绪，请刷新后重试'
     try {
-      await http.post(`/chatHistory/restore-version/${currentSessionId.value}`, {
+      const res = await http.post(`/chatHistory/restore-version/${currentSessionId.value}`, {
         messageIndex: index, versionIndex, field
-      })
+      }) as unknown as { code?: number; msg?: string }
+      if (res && typeof res === 'object' && typeof res.code === 'number' && res.code !== 200) {
+        return res.msg || '恢复失败，请稍后再试'
+      }
     } catch (e) {
       return friendlyError((e as Error).message, '恢复失败，请稍后再试')
     }
@@ -447,9 +438,12 @@ export function useChatStream(userId?: number) {
     if (!m || versionIndex < 0 || versionIndex >= src.length) return '版本不存在'
     if (!currentSessionId.value || !userId) return '会话未就绪，请刷新后重试'
     try {
-      await http.delete(`/chatHistory/version/${currentSessionId.value}`, {
+      const res = await http.delete(`/chatHistory/version/${currentSessionId.value}`, {
         data: { messageIndex: index, versionIndex, field }
-      })
+      }) as unknown as { code?: number; msg?: string }
+      if (res && typeof res === 'object' && typeof res.code === 'number' && res.code !== 200) {
+        return res.msg || '删除失败，请稍后再试'
+      }
     } catch (e) {
       return friendlyError((e as Error).message, '删除失败，请稍后再试')
     }

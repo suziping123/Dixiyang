@@ -24,7 +24,8 @@
           @input="editDraft = ($event.target as HTMLTextAreaElement).value"
           placeholder="输入要修改的内容..."
         ></textarea>
-        <div v-if="versionCount > 0 && !isEditing" class="version-bar">
+        <!-- 单一切换器：仅回答侧渲染；提问侧由 browseIndex 联动高亮，不再单独出条 -->
+        <div v-if="message.role === 'assistant' && versionCount > 0 && !isEditing" class="version-bar">
           <button type="button" class="vbtn" @click="prevVersion" title="上一个版本">‹</button>
           <span class="vpos">{{ positionLabel }}</span>
           <button type="button" class="vbtn" @click="nextVersion" title="下一个版本">›</button>
