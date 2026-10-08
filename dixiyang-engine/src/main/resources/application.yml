@@ -18,6 +18,24 @@ spring:
       max-file-size: 10MB
       max-request-size: 10MB
 
+  # 邮箱验证码 SMTP（凭据优先取环境变量，缺失时由 DotEnv 从项目根 .env 兜底）
+  mail:
+    host: ${SMTP_HOST:smtp.qq.com}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+          starttls:
+            enable: true
+            required: false
+
   # 3. Spring AI 混合配置
   ai:
     # Ollama 本地模型 - 暂时禁用

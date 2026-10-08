@@ -17,8 +17,9 @@ public class JwtUtils {
 
     /**
      * 根据用户ID生成Token（ID必须是数字，比如"1"，不能是"admin"）
+     * sessionId：单点登录会话号，随 token 下发，服务端比对 app_user.session_id 决定是否踢出
      */
-    public String generateToken(String userId){
+    public String generateToken(String userId, String sessionId){
         // 校验用户ID是否为数字（避免前端传非数字ID）
         if (userId == null || !userId.matches("\\d+")) {
             throw new IllegalArgumentException("用户ID必须是数字格式");
@@ -28,6 +29,7 @@ public class JwtUtils {
 
         return Jwts.builder()
                 .setSubject(userId)//存用户ID（数字字符串，比如"1"）
+                .claim("sid", sessionId)//单点登录会话号
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(KEY, SignatureAlgorithm.HS256)//显式指定算法
@@ -35,16 +37,15 @@ public class JwtUtils {
     }
 
     /**
-     * 解析Token获取用户ID（添加异常处理，避免直接抛错）
+     * 解析Token获取全部声明（添加异常处理，避免直接抛错）
      */
-    public String getUserIdFromToken(String token) {
+    public Claims parseClaims(String token) {
         try {
-            Claims claims = Jwts.parserBuilder()
+            return Jwts.parserBuilder()
                     .setSigningKey(KEY)
                     .build()
                     .parseClaimsJws(token)
                     .getBody();
-            return claims.getSubject();
         } catch (SignatureException e) {
             throw new RuntimeException("Token签名验证失败（密钥错误/Token篡改）");
         } catch (ExpiredJwtException e) {
@@ -54,5 +55,19 @@ public class JwtUtils {
         } catch (Exception e) {
             throw new RuntimeException("Token解析失败：" + e.getMessage());
         }
+    }
+
+    /**
+     * 解析Token获取用户ID
+     */
+    public String getUserIdFromToken(String token) {
+        return parseClaims(token).getSubject();
+    }
+
+    /**
+     * 解析Token获取单点登录会话号（旧Token无sid返回null，视为无效）
+     */
+    public String getSessionIdFromToken(String token) {
+        return parseClaims(token).get("sid", String.class);
     }
 }

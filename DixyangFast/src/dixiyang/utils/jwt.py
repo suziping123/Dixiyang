@@ -5,9 +5,15 @@ from jose import JWTError, jwt
 from ..config import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEY
 
 
-def create_access_token(user_id: int) -> str:
+def create_access_token(user_id: int, session_id: str) -> str:
+    """签发 JWT；session_id 为单点登录会话号，服务端比对 app_user.session_id 决定是否踢出"""
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    payload = {"sub": str(user_id), "exp": expire, "iat": datetime.now(timezone.utc)}
+    payload = {
+        "sub": str(user_id),
+        "sid": session_id,
+        "exp": expire,
+        "iat": datetime.now(timezone.utc),
+    }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 

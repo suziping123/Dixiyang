@@ -1,5 +1,6 @@
 import random
 import string
+import uuid
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
@@ -16,6 +17,9 @@ from ..utils.response import Result
 
 CODE_EXPIRE_MINUTES = 5
 RATE_LIMIT_SECONDS = 60
+# 登录风控：窗口内成功登录达 RISK_LOGIN_LIMIT 次后，密码登录必须验证码
+RISK_WINDOW_MINUTES = 10
+RISK_LOGIN_LIMIT = 3
 
 
 def _hash_pw(password: str) -> str:
@@ -30,6 +34,29 @@ def _generate_code() -> str:
     return "".join(random.choices(string.digits, k=6))
 
 
+def _now_utc_naive() -> datetime:
+    """UTC 字面值时间（与 Java 端共表可比）"""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _new_session_id() -> str:
+    return uuid.uuid4().hex
+
+
+def _record_login(user: AppUser) -> None:
+    """记录一次成功登录：窗口内计数，达阈值则置强制验证码标记"""
+    now = _now_utc_naive()
+    start = user.login_window_start
+    if start is None or start <= now - timedelta(minutes=RISK_WINDOW_MINUTES):
+        count = 1
+    else:
+        count = (user.login_count or 0) + 1
+    user.login_count = count
+    user.login_window_start = now
+    if count >= RISK_LOGIN_LIMIT:
+        user.require_code = True
+
+
 class AuthService:
     def __init__(self, db: Session = Depends(get_db)):
         self.db = db
@@ -40,7 +67,15 @@ class AuthService:
             return Result.error("用户名不存在")
         if not _verify_pw(req.password, user.password):
             return Result.error("用户名或密码错误")
-        token = create_access_token(user.id)
+        # 风控：短时间内频繁顶号登录，强制改用邮箱验证码登录
+        if user.require_code:
+            return Result.error("登录过于频繁，请使用邮箱验证码登录")
+        # 单点登录：生成新会话号覆盖旧值，旧设备下次请求即被踢出
+        session_id = _new_session_id()
+        user.session_id = session_id
+        _record_login(user)
+        self.db.commit()
+        token = create_access_token(user.id, session_id)
         data = {
             "token": token,
             "user": {
@@ -207,7 +242,14 @@ class AuthService:
         if not user:
             return Result.error("该邮箱未注册")
 
-        token = create_access_token(user.id)
+        # 验证码登录通过风控 → 顶号 + 解除强制验证码 + 重置窗口
+        session_id = _new_session_id()
+        user.session_id = session_id
+        user.require_code = False
+        user.login_count = 0
+        user.login_window_start = _now_utc_naive()
+        self.db.commit()
+        token = create_access_token(user.id, session_id)
         data = {
             "token": token,
             "user": {
