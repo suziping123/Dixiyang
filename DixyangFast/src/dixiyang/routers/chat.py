@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -27,6 +28,9 @@ from ..utils.auth_deps import get_current_user_id
 from ..utils.response import Result
 
 router = APIRouter(prefix="/chat", tags=["聊天模块"])
+
+# 取消/异常且一字未出时的占位回答（前后端同一句，保证刷新后与停止时所见一致）
+STOP_TEXT = "未生成回答内容"
 
 logger = logging.getLogger(__name__)
 
@@ -419,6 +423,29 @@ async def chat_stream(req: ChatRequest,
         thinking_parts: list[str] = []
         references: list[dict] = []
         saved = False
+
+        def _save_pair() -> bool:
+            """流结束统一落盘（成功/异常/取消共用；全同步，可在取消上下文安全执行）"""
+            try:
+                now = datetime.now().isoformat()
+                user_msg = {"role": "user", "content": req.message, "createTime": now}
+                asst_msg = {"role": "assistant",
+                            "content": "".join(content_parts) or STOP_TEXT,
+                            "createTime": now}
+                thinking_text = "".join(thinking_parts)
+                if thinking_text:
+                    # thinking 独立字段存储（与前端加载渲染对齐），不混入 content
+                    asst_msg["thinking"] = thinking_text
+                if references:
+                    asst_msg["references"] = references
+                fname = save_chain_file(chain_dir, [user_msg, asst_msg])
+                hp = f"__file__:chat/{user_id}/{session_id}/{fname}"
+                _upsert_session(user_id, session_id, req.novel_id, hp)
+                return True
+            except Exception as e2:
+                logging.getLogger(__name__).error("流式回答落盘失败: %s", e2)
+                return False
+
         try:
             async for type_, delta in _stream_with_tool_loop(messages, temperature, max_tokens, novel_id=req.novel_id or 0):
                 if type_ == "content":
@@ -435,37 +462,16 @@ async def chat_stream(req: ChatRequest,
                     yield _sse("rag_references", delta)
                 elif type_ in ("content", "thinking"):
                     yield _sse(type_, {"delta": delta})
-            now = datetime.now().isoformat()
-            user_msg = {"role": "user", "content": req.message, "createTime": now}
-            asst_msg = {"role": "assistant", "content": "".join(content_parts), "createTime": now}
-            thinking_text = "".join(thinking_parts)
-            if thinking_text:
-                # thinking 独立字段存储（与前端加载渲染对齐），不混入 content
-                asst_msg["thinking"] = thinking_text
-            if references:
-                asst_msg["references"] = references
-            fname = save_chain_file(chain_dir, [user_msg, asst_msg])
-            hp = f"__file__:chat/{user_id}/{session_id}/{fname}"
-            _upsert_session(user_id, session_id, req.novel_id, hp)
-            saved = True
+            saved = _save_pair()
+        except (GeneratorExit, asyncio.CancelledError):
+            # 用户点停止（客户端断开）：已流出部分原样落盘，"停在流式状态"，与前端所见一致
+            if not saved:
+                _save_pair()
+            raise
         except Exception as e:
             yield _sse("error", {"message": f"{type(e).__name__}: {e}"})
             if not saved:
-                try:
-                    now = datetime.now().isoformat()
-                    user_msg = {"role": "user", "content": req.message, "createTime": now}
-                    asst_msg = {"role": "assistant", "content": "".join(content_parts), "createTime": now}
-                    thinking_text = "".join(thinking_parts)
-                    if thinking_text:
-                        asst_msg["thinking"] = thinking_text
-                    if references:
-                        asst_msg["references"] = references
-                    fname = save_chain_file(chain_dir, [user_msg, asst_msg])
-                    hp = f"__file__:chat/{user_id}/{session_id}/{fname}"
-                    _upsert_session(user_id, session_id, req.novel_id, hp)
-                    saved = True
-                except Exception as e2:
-                    yield _sse("error", {"message": f"save after error failed: {e2}"})
+                saved = _save_pair()
         if saved:
             _maybe_summarize(user_id, session_id)
         yield _sse_done(session_id)
@@ -491,8 +497,8 @@ async def chat_regenerate(req: ChatRequest,
         chain_dir = _chain_dir(user_id, req.session_id)
         os.makedirs(chain_dir, exist_ok=True)
 
-        # 链截断不再放在开头：延迟到生成成功/异常保存前原子执行，
-        # 客户端取消（断开）时旧回答保留在链上（本地亦保留，两端一致）
+        # 链截断延迟到保存前原子执行（成功/异常/取消三出口共用 _save_reply）：
+        # 取消时已流出部分截断+落盘，"停在流式状态"，旧回答保留在 paired 存档
         mode = get_mode(req.conversation_mode)
         messages = _build_stream_messages(req, chain_dir)
         max_tokens = req.max_tokens or MODE_META[mode]["max_tokens"]
@@ -502,6 +508,33 @@ async def chat_regenerate(req: ChatRequest,
         thinking_parts: list[str] = []
         references: list[dict] = []
         saved = False
+
+        def _save_reply() -> bool:
+            """重新生成统一落盘（成功/异常/取消共用；全同步，可在取消上下文安全执行）
+            先截断旧回答再追加（与 append 原子相邻）；一字未出时落占位文案"""
+            try:
+                now = datetime.now().isoformat()
+                asst_msg = {"role": "assistant",
+                            "content": "".join(content_parts) or STOP_TEXT,
+                            "createTime": now}
+                thinking_text = "".join(thinking_parts)
+                if thinking_text:
+                    # thinking 独立字段存储（与前端加载渲染对齐），不混入 content
+                    asst_msg["thinking"] = thinking_text
+                if references:
+                    asst_msg["references"] = references
+                if req.prev_answer_versions:
+                    # 编辑提问重新生成：存档旧回答，与提问 versions 一一对齐
+                    asst_msg["paired"] = list(req.prev_answer_versions)
+                truncate_chain(chain_dir, req.regenerate_index)
+                fname = save_chain_file(chain_dir, [asst_msg])
+                hp = f"__file__:chat/{user_id}/{req.session_id}/{fname}"
+                _upsert_session(user_id, req.session_id, req.novel_id, hp)
+                return True
+            except Exception as e2:
+                logging.getLogger(__name__).error("重新生成回答落盘失败: %s", e2)
+                return False
+
         try:
             async for type_, delta in _stream_with_tool_loop(messages, temperature, max_tokens, novel_id=req.novel_id or 0):
                 if type_ == "content":
@@ -518,44 +551,17 @@ async def chat_regenerate(req: ChatRequest,
                     yield _sse("rag_references", delta)
                 elif type_ in ("content", "thinking"):
                     yield _sse(type_, {"delta": delta})
-            now = datetime.now().isoformat()
-            asst_msg = {"role": "assistant", "content": "".join(content_parts), "createTime": now}
-            thinking_text = "".join(thinking_parts)
-            if thinking_text:
-                # thinking 独立字段存储（与前端加载渲染对齐），不混入 content
-                asst_msg["thinking"] = thinking_text
-            if references:
-                asst_msg["references"] = references
-            if req.prev_answer_versions:
-                # 编辑提问重新生成：存档旧回答，与提问 versions 一一对齐
-                asst_msg["paired"] = list(req.prev_answer_versions)
-            # 成功完成才截断旧回答（与 append 原子相邻）
-            truncate_chain(chain_dir, req.regenerate_index)
-            fname = save_chain_file(chain_dir, [asst_msg])
-            hp = f"__file__:chat/{user_id}/{req.session_id}/{fname}"
-            _upsert_session(user_id, req.session_id, req.novel_id, hp)
-            saved = True
+            saved = _save_reply()
+        except (GeneratorExit, asyncio.CancelledError):
+            # 用户点停止（客户端断开）：已流出部分截断+落盘，"停在流式状态"，
+            # 旧回答保留在 paired（prev_answer_versions）中不丢
+            if not saved:
+                _save_reply()
+            raise
         except Exception as e:
             yield _sse("error", {"message": f"{type(e).__name__}: {e}"})
             if not saved:
-                try:
-                    now = datetime.now().isoformat()
-                    asst_msg = {"role": "assistant", "content": "".join(content_parts), "createTime": now}
-                    thinking_text = "".join(thinking_parts)
-                    if thinking_text:
-                        asst_msg["thinking"] = thinking_text
-                    if references:
-                        asst_msg["references"] = references
-                    if req.prev_answer_versions:
-                        asst_msg["paired"] = list(req.prev_answer_versions)
-                    # 异常部分保存：同样先截断再追加（与成功路径一致）
-                    truncate_chain(chain_dir, req.regenerate_index)
-                    fname = save_chain_file(chain_dir, [asst_msg])
-                    hp = f"__file__:chat/{user_id}/{req.session_id}/{fname}"
-                    _upsert_session(user_id, req.session_id, req.novel_id, hp)
-                    saved = True
-                except Exception as e2:
-                    yield _sse("error", {"message": f"save after error failed: {e2}"})
+                saved = _save_reply()
         if saved:
             _maybe_summarize(user_id, req.session_id)
         yield _sse_done(req.session_id)

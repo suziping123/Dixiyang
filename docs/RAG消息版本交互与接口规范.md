@@ -1,6 +1,6 @@
 # RAG 消息版本交互与接口规范
 
-> 版本：v1.38（2026-10-08）
+> 版本：v1.39（2026-10-08）
 > 地位：**本文件是版本切换/删除功能的唯一契约**。实现必须与本文一致；不一致即为 bug。
 > 历史演进见 [RAG编辑消息版本切换与原文不落盘](./RAG编辑消息版本切换与原文不落盘.md)（8.23）。
 
@@ -60,8 +60,9 @@
   - 生成（发送/编辑保存/重新生成）进行中可自由切换历史格，**看到的是该格旧内容，不显示三点/逐字加载**；
   - 浏览任一历史格（`k<M`）期间**隐藏底部流式加载区**，生成在后台继续；切回最新格 `M/M` 恢复显示流式区；
   - 切到历史格**自动滚动**到该消息（平滑居中）；切回最新格滚动到底部；
-  - **一个提问一个气泡**（v1.38）：重新生成加载期，该条旧回答**临时隐藏**（`streamingHiddenIndex`），提问下方只有流式气泡；成功原位替换、失败原位替换为部分/错误、取消恢复旧回答显示（数据始终不丢）；浏览历史格时旧回答强制显示（保证成对切换可见）；
-  - 数据层面旧回答不预截断（v1.37），成功后原位替换，取消后本地与链一致。
+  - **一个提问一个气泡**（v1.38）：重新生成加载期，该条旧回答**临时隐藏**（`streamingHiddenIndex`），提问下方只有流式气泡；浏览历史格时旧回答强制显示（保证成对切换可见）；
+  - **停止 = 停在流式状态**（v1.39）：点停止/失败时，已流出的**部分内容成为该回答**（原位替换，本地与链一致）；一字未出 → 两端统一显示/落盘占位句 **「未生成回答内容」**（`STOP_TEXT`）；旧回答不丢，存进新回答的 `paired` 存档（版本条/成对切换仍可回看）；
+  - 数据层面旧回答不预截断（v1.37），成功/失败/取消三出口均原位替换（v1.39）。
 - 刷新/切会话/编辑/重新生成 → 一切浏览态回 `k=M`（最新）。
 
 ### 2.4 删除
@@ -101,7 +102,7 @@ resp: { "code": 0, "msg": "success" }   // 失败 code!=200
 
 - `role=user`：改前快照 append → `user.versions`；`truncateAfter=true` 时删除该索引及之后消息（新回答由前端随后写入）。
 - `role=assistant`：改前快照 append → 该 AI 的 `versions`（铅笔历史），不动 `paired`。
-- **当前前端一律传 `truncateAfter=false`**（v1.37）：编辑保存只改提问，**旧回答保留在链上**；重新生成成功后才由后端延迟截断（见 §3.3）。失败/取消时本地与链均为「新提问 + 旧回答」，不再出现"全部消失"。
+- **当前前端一律传 `truncateAfter=false`**（v1.37）：编辑保存只改提问，**旧回答保留在链上**；重新生成的截断/保存由后端在成功/异常/取消三出口统一执行（见 §3.4）。失败/取消后本地与链一致（部分内容或占位），不再出现"全部消失"。
 
 ### 3.2 删除版本格
 
@@ -135,8 +136,8 @@ POST /api/chat/stream （带 regenerateIndex 时 = 重新生成）
 ```
 
 - **开流不截断链**：`_build_stream_messages` 在内存中排除 `history[:regenerateIndex]` 构建 prompt；
-- **成功保存前**才 `truncateChain(regenerateIndex)` 再追加新回答（异常部分保存路径同样先截断）；
-- 前端配合：`regenerateMessage` 不再预截断本地消息，成功后**原位替换** `messages[messageIndex]`（槽位被切换会话等破坏时不写入）；取消（Abort）不改本地 → 旧回答不丢。
+- **三出口统一落盘** `_save_reply()`（全同步，可在取消上下文安全执行）：**成功**跑完流后截断+追加；**异常**捕获 `Exception` 后截断+追加部分内容；**取消**（客户端断开 → `GeneratorExit`/`asyncio.CancelledError`）截断+追加已流出部分——三种情况 `content` 为空时均落占位句 `STOP_TEXT="未生成回答内容"`；`prevAnswerVersions` 始终写入新回答 `paired`（旧回答存档）；
+- 前端配合：`regenerateMessage` 成功/失败/取消**一律原位替换** `messages[messageIndex]` 为「部分内容或占位」（槽位被切换会话等破坏时写兜底），本地与链所见一致；普通发送 `sendStreamMessage` 取消同理 push「部分内容或占位」。
 
 ### 3.5 废弃端点
 
@@ -168,7 +169,7 @@ POST /api/chatHistory/batchSave             // 原样落链（聊天主流程不
 | 成对删除两次请求第二次失败 | `versions`/`paired` 暂不等长（I1 破）→ 重试删 `paired[i]`；浏览越界按 §2.3 兜底 |
 | AI 有 `paired` 无铅笔 `versions` | AI 无条；成对切换由提问条驱动（I3） |
 | 浏览历史格时发送新消息 | 链数据始终是最新版（浏览不落盘）；发送/重新生成用链上 `content`（最新格）；流式区在浏览态隐藏（§2.3） |
-| 编辑保存后取消重新生成（过渡态） | 本地与链 =「新提问 + 旧回答」，`u.versions` 比 `a.paired` 多 1（I1 暂破）；此状态下 `delete-current pair` 降级只回退提问（`pairedContent=null`），重新生成完成后 I1 自然恢复 |
+| 编辑保存后停止重新生成（过渡态） | 本地与链 =「新提问 + 停止时的部分回答/占位」，旧回答在新回答 `paired` 中（`prevAnswerVersions` 落盘）→ I1 等长保持；`delete-current pair` 正常成对回退 |
 | 生成期间切换会话 | `regenerateMessage` 成功时按对象引用校验槽位，会话已切换则丢弃新回答不写入（防串会话） |
 
 ---
@@ -201,6 +202,15 @@ POST /api/chatHistory/batchSave             // 原样落链（聊天主流程不
 
 **实测结果（2026-10-08）**：`test_v137_api.py` **29/29 PASS**（回归 `test_version_api.py` 同轮 **30/30 PASS**）。脚本存于 `C:\Users\Lenovo\AppData\Local\Temp\opencode\test_v137_api.py`。
 
+#### v1.39 增补（`test_v139_api.py`，真 LLM + 提前断开连接模拟"点停止"）
+
+| # | 步骤 | 断言 |
+|---|------|------|
+| C1 | 造 `[user, assistant]` → `POST chat/regenerate`（`prevAnswerVersions` 带旧回答）流式挂 2s 后 `close()` → GET | 消息数仍 2（截断+追加原子）；新回答 `content` 非空（部分内容或占位 `未生成回答内容`）；`paired == [旧回答]`；提问不动 |
+| C2 | 新会话 `POST chat/stream` 流式挂 2s 后 `close()` → GET | 恰好 `[user, assistant]` 各 1（不重复、提问不丢）；回答 `content` 非空 |
+
+**实测结果（2026-10-08）**：`test_v139_api.py` **8/8 PASS**（2 秒断开时 LLM 尚未出字 → 占位句落盘，与前端 `STOP_TEXT` 完全一致；回归 30/30 + 29/29 同轮通过）。脚本存于 `C:\Users\Lenovo\AppData\Local\Temp\opencode\test_v139_api.py`。
+
 ### 5.2 UI 验收（测试账号手测）
 
 | # | 步骤 | 预期 |
@@ -214,7 +224,7 @@ POST /api/chatHistory/batchSave             // 原样落链（聊天主流程不
 | U7 | 刷新页面 | 所有条回最新格（`M/M`），内容为最新版 |
 | U8 | 未编辑过提问的会话 | 你消息上无条；AI 铅笔编辑过才有 AI 条 |
 | U9 | AI 回答生成中（三点/逐字）立刻 `‹` 切历史格 | **立即看到旧对话内容，不出现加载动画**；底部流式区隐藏；自动滚动到该消息；生成完成后切回最新格看到新回答 |
-| U10 | 编辑提问保存后点重新生成，生成中点"停止" | 加载期提问下方**只有一个气泡**（旧回答隐藏）；点停止后旧回答恢复（不消失、不空白） |
+| U10 | 编辑提问保存后点重新生成，生成中点"停止" | 加载期提问下方**只有一个气泡**（旧回答隐藏）；点停止后**停在当前已流出的内容**上（成为正式回答）；若一字未出则显示「未生成回答内容」占位；刷新页面内容一致 |
 | U11 | 最新格 `M/M` 点删除（确认） | 提问+回答内容同时回退上一版（消息不消失、条变 `M-1/M-1`）；可继续删到 `1/1`，再删提示错误 |
 | U12 | AI 铅笔条最新格点删除 | 仅 AI 内容回退，你的提问完全不动 |
 
@@ -226,8 +236,8 @@ POST /api/chatHistory/batchSave             // 原样落链（聊天主流程不
 |------|------|
 | `dixiyang-vue/Dixiyang-vue3/src/components/chat/ChatMessage.vue` | 版本条渲染条件、`k/M` 标签、线性 ‹›、删除按钮（历史格+最新格，无恢复） |
 | `dixiyang-vue/Dixiyang-vue3/src/views/RagAssistantView.vue` | `pairBrowse`/`aiOwnBrowse` 双状态、成对联动、成对删除编排、`isBrowsingHistory` 隐藏流式区、`scrollBrowseTarget`、`handleDeleteCurrent` |
-| `dixiyang-vue/Dixiyang-vue3/src/composables/useChatStream.ts` | `editMessage`（恒 `truncateAfter=false`）/`deleteVersion`/`deleteCurrent`（code 检查）；`regenerateMessage` 原位替换+防串会话+`streamingHiddenIndex`（加载期隐藏旧回答）；**无 restore** |
+| `dixiyang-vue/Dixiyang-vue3/src/composables/useChatStream.ts` | `editMessage`（恒 `truncateAfter=false`）/`deleteVersion`/`deleteCurrent`（code 检查）；`regenerateMessage` 原位替换（成功/失败/取消三出口，停止=部分内容或占位）+`streamingHiddenIndex`；`sendStreamMessage` 取消 push 部分/占位；**无 restore** |
 | `DixyangFast/src/dixiyang/routers/chat_history.py` | 编辑/删除/`delete-current`/废弃 restore 端点 |
-| `DixyangFast/src/dixiyang/routers/chat.py` | `_build_stream_messages` 内存排除 `regenerateIndex`；成功/异常保存前 `truncateChain`（延迟截断） |
+| `DixyangFast/src/dixiyang/routers/chat.py` | `_build_stream_messages` 内存排除 `regenerateIndex`；`STOP_TEXT` 占位句；`_save_pair`/`_save_reply` 三出口统一落盘（成功/`Exception`/`GeneratorExit`+`CancelledError` 取消），取消=停在流式状态 |
 | `DixyangFast/src/dixiyang/services/chat_history_service.py` | `delete_current` 服务编排（越界/配额/原子改写） |
 | `DixyangFast/src/dixiyang/services/chain_file_manager.py` | 链文件追加/截断/改写；`replace_message`/`restore_version`/`delete_version` 快照语义；`delete_current`（pair/self 回退，原子单次改写） |

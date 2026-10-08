@@ -239,22 +239,26 @@ export function useChatStream(userId?: number) {
 
     } catch (error) {
       if ((error as Error).name === 'AbortError') {
-        if (currentContent.value) {
-          messages.value.push({
-            role: 'assistant',
-            content: currentContent.value,
-            thinking: currentThinking.value || undefined,
-            references: currentReferences.value.length > 0 ? currentReferences.value : undefined,
-            timestamp: new Date()
-          })
-        }
-      } else {
+        // 停止 = 停在流式状态：已流出部分成为回答；一字未出占位（与后端 STOP_TEXT 一致）
         messages.value.push({
           role: 'assistant',
-          content: `抱歉，${friendlyError((error as Error).message, '请求失败，请稍后再试')}`,
+          content: currentContent.value || '未生成回答内容',
+          thinking: currentThinking.value || undefined,
+          references: currentReferences.value.length > 0 ? currentReferences.value : undefined,
+          timestamp: new Date()
+        })
+      } else {
+        // 失败同理：部分优先，空则占位+原因（链上为纯占位，刷新后原因部分不保留）
+        messages.value.push({
+          role: 'assistant',
+          content: currentContent.value
+            || `未生成回答内容（${friendlyError((error as Error).message, '请求失败，请稍后再试')}）`,
           timestamp: new Date()
         })
       }
+      currentContent.value = ''
+      currentThinking.value = ''
+      currentReferences.value = []
     } finally {
       isStreaming.value = false
       abortController = null
@@ -381,18 +385,24 @@ export function useChatStream(userId?: number) {
       currentThinking.value = ''
       currentReferences.value = []
     } catch (error) {
-      if ((error as Error).name !== 'AbortError') {
-        // 失败：原位保留/写入部分回答或错误提示（后端异常路径同样截断+保存，两端一致）
-        const fallback: ChatMessage = {
-          role: 'assistant',
-          content: currentContent.value ||
-            `重新生成失败：${friendlyError((error as Error).message, '请稍后再试')}`,
-          timestamp: new Date()
-        }
-        if (slotIntact()) messages.value[messageIndex] = fallback
-        else messages.value.push(fallback)
+      // 停止/失败 = 停在流式状态：已流出部分成为该回答；一字未出显示占位。
+      // 旧回答数据不丢：链上由后端取消/异常保存截断+落盘，旧回答在 paired 存档
+      const stopped = (error as Error).name === 'AbortError'
+      const fallback: ChatMessage = {
+        role: 'assistant',
+        content: currentContent.value || (stopped
+          ? '未生成回答内容'
+          : `未生成回答内容（重新生成失败：${friendlyError((error as Error).message, '请稍后再试')}）`),
+        thinking: currentThinking.value || undefined,
+        references: currentReferences.value.length > 0 ? currentReferences.value : undefined,
+        ...(keepPaired && keepPaired.length ? { paired: keepPaired } : {}),
+        timestamp: new Date()
       }
-      // Abort（用户停止）：旧回答原样保留，本地与链一致
+      if (slotIntact()) messages.value[messageIndex] = fallback
+      else if (replaced === undefined && messages.value.length === messageIndex) messages.value.push(fallback)
+      currentContent.value = ''
+      currentThinking.value = ''
+      currentReferences.value = []
     } finally {
       isStreaming.value = false
       streamingHiddenIndex.value = null
