@@ -31,6 +31,7 @@ export interface ChatMessage {
   edited?: boolean
   version?: number
   versions?: string[] // 改前快照历史（每次编辑前的内容，≤6；content 恒为最新，可浏览/恢复/删除）
+  paired?: string[] // 与提问版本成对的"当时回答"（仅 assistant，编辑提问重新生成时由后端存档）
   editing?: boolean  // 前端编辑态
   editDraft?: string // 临时编辑草稿
 }
@@ -68,6 +69,7 @@ export function useChatStream(userId?: number) {
           thinking: m.thinking ?? null,
           references: m.references ?? null,
           versions: m.versions ?? null,
+          paired: m.paired ?? null,
           edited: m.edited ?? null,
           createTime: m.timestamp.toISOString()
         }))
@@ -101,7 +103,7 @@ export function useChatStream(userId?: number) {
     currentSessionId.value = sessionId
     try {
       const res = await http.get(`/chatHistory/session/${sessionId}`)
-      messages.value = (res.data ?? []).map((m: { role: string; content: string; thinking?: string; references?: RagReference[]; createTime?: string; edited?: boolean; version?: number; versions?: string[] }) => ({
+      messages.value = (res.data ?? []).map((m: { role: string; content: string; thinking?: string; references?: RagReference[]; createTime?: string; edited?: boolean; version?: number; versions?: string[]; paired?: string[] }) => ({
         role: m.role,
         content: m.content,
         thinking: m.thinking ?? undefined,
@@ -109,7 +111,8 @@ export function useChatStream(userId?: number) {
         timestamp: m.createTime ? new Date(m.createTime) : new Date(),
         edited: m.edited ?? undefined,
         version: m.version ?? undefined,
-        versions: Array.isArray(m.versions) ? m.versions : undefined
+        versions: Array.isArray(m.versions) ? m.versions : undefined,
+        paired: Array.isArray(m.paired) ? m.paired : undefined
       }))
     } catch { messages.value = [] }
   }
@@ -296,9 +299,15 @@ export function useChatStream(userId?: number) {
       includeCharacters?: boolean
       includeStory?: boolean
       conversationMode?: 'WRITE' | 'DISCUSS' | 'ANALYZE' | 'BRAINSTORM' | 'ASK'
-    }
+    },
+    // 编辑提问场景：旧回答成对存档（旧 paired + 改前回答）；不传则原样保留被截断回答的 paired
+    prevPaired?: string[]
   ) => {
     if (isStreaming.value || !currentSessionId.value) return
+
+    const replaced = messages.value[messageIndex]
+    const keepPaired = prevPaired ??
+      (replaced?.role === 'assistant' ? replaced.paired : undefined)
 
     // 截断本地消息（从 messageIndex 开始删除）
     messages.value = messages.value.slice(0, messageIndex)
@@ -323,6 +332,7 @@ export function useChatStream(userId?: number) {
           sessionId: currentSessionId.value,
           regenerateIndex: messageIndex,
           message: '',
+          prevAnswerVersions: keepPaired ?? null,
           useRag: context.useRag ?? true,
           novelId: context.novelId,
           characterIds: context.characterIds ?? [],
@@ -371,6 +381,7 @@ export function useChatStream(userId?: number) {
         content: currentContent.value,
         thinking: currentThinking.value || undefined,
         references: currentReferences.value.length > 0 ? currentReferences.value : undefined,
+        ...(keepPaired && keepPaired.length ? { paired: keepPaired } : {}),
         timestamp: new Date()
       }
       messages.value.push(assistantMsg)
@@ -412,37 +423,39 @@ export function useChatStream(userId?: number) {
     return null
   }
 
-  // 恢复历史版本为当前对话内容（不占编辑配额）
-  const restoreVersion = async (index: number, versionIndex: number): Promise<string | null> => {
+  // 恢复历史版本为当前对话内容（不占编辑配额）。field: versions=独立历史 / paired=成对回答存档
+  const restoreVersion = async (index: number, versionIndex: number, field: 'versions' | 'paired' = 'versions'): Promise<string | null> => {
     const m = messages.value[index]
-    if (!m?.versions || versionIndex < 0 || versionIndex >= m.versions.length) return '版本不存在'
+    const src = (field === 'paired' ? m?.paired : m?.versions) ?? []
+    if (!m || versionIndex < 0 || versionIndex >= src.length) return '版本不存在'
     if (!currentSessionId.value || !userId) return '会话未就绪，请刷新后重试'
     try {
       await http.post(`/chatHistory/restore-version/${currentSessionId.value}`, {
-        messageIndex: index, versionIndex
+        messageIndex: index, versionIndex, field
       })
     } catch (e) {
       return friendlyError((e as Error).message, '恢复失败，请稍后再试')
     }
-    messages.value[index] = { ...m, content: m.versions[versionIndex] ?? m.content }
+    messages.value[index] = { ...m, content: src[versionIndex] ?? m.content }
     return null
   }
 
   // 删除一个历史版本（编辑配额减一）。历史与当前内容解耦，删除不影响 content（与后端一致）
-  const deleteVersion = async (index: number, versionIndex: number): Promise<string | null> => {
+  const deleteVersion = async (index: number, versionIndex: number, field: 'versions' | 'paired' = 'versions'): Promise<string | null> => {
     const m = messages.value[index]
-    if (!m?.versions || versionIndex < 0 || versionIndex >= m.versions.length) return '版本不存在'
+    const src = (field === 'paired' ? m?.paired : m?.versions) ?? []
+    if (!m || versionIndex < 0 || versionIndex >= src.length) return '版本不存在'
     if (!currentSessionId.value || !userId) return '会话未就绪，请刷新后重试'
     try {
       await http.delete(`/chatHistory/version/${currentSessionId.value}`, {
-        data: { messageIndex: index, versionIndex }
+        data: { messageIndex: index, versionIndex, field }
       })
     } catch (e) {
       return friendlyError((e as Error).message, '删除失败，请稍后再试')
     }
-    const versions = [...m.versions]
-    versions.splice(versionIndex, 1)
-    messages.value[index] = { ...m, versions }
+    const next = [...src]
+    next.splice(versionIndex, 1)
+    messages.value[index] = { ...m, ...(field === 'paired' ? { paired: next } : { versions: next }) }
     return null
   }
 

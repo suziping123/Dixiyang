@@ -21,6 +21,7 @@ class EditMessageRequest(BaseModel):
 
 
 class VersionRefRequest(BaseModel):
-    """版本恢复/删除请求"""
+    """版本恢复/删除请求。field: versions=独立编辑历史 / paired=与提问版本成对的回答存档"""
     message_index: int = Field(alias="messageIndex", default=-1)
     version_index: int = Field(alias="versionIndex", default=-1)
+    field: str = "versions"

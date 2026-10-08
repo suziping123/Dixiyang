@@ -217,14 +217,17 @@ def replace_message(chain_dir: str, index: int, role: str, content: str) -> tupl
     return original, content
 
 
-def restore_version(chain_dir: str, index: int, version_index: int) -> str:
+def restore_version(chain_dir: str, index: int, version_index: int, field: str = "versions") -> str:
     """
-    把 versions[version_index] 恢复为当前 content（不占用编辑配额，versions 不变）。
+    把 field[field_index] 恢复为当前 content（不占用编辑配额，历史列表不变）。
+    field: versions=独立编辑历史 / paired=与提问版本成对的回答存档
     """
+    if field not in ("versions", "paired"):
+        raise IndexError(f"未知版本字段: {field}")
     messages = read_chain(chain_dir)
     if index < 0 or index >= len(messages):
         raise IndexError(f"消息索引 {index} 越界")
-    versions = messages[index].get("versions") or []
+    versions = messages[index].get(field) or []
     if version_index < 0 or version_index >= len(versions):
         raise IndexError(f"版本索引 {version_index} 越界，共 {len(versions)} 个")
 
@@ -233,22 +236,24 @@ def restore_version(chain_dir: str, index: int, version_index: int) -> str:
     return messages[index]["content"]
 
 
-def delete_version(chain_dir: str, index: int, version_index: int) -> list[str]:
+def delete_version(chain_dir: str, index: int, version_index: int, field: str = "versions") -> list[str]:
     """
-    删除一个历史版本（配额减一）。
+    删除 field 中一个历史条目（配额减一）。
     versions 只存改前快照、content 是最新内容，两者解耦：
     删除历史不影响对话当前内容（即便删的是刚恢复过的版本，content 也保留）。
-    返回删除后的 versions 列表
+    返回删除后的列表
     """
+    if field not in ("versions", "paired"):
+        raise IndexError(f"未知版本字段: {field}")
     messages = read_chain(chain_dir)
     if index < 0 or index >= len(messages):
         raise IndexError(f"消息索引 {index} 越界")
-    versions = list(messages[index].get("versions") or [])
+    versions = list(messages[index].get(field) or [])
     if version_index < 0 or version_index >= len(versions):
         raise IndexError(f"版本索引 {version_index} 越界，共 {len(versions)} 个")
 
     versions.pop(version_index)
-    messages[index]["versions"] = versions
+    messages[index][field] = versions
     _rewrite_chain(chain_dir, messages)
     return versions
 

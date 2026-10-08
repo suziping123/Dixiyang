@@ -172,24 +172,26 @@ class ChatHistoryService:
         write_edit(chain_dir, record)
         return Result.success("编辑成功")
 
-    def restore_version(self, user_id: int, session_id: str, message_index: int, version_index: int) -> dict:
+    def restore_version(self, user_id: int, session_id: str, message_index: int, version_index: int,
+                        field: str = "versions") -> dict:
         chain_dir = self._session_dir(user_id, session_id)
         if not os.path.isdir(chain_dir):
             return Result.error("会话目录不存在")
         try:
-            content = restore_version(chain_dir, message_index, version_index)
+            content = restore_version(chain_dir, message_index, version_index, field)
         except IndexError as e:
             return Result.error(str(e))
         except Exception as e:
             return Result.error(f"恢复失败: {e}")
         return Result.success("恢复成功", {"content": content})
 
-    def delete_version(self, user_id: int, session_id: str, message_index: int, version_index: int) -> dict:
+    def delete_version(self, user_id: int, session_id: str, message_index: int, version_index: int,
+                       field: str = "versions") -> dict:
         chain_dir = self._session_dir(user_id, session_id)
         if not os.path.isdir(chain_dir):
             return Result.error("会话目录不存在")
         try:
-            versions = delete_version(chain_dir, message_index, version_index)
+            versions = delete_version(chain_dir, message_index, version_index, field)
         except IndexError as e:
             return Result.error(str(e))
         except Exception as e:

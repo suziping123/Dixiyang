@@ -509,6 +509,9 @@ async def chat_regenerate(req: ChatRequest,
             asst_msg = {"role": "assistant", "content": full_content, "createTime": now}
             if references:
                 asst_msg["references"] = references
+            if req.prev_answer_versions:
+                # 编辑提问重新生成：存档旧回答，与提问 versions 一一对齐
+                asst_msg["paired"] = list(req.prev_answer_versions)
             fname = save_chain_file(chain_dir, [asst_msg])
             hp = f"__file__:chat/{user_id}/{req.session_id}/{fname}"
             _upsert_session(user_id, req.session_id, req.novel_id, hp)
@@ -521,6 +524,8 @@ async def chat_regenerate(req: ChatRequest,
                     asst_msg = {"role": "assistant", "content": full_content, "createTime": now}
                     if references:
                         asst_msg["references"] = references
+                    if req.prev_answer_versions:
+                        asst_msg["paired"] = list(req.prev_answer_versions)
                     fname = save_chain_file(chain_dir, [asst_msg])
                     hp = f"__file__:chat/{user_id}/{req.session_id}/{fname}"
                     _upsert_session(user_id, req.session_id, req.novel_id, hp)

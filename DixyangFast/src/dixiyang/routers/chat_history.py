@@ -41,14 +41,14 @@ async def edit_message(session_id: str, req: EditMessageRequest, user_id: int = 
 async def restore_version(session_id: str, req: VersionRefRequest, user_id: int = Depends(get_current_user_id), svc: ChatHistoryService = Depends()):
     if req.message_index < 0 or req.version_index < 0:
         return Result.error("参数不完整")
-    return svc.restore_version(user_id, session_id, req.message_index, req.version_index)
+    return svc.restore_version(user_id, session_id, req.message_index, req.version_index, field=req.field)
 
 
 @router.delete("/version/{session_id}")
 async def delete_version(session_id: str, req: VersionRefRequest, user_id: int = Depends(get_current_user_id), svc: ChatHistoryService = Depends()):
     if req.message_index < 0 or req.version_index < 0:
         return Result.error("参数不完整")
-    return svc.delete_version(user_id, session_id, req.message_index, req.version_index)
+    return svc.delete_version(user_id, session_id, req.message_index, req.version_index, field=req.field)
 
 
 @router.post("/generate-title/{session_id}")

@@ -186,6 +186,9 @@
               :index="index"
               :is-editing="isUserEditing && editedUserMessageIndex === index"
               :on-edit="(idx: number) => openEditModal(idx)"
+              :browse-index="browseMap[index] ?? null"
+              :browse-source="browseSourceOf(index)"
+              @update:browse-index="setBrowse(index, $event)"
               @regenerate="handleRegenerate(index)"
               @userEdit="handleUserEdit(index, $event)"
               @userEditSave="handleUserEditSave"
@@ -263,7 +266,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, reactive, onMounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useChatStream } from '@/composables/useChatStream'
 import { useUserStore } from '@/stores/UserStore'
@@ -304,6 +307,33 @@ const editingMessageIndex = ref<number>(-1)
 const editingUserMessageContent = ref<string>('')
 const editedUserMessageIndex = ref<number>(-1)
 const isUserEditing = ref<boolean>(false)
+
+// 成对浏览态：提问 ↔ 其后回答 同步切换（key=消息索引，null=当前内容）
+const browseMap = reactive<Record<number, number | null>>({})
+const clearBrowse = () => {
+  for (const k of Object.keys(browseMap)) delete browseMap[Number(k)]
+}
+const setBrowse = (index: number, v: number | null) => {
+  browseMap[index] = v
+  const m = messages.value[index]
+  if (m?.role === 'user') {
+    const ans = messages.value[index + 1]
+    if (ans?.role === 'assistant' && (ans.paired?.length ?? 0) > 0) {
+      // 越界回退到当前（回答显示 content 兜底）
+      browseMap[index + 1] = v === null || v < (ans.paired?.length ?? 0) ? v : null
+    }
+  } else if (m?.role === 'assistant' && (m.paired?.length ?? 0) > 0) {
+    const q = messages.value[index - 1]
+    if (q?.role === 'user') {
+      browseMap[index - 1] = v === null || v < (q.versions?.length ?? 0) ? v : null
+    }
+  }
+}
+// 回答的版本条内容源：有成对存档用 paired（联动），否则独立编辑历史
+const browseSourceOf = (index: number): 'versions' | 'paired' => {
+  const m = messages.value[index]
+  return m?.role === 'assistant' && (m.paired?.length ?? 0) > 0 ? 'paired' : 'versions'
+}
 
 // RAG 视图所需数据形状（后端返回结构，仅取用到的字段）
 interface RagNovel {
@@ -467,10 +497,12 @@ const scrollToBottom = () => {
 const handleNewSession = () => {
   const created = newSession()
   if (!created) ElMessage.info('已有新对话，已切换到该对话')
+  clearBrowse()
   showSessions.value = false
 }
 
 const handleSelectSession = async (sessionId: string) => {
+  clearBrowse()
   await loadSessionMessages(sessionId)
   nextTick(scrollToBottom)
   showSessions.value = false
@@ -499,6 +531,11 @@ const buildRegenContext = () => ({
 const handleUserEditSave = async (content: string) => {
   const idx = editedUserMessageIndex.value
   if (idx < 0 || !content.trim()) return
+  // 成对存档：把改前的回答（含其历史）交给 regenerate 写入新回答的 paired
+  const oldAnswer = messages.value[idx + 1]
+  const prevPaired = oldAnswer?.role === 'assistant'
+    ? [...(oldAnswer.paired ?? []), oldAnswer.content]
+    : undefined
   // 持久化到后端（含链截断），失败则中止不改本地
   const errMsg = await editMessage(idx, content, 'user', true)
   if (errMsg) {
@@ -507,10 +544,11 @@ const handleUserEditSave = async (content: string) => {
   }
   isUserEditing.value = false
   editedUserMessageIndex.value = -1
+  clearBrowse()
   scrollToBottom()
   // 只重新生成回答：复用 regenerate 通道（截断到提问并仅追加回答），
   // 不再走 sendStreamMessage——它会把同一条提问重复 push 本地并重复写链
-  await regenerateMessage(idx + 1, buildRegenContext())
+  await regenerateMessage(idx + 1, buildRegenContext(), prevPaired)
 }
 
 const cancelUserEdit = () => {
@@ -537,21 +575,63 @@ const handleEditSave = async (newContent: string) => {
   editingMessageIndex.value = -1
 }
 
-// 恢复历史版本为当前对话内容
+// 恢复历史版本为当前对话内容（提问与其成对回答一起恢复）
 const handleRestoreVersion = async (index: number, versionIndex: number) => {
-  const errMsg = await restoreVersion(index, versionIndex)
-  if (errMsg) ElMessage.error(errMsg)
-  else ElMessage.success('已恢复该版本')
+  const m = messages.value[index]
+  if (!m) return
+  const usePaired = m.role === 'assistant' && (m.paired?.length ?? 0) > 0
+  const errMsg = usePaired
+    ? await restoreVersion(index, versionIndex, 'paired')
+    : await restoreVersion(index, versionIndex)
+  if (errMsg) {
+    ElMessage.error(errMsg)
+    return
+  }
+  // 成对：恢复提问时同步恢复当时回答；恢复回答时同步恢复提问
+  if (m.role === 'user') {
+    const ans = messages.value[index + 1]
+    if (ans?.role === 'assistant' && (ans.paired?.length ?? 0) > versionIndex) {
+      await restoreVersion(index + 1, versionIndex, 'paired')
+    }
+  } else if (usePaired) {
+    const q = messages.value[index - 1]
+    if (q?.role === 'user' && (q.versions?.length ?? 0) > versionIndex) {
+      await restoreVersion(index - 1, versionIndex)
+    }
+  }
+  clearBrowse()
+  ElMessage.success('已恢复该版本')
 }
 
-// 删除历史版本（编辑配额减一）
+// 删除历史版本（编辑配额减一，提问与其成对回答一起删）
 const handleDeleteVersion = async (index: number, versionIndex: number) => {
-  const errMsg = await deleteVersion(index, versionIndex)
-  if (errMsg) ElMessage.error(errMsg)
-  else ElMessage.success('已删除该版本，修改次数减一')
+  const m = messages.value[index]
+  if (!m) return
+  const usePaired = m.role === 'assistant' && (m.paired?.length ?? 0) > 0
+  const errMsg = usePaired
+    ? await deleteVersion(index, versionIndex, 'paired')
+    : await deleteVersion(index, versionIndex)
+  if (errMsg) {
+    ElMessage.error(errMsg)
+    return
+  }
+  if (m.role === 'user') {
+    const ans = messages.value[index + 1]
+    if (ans?.role === 'assistant' && (ans.paired?.length ?? 0) > versionIndex) {
+      await deleteVersion(index + 1, versionIndex, 'paired')
+    }
+  } else if (usePaired) {
+    const q = messages.value[index - 1]
+    if (q?.role === 'user' && (q.versions?.length ?? 0) > versionIndex) {
+      await deleteVersion(index - 1, versionIndex)
+    }
+  }
+  clearBrowse()
+  ElMessage.success('已删除该版本，修改次数减一')
 }
 
 const handleRegenerate = async (index: number) => {
+  clearBrowse()
   scrollToBottom()
   await regenerateMessage(index, buildRegenContext())
   scrollToBottom()

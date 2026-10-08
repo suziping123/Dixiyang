@@ -89,6 +89,7 @@ interface Props {
     edited?: boolean
     version?: number
     versions?: string[]
+    paired?: string[]
   }
   index?: number
   streamingContent?: string
@@ -97,6 +98,10 @@ interface Props {
   isStreaming?: boolean
   isEditing?: boolean
   onEdit?: (index: number) => void
+  // 受控浏览态：由父组件统一持有，驱动提问↔回答成对联动
+  browseIndex?: number | null
+  // 版本条内容源：paired=与提问成对的存档（回答默认优先）/ versions=独立编辑历史
+  browseSource?: 'versions' | 'paired'
 }
 
 import { ref, watch, computed } from 'vue'
@@ -113,18 +118,28 @@ const emit = defineEmits<{
   // 单参数：内联模板 $event 只取第一个 emit 参数，index 由父组件 v-for 提供
   restoreVersion: [versionIndex: number]
   deleteVersion: [versionIndex: number]
+  'update:browseIndex': [index: number | null]
 }>()
 
 const editDraft = ref('')
 
-// 版本浏览：browseIndex=null 表示查看当前内容，否则查看 versions[i]
-const browseIndex = ref<number | null>(null)
+// 版本浏览（受控）：null=查看当前内容，否则查看 versionList[i]
+const browseIndex = computed<number | null>({
+  get: () => props.browseIndex ?? null,
+  set: (v) => emit('update:browseIndex', v)
+})
 
-const versionCount = computed(() => props.message.versions?.length ?? 0)
+// 版本条内容源：回答有 paired（编辑提问产生的成对存档）时优先，否则用独立编辑历史
+const versionList = computed<string[]>(() => {
+  if (props.browseSource === 'paired') return props.message.paired ?? []
+  return props.message.versions ?? []
+})
+
+const versionCount = computed(() => versionList.value.length)
 
 const displayContent = computed(() => {
   if (browseIndex.value === null) return props.message.content
-  return props.message.versions?.[browseIndex.value] ?? props.message.content
+  return versionList.value[browseIndex.value] ?? props.message.content
 })
 
 const positionLabel = computed(() => {
@@ -163,9 +178,9 @@ const handleDelete = async () => {
   browseIndex.value = null
 }
 
-// 版本列表变化（编辑新增/删除）后越界回退到当前
+// 版本列表变化（编辑新增/删除）后越界回退到当前（通知父组件）
 watch(versionCount, (n) => {
-  if (browseIndex.value !== null && browseIndex.value >= n) browseIndex.value = null
+  if (browseIndex.value !== null && browseIndex.value >= n) emit('update:browseIndex', null)
 })
 
 const displayReferences = computed(() => {

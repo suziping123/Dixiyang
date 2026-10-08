@@ -452,6 +452,7 @@
 - 编辑入口配额满 6 拦截；中途 `displayContent` 未定义导致气泡全空白的回归已修复
 - **第二轮（截图反馈）**：① 编辑提问后走 `sendStreamMessage` 重发通道导致同一提问本地+链各重复一份（"多个对话"）→ 改走 `regenerateMessage(idx+1)` 只生成回答；② emit 双参数被 Vue 内联 `$event` 截成第一个（消息序号）→ 第 2+ 条消息恢复/删除报「版本不存在」→ 改 emit 单参数 versionIndex + 守卫改长度判断；存量脏链不自动清洗（删会话重聊）
 - **第三轮**：切换永远显示最新（versions 初版只存改后内容，改1次时与 content 相同）→ 改为编辑前快照改前内容，`versions=[原文,改1前,…]`、content 恒最新，删除与 content 解耦
+- **第四轮**：切提问版本回答永远是最新 → 编辑提问三重截断把旧回答物理删除 → 新增回答 `paired` 成对存档（regenerate 请求体 `prevAnswerVersions` 携带旧回答写入链）、`browseMap` 提问↔回答浏览联动、恢复/删除成对编排（restore/delete 加 `field` 参数）；**旧会话已删回答无法找回需删会话重聊**
 - 验证：后端逻辑单测全绿（配额/恢复/删除回退/越界）、py_compile ✓、type-check/lint 无新增、`vite build` ✓
 
 **适用人群**: 前端开发者、后端开发者
@@ -702,6 +703,9 @@
 ---
 
 ## 版本变更记录
+
+### v1.33 (2026-10-08)
+- **修复**: [RAG编辑消息版本切换与原文不落盘](./RAG编辑消息版本切换与原文不落盘.md) 第四轮 — 切提问版本回答永远是最新：编辑提问时三重截断物理删除旧回答 → 新增回答 `paired` 与提问 versions 成对存档（`/chat/regenerate` 请求体 `prevAnswerVersions` 落链）、ChatMessage browseIndex 受控 + RagAssistantView `browseMap` 提问↔回答联动切换、恢复/删除按 `field` 参数成对编排；旧会话已删回答不可找回（删会话重聊）；后端 paired 单测全绿、type-check 9/lint 8 基线、build 通过
 
 ### v1.32 (2026-10-08)
 - **修复**: [RAG编辑消息版本切换与原文不落盘](./RAG编辑消息版本切换与原文不落盘.md) 第三轮 — 版本切换永远显示最新：初版 versions 只存改后内容，改 1 次时 `versions[0]==content` → 改为**每次编辑前快照改前内容**（`versions=[原文,改1前,…]`、content 恒最新），删除与 content 解耦（不再回退）；切到历史即可见"改之前"的样子
