@@ -14,14 +14,15 @@
 ## 数据模型
 
 ```json
-{ "role": "assistant", "content": "当前内容", "edited": true,
-  "versions": ["改后v1", "改后v2"] }
+{ "role": "assistant", "content": "最新内容", "edited": true,
+  "versions": ["改前快照1", "改前快照2"] }
 ```
 
-- `versions` 只存"改之后"的快照，**不含最初原文**，长度 ≤ 6
-- **编辑**：`versions.append(新内容)` + `content = 新内容`；编辑前 `len(versions) >= 6` → 拒绝
+- **`versions` 存每次编辑前的内容**（原文/中间态），`content` 恒为最新；切换历史看到的是"改之前的样子"，长度 ≤ 6 = 已编辑次数
+- **编辑**：`versions.append(改前content)` + `content = 新内容`；编辑前 `len(versions) >= 6` → 拒绝
 - **恢复**：`content = versions[i]`，versions 不变、不占配额
-- **删除**：`splice(i)` 配额减一；被删的是当前内容 → 回退到最后一个剩余版本；删空则保留 content（对话不能为空）
+- **删除**：`splice(i)` 配额减一；历史与当前**解耦**——删除/删空均不影响 `content`（对话内容永不为空）
+- **对话流只显示 `content`（最新）**：不展示改前痕迹；改前内容仅存在于 versions 供左右切换浏览
 
 ## 方案
 
@@ -54,6 +55,7 @@
 - **中途空白回归（已修复）**：ChatMessage template 先行改用 `displayContent` 但 script 未补完时，气泡渲染 `undefined` → 全部消息空白（用户截图反馈）；补全 computed/方法后恢复
 - **编辑提问产生重复对话（已修复，第二轮）**：`handleUserEditSave` 在 PUT+截断后又调 `sendStreamMessage()`，其内部 `sendMessage` 把同一条提问再 push 本地、`/chat/stream` 再 append 一遍 → 链里同一提问出现两次（截图"多个对话"）→ 改走 `regenerateMessage(idx+1)` 通道（截断到提问、只 append 回答，复用现有重新生成机制，零后端改动）
 - **「版本不存在」误报（已修复，第二轮）**：emit 是双参数 `(index, versionIndex)`，Vue 内联模板 `$event` 只取第一个参数 → 第 2/3 条消息把"消息序号"当 versionIndex 传入越界 → 改为 emit 单参数 `versionIndex`（index 由父组件 v-for 提供）；守卫同步改长度判断（防空字符串误判）
+- **切换永远显示最新（已修复，第三轮）**：初版 versions 只存"改后内容"，改 1 次时 `versions[0] == content` → 切到哪都是最新（「浏览 1/1」）→ 改为**每次编辑前快照改前内容**（`versions=[原文, 改1前, …]`，content 恒最新）；删除同步解耦（不再回退 content）。旧测试会话的 versions 是"改后快照"格式，混用时前几格可能与当前相同，建议删测试会话
 - **存量脏数据不自动清洗**：以上两 bug 已产生的重复消息/脏链无法可靠识别（"编辑前+编辑后"内容不同、无标记），修复只保证以后不再产生；当前受影响会话建议删除重聊
 - **旧数据残留**：历史链文件里的 `originalContent` 字段不主动清洗，读取时过滤不下发，下次编辑时随重写自然消失
 - **AI 学习退化**：edits.json 不再存原文后，无 keyPoint 的旧记录不再注入 prompt（符合"只存要点"决策）
@@ -64,8 +66,8 @@
 
 ```bash
 # 后端逻辑单测（临时目录直测，已全绿）
-# 编辑6次成功第7次 EditQuotaExceeded、不落 originalContent、
-# 删当前版本回退、恢复不占配额、删空保 content、越界 IndexError
+# 编辑6次成功第7次 EditQuotaExceeded、每次快照改前内容、
+# 切换可见原文、恢复不占配额、删除/删空不影响 content、越界 IndexError
 cd DixyangFast && python -m py_compile src/dixiyang/services/*.py src/dixiyang/routers/*.py src/dixiyang/schemas/*.py
 
 # 前端

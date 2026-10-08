@@ -451,6 +451,7 @@
 - 新接口：`POST /chatHistory/restore-version/{sid}`、`DELETE /chatHistory/version/{sid}`；PUT 加 `truncateAfter`（用户提问编辑后链同步截断，修复刷新丢编辑/旧问答复现）
 - 编辑入口配额满 6 拦截；中途 `displayContent` 未定义导致气泡全空白的回归已修复
 - **第二轮（截图反馈）**：① 编辑提问后走 `sendStreamMessage` 重发通道导致同一提问本地+链各重复一份（"多个对话"）→ 改走 `regenerateMessage(idx+1)` 只生成回答；② emit 双参数被 Vue 内联 `$event` 截成第一个（消息序号）→ 第 2+ 条消息恢复/删除报「版本不存在」→ 改 emit 单参数 versionIndex + 守卫改长度判断；存量脏链不自动清洗（删会话重聊）
+- **第三轮**：切换永远显示最新（versions 初版只存改后内容，改1次时与 content 相同）→ 改为编辑前快照改前内容，`versions=[原文,改1前,…]`、content 恒最新，删除与 content 解耦
 - 验证：后端逻辑单测全绿（配额/恢复/删除回退/越界）、py_compile ✓、type-check/lint 无新增、`vite build` ✓
 
 **适用人群**: 前端开发者、后端开发者
@@ -701,6 +702,9 @@
 ---
 
 ## 版本变更记录
+
+### v1.32 (2026-10-08)
+- **修复**: [RAG编辑消息版本切换与原文不落盘](./RAG编辑消息版本切换与原文不落盘.md) 第三轮 — 版本切换永远显示最新：初版 versions 只存改后内容，改 1 次时 `versions[0]==content` → 改为**每次编辑前快照改前内容**（`versions=[原文,改1前,…]`、content 恒最新），删除与 content 解耦（不再回退）；切到历史即可见"改之前"的样子
 
 ### v1.31 (2026-10-08)
 - **修复**: [RAG编辑消息版本切换与原文不落盘](./RAG编辑消息版本切换与原文不落盘.md) 第二轮 — 编辑提问重复对话（`sendStreamMessage` 重发把同一提问本地+链双写）→ 改走 `regenerateMessage(idx+1)` 只生成回答；恢复/删除「版本不存在」误报（Vue 内联 `$event` 只取 emit 第一个参数，消息序号被当 versionIndex 越界）→ emit 改单参数 versionIndex；存量脏链需删会话重聊

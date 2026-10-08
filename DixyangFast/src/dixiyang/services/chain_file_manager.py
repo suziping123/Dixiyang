@@ -192,10 +192,10 @@ def _rewrite_chain(chain_dir: str, messages: list[dict]) -> str:
 
 def replace_message(chain_dir: str, index: int, role: str, content: str) -> tuple[str, str]:
     """
-    替换链中指定索引的消息内容，并追加版本快照。
-    - 不落盘改前原文：versions 只存"改之后"的内容，最多 EDIT_VERSION_LIMIT 个
-    - 版本数已达上限时抛 EditQuotaExceeded
-    返回 (original_content, edited_content)，original 仅供编辑瞬间提取要点，不写入文件
+    替换链中指定索引的消息内容，并快照"改前内容"。
+    - versions 存每次编辑前的内容（原文/中间态），content 永远是最新内容
+    - versions 数量 = 已编辑次数，达到 EDIT_VERSION_LIMIT 时抛 EditQuotaExceeded
+    返回 (original_content, edited_content)，original 仅供编辑瞬间提取要点与快照，content 才是对话显示内容
     """
     messages = read_chain(chain_dir)
     if index < 0 or index >= len(messages):
@@ -206,7 +206,8 @@ def replace_message(chain_dir: str, index: int, role: str, content: str) -> tupl
     if len(versions) >= EDIT_VERSION_LIMIT:
         raise EditQuotaExceeded(EDIT_VERSION_LIMIT)
 
-    versions.append(content)
+    # 快照改前内容（左右切换时看到的就是"改之前"的样子）
+    versions.append(original)
     messages[index]["versions"] = versions
     messages[index]["role"] = role
     messages[index]["content"] = content
@@ -235,8 +236,8 @@ def restore_version(chain_dir: str, index: int, version_index: int) -> str:
 def delete_version(chain_dir: str, index: int, version_index: int) -> list[str]:
     """
     删除一个历史版本（配额减一）。
-    - 若被删的是当前内容 → 回退到最后一个剩余版本
-    - 版本删空则保留 content（对话内容不能为空），仅清空历史
+    versions 只存改前快照、content 是最新内容，两者解耦：
+    删除历史不影响对话当前内容（即便删的是刚恢复过的版本，content 也保留）。
     返回删除后的 versions 列表
     """
     messages = read_chain(chain_dir)
@@ -246,10 +247,7 @@ def delete_version(chain_dir: str, index: int, version_index: int) -> list[str]:
     if version_index < 0 or version_index >= len(versions):
         raise IndexError(f"版本索引 {version_index} 越界，共 {len(versions)} 个")
 
-    deleted = versions.pop(version_index)
-    if messages[index].get("content") == deleted and versions:
-        messages[index]["content"] = versions[-1]
-
+    versions.pop(version_index)
     messages[index]["versions"] = versions
     _rewrite_chain(chain_dir, messages)
     return versions

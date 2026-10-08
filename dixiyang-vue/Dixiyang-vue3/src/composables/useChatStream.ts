@@ -30,7 +30,7 @@ export interface ChatMessage {
   timestamp: Date
   edited?: boolean
   version?: number
-  versions?: string[] // 编辑版本历史（只存改后内容，≤6，可浏览/恢复/删除）
+  versions?: string[] // 改前快照历史（每次编辑前的内容，≤6；content 恒为最新，可浏览/恢复/删除）
   editing?: boolean  // 前端编辑态
   editDraft?: string // 临时编辑草稿
 }
@@ -406,7 +406,8 @@ export function useChatStream(userId?: number) {
     } catch (e) {
       return friendlyError((e as Error).message, '编辑失败，请稍后再试')
     }
-    const versions = [...(m.versions ?? []), newContent]
+    // 快照"改前内容"进历史（左右切换可看改之前的样子），content 更新为最新
+    const versions = [...(m.versions ?? []), m.content]
     messages.value[index] = { ...m, content: newContent, edited: true, versions }
     return null
   }
@@ -427,7 +428,7 @@ export function useChatStream(userId?: number) {
     return null
   }
 
-  // 删除一个历史版本（编辑配额减一）。本地回退规则与后端一致
+  // 删除一个历史版本（编辑配额减一）。历史与当前内容解耦，删除不影响 content（与后端一致）
   const deleteVersion = async (index: number, versionIndex: number): Promise<string | null> => {
     const m = messages.value[index]
     if (!m?.versions || versionIndex < 0 || versionIndex >= m.versions.length) return '版本不存在'
@@ -440,10 +441,8 @@ export function useChatStream(userId?: number) {
       return friendlyError((e as Error).message, '删除失败，请稍后再试')
     }
     const versions = [...m.versions]
-    const deleted = versions.splice(versionIndex, 1)[0] ?? ''
-    let content = m.content
-    if (content === deleted && versions.length) content = versions[versions.length - 1] ?? content
-    messages.value[index] = { ...m, content, versions }
+    versions.splice(versionIndex, 1)
+    messages.value[index] = { ...m, versions }
     return null
   }
 
