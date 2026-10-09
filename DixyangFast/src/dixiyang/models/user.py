@@ -22,3 +22,5 @@ class AppUser(Base):
     login_count: Mapped[int] = mapped_column(Integer, default=0)
     login_window_start: Mapped[datetime | None] = mapped_column(DateTime)
     require_code: Mapped[bool] = mapped_column(Boolean, default=False)
+    # 角色：user / admin（管理后台鉴权）
+    role: Mapped[str] = mapped_column(String(20), default="user", server_default="user")

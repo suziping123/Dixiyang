@@ -7,7 +7,7 @@
 
 ## 方案
 - **改名**：`IdeaLibraryView` 标题、`FloatingNav` 菜单项、路由 title 统一「广场」；tab/分区/「写点子」保留。
-- **综合推荐**：前端 `sorts` 首位加 `recommend`，默认值改 `recommend`；后端 `list_posts` 中 `sort in ("hot","recommend")` 走同一路径——Redis `idea:hot` ZSET 优先（hot_top），无数据/降级回源 `hot_score desc`。
+- **综合推荐**（v1.50 升级）：前端 `sorts` 首位加 `recommend`，默认值改 `recommend`；后端 `_recommend_rows`：候选池=最新200+14天内帖子，打分 = Redis ZSET 热度(`hot_top_scores`)×时间衰减(48h) + 点/藏标签兴趣加成(近似 ItemCF，藏3/赞2，单项封顶6×1.5)；与 最新(纯时间)/热门(纯ZSET) 拉开区分度。
 - **Redis 接入**（`services/idea_cache.py` + `idea_service.py`）：
   - 频控：`_limit_check/_limit_mark` Redis 优先（SET EX），down 时内存 dict 降级；
   - 热门：点赞3/收藏2/评论2/浏览1 增量 `ZINCRBY`，10min 后台重建（tmp+RENAME 原子）；

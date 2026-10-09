@@ -744,6 +744,9 @@
 
 ## 版本变更记录
 
+### v1.50 (2026-10-09)
+- **新增**: [管理后台M1](./管理后台M1.md) + [综合推荐算法升级(并入广场综合推荐与Redis接入)](./广场综合推荐与Redis接入.md) — 后端：`app_user.role` 列(启动自动 ALTER)+`require_admin`+`/api/admin/stats|users|role`；前端 `/admin` AdminView(统计卡/分区chips/用户表格改角色)；综合推荐改为 Redis热度×时间衰减+点藏标签兴趣加成(近似ItemCF)，与最新/热门拉开区分度；uvicorn reload 默认关闭(Windows 启动 30s→2s)
+
 ### v1.49 (2026-10-09)
 - **新增**: [广场综合推荐与Redis接入](./广场综合推荐与Redis接入.md) — 「点子库」更名「广场」（页面/导航/路由 title）；排序新增「综合推荐」为默认（后端 `sort in ("hot","recommend")` 走 Redis ZSET 热门榜优先路径）；Redis P0/P1 接入：`idea_cache.py` 新封装（频控 TTL/热门 ZSET 镜像+10min 重建/浏览 SETNX 600s 去重+60s Lua 原子回写 DB/3s 冷却降级回原路径），`main.py` lifespan 挂后台任务，连接串走环境变量 `REDIS_URL`（密码不入库，redis-py 强制 `protocol=2`）；局域网 host:true + adb auto-reverse + launch.json 三启动项（launch 传 `--host` 被 npm 吞参致全黑的坑）
 

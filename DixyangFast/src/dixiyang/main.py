@@ -22,7 +22,7 @@ from dixiyang.models.chat_session import ChatSession
 from dixiyang.models.volume import Volume
 from dixiyang.models.chapter import Chapter
 from dixiyang.models import idea as idea_model  # noqa: F401  注册 idea_* 7 张表到 Base.metadata
-from dixiyang.routers import auth, novel, character, story_node, timeline, file, user, chat, user_config, chat_history, rag, volume, chapter, ai, idea
+from dixiyang.routers import auth, novel, character, story_node, timeline, file, user, chat, user_config, chat_history, rag, volume, chapter, ai, idea, admin
 from dixiyang.utils.database import Base, engine
 from dixiyang.config import UPLOAD_DIR
 from dixiyang.services.idea_cache import cache as idea_cache
@@ -32,6 +32,12 @@ from dixiyang.services.idea_cache import cache as idea_cache
 async def lifespan(app: FastAPI):
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     Base.metadata.create_all(bind=engine)
+    # 既有表补列：app_user.role（create_all 不会给旧表加列）
+    from sqlalchemy import inspect as sa_inspect, text
+    cols = {c["name"] for c in sa_inspect(engine).get_columns("app_user")}
+    if "role" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE app_user ADD COLUMN role VARCHAR(20) DEFAULT 'user'"))
     idea_cache.start_background()
     yield
     idea_cache.stop_background()
@@ -66,6 +72,7 @@ app.include_router(volume.router, prefix="/api")
 app.include_router(chapter.router, prefix="/api")
 app.include_router(ai.router, prefix="/api")
 app.include_router(idea.router, prefix="/api")
+app.include_router(admin.router, prefix="/api")
 
 
 @app.get("/")
@@ -78,4 +85,5 @@ if __name__ == "__main__":
     _os.makedirs(UPLOAD_DIR, exist_ok=True)
     import uvicorn
 
-    uvicorn.run("dixiyang.main:app", host="0.0.0.0", port=8084, reload=True)
+    # reload 默认关闭（Windows 下 WatchFiles 启动极慢）；需要热重载时设 RELOAD=1
+    uvicorn.run("dixiyang.main:app", host="0.0.0.0", port=8084, reload=os.getenv("RELOAD", "0") == "1")

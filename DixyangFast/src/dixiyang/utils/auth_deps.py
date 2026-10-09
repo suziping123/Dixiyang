@@ -53,3 +53,13 @@ async def get_optional_user_id(
         if user is None or sid != user.session_id:
             return None
     return user_id
+
+
+async def require_admin(
+    user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)
+) -> int:
+    """管理后台鉴权：token 合法且 role=admin，否则 403"""
+    user = db.get(AppUser, user_id)
+    if user is None or getattr(user, "role", "user") != "admin":
+        raise HTTPException(status_code=403, detail="需要管理员权限")
+    return user_id

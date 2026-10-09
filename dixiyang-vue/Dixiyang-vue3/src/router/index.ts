@@ -78,6 +78,12 @@ const router = createRouter({
       meta: { requiresAuth: true, title: '广场 · DIXIYANG' }
     },
     {
+      path: '/admin',
+      name: 'admin',
+      component: () => import('../views/AdminView.vue'),
+      meta: { requiresAuth: true, title: '管理后台 · DIXIYANG' }
+    },
+    {
       path: '/novel/:novelId/timeline',
       name: 'timeline',
       component: () => import('../views/TimelineView.vue'),
