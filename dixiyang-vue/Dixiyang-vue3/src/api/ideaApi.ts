@@ -13,7 +13,7 @@ export interface IdeaPostItem {
   authorId: number;
   authorName: string;
   tags: string[];
-  attach: { id: number; type: string } | null;
+  attach: { id: number; type: string; sourceRef?: string | null } | null;
   status: string;
   viewCount: number;
   likeCount: number;
@@ -119,8 +119,10 @@ export const importAttachment = (id: number, novelId: number) =>
 export const removePost = (id: number) => http.post(`/idea/posts/${id}/remove`);
 export const restorePost = (id: number) => http.post(`/idea/posts/${id}/restore`);
 
-export const updatePost = (id: number, body: { title?: string; content?: string; tags?: string[]; images?: string[] }) =>
-  http.put(`/idea/posts/${id}`, body);
+export const updatePost = (
+  id: number,
+  body: { title?: string; content?: string; tags?: string[]; images?: string[]; sourceRef?: string },
+) => http.put(`/idea/posts/${id}`, body);
 
 export const listMinePosts = (params: { page?: number; pageSize?: number }) =>
   http.get('/idea/mine/posts', { params });

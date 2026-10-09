@@ -129,7 +129,7 @@ class IdeaService:
                 meta = json.loads(a.attach_meta) if a.attach_meta else {}
             except json.JSONDecodeError:
                 meta = {}
-            out[a.post_id] = {"type": a.type, **meta}
+            out[a.post_id] = {"type": a.type, "sourceRef": a.source_ref, **meta}
         return out
 
     def _liked_set(self, user_id: int | None, post_ids: list[int]) -> set[int]:
@@ -299,7 +299,7 @@ class IdeaService:
         )
 
         # 结构化附件（按分区 + 数据源引用）
-        attach, err = self._build_attachment(user_id, p.id, d)
+        attach, err = self._build_attachment(user_id, p.id, d.category, d.source_ref)
         if err:
             delete_community_json(p.body_path)
             self.db.delete(p)
@@ -318,17 +318,18 @@ class IdeaService:
         _limit_mark(f"pub:{user_id}")
         return Result.success("发布成功", {"postId": p.id, "attach": attach})
 
-    def _build_attachment(self, user_id: int, post_id: int, d: IdeaDraft) -> tuple[dict | None, str | None]:
-        need_type = CATEGORY_ATTACH.get(d.category)
+    def _build_attachment(self, user_id: int, post_id: int, category: str,
+                          source_ref: str | None) -> tuple[dict | None, str | None]:
+        need_type = CATEGORY_ATTACH.get(category)
         if need_type is None:
             return None, None  # tech 区纯文字
-        if not d.source_ref:
+        if not source_ref:
             return None, None  # 数据源可选，不选则纯文字帖
         if need_type == "chat_snapshot":
-            data, err = export_chat_snapshot(user_id, d.source_ref)
+            data, err = export_chat_snapshot(user_id, source_ref)
         elif need_type == "character_card":
             try:
-                ids = [int(x) for x in d.source_ref.split(",") if x.strip()]
+                ids = [int(x) for x in source_ref.split(",") if x.strip()]
             except ValueError:
                 return None, "角色数据源无效"
             if not ids:
@@ -345,7 +346,7 @@ class IdeaService:
             meta = {"characterNames": [c.get("name") for c in data.get("characters", [])]}
         a = IdeaAttachment(
             post_id=post_id, type=need_type, attach_path=attach_path,
-            attach_meta=json.dumps(meta, ensure_ascii=False), source_ref=d.source_ref,
+            attach_meta=json.dumps(meta, ensure_ascii=False), source_ref=source_ref,
         )
         self.db.add(a)
         self.db.flush()
@@ -429,6 +430,28 @@ class IdeaService:
             self.db.query(IdeaPostImage).filter(IdeaPostImage.post_id == p.id).delete()
             for i, u in enumerate(body["images"]):
                 self.db.add(IdeaPostImage(post_id=p.id, url=u, sort=i))
+        if req.source_ref is not None and CATEGORY_ATTACH.get(p.category):
+            # 来源变更 → 重建附件快照（先建新、失败整体回滚保旧；成功再删旧行）
+            new_ref = req.source_ref.strip()
+            old = self.db.query(IdeaAttachment).filter(IdeaAttachment.post_id == p.id).first()
+            old_ref = (old.source_ref if old else "") or ""
+            if new_ref != old_ref:
+                attach, err = self._build_attachment(user_id, p.id, p.category, new_ref or None)
+                if err:
+                    self.db.rollback()
+                    return Result.error(err)
+                rows = self.db.query(IdeaAttachment).filter(
+                    IdeaAttachment.post_id == p.id
+                ).order_by(IdeaAttachment.id).all()
+                if attach:
+                    newest = rows[-1]
+                    for r in rows[:-1]:  # 新行已 flush；删旧（同路径覆盖写时不删文件）
+                        if r.attach_path != newest.attach_path:
+                            delete_community_json(r.attach_path)
+                        self.db.delete(r)
+                elif rows:  # 新来源为空 → 仅移除附件
+                    delete_community_json(rows[0].attach_path)
+                    self.db.delete(rows[0])
         body["title"] = p.title
         delete_community_json(p.body_path)
         p.body_path = self._write_body(f"community/{user_id}/{p.id}.json", body)

@@ -31,43 +31,15 @@
         <el-input id="idea-title" v-model="form.title" maxlength="100" show-word-limit placeholder="一句话说清你的点子" />
       </div>
 
-      <!-- 来源（按分区显示） -->
-      <div v-if="form.category === 'character'" class="field">
-        <label class="field-label">来源角色（发布时导出为角色卡附件）</label>
-        <div class="source-row">
-          <el-select v-model="sourceNovelId" placeholder="选择小说" filterable @change="onNovelChange">
-            <el-option v-for="n in novels" :key="n.id" :label="n.title" :value="n.id" />
-          </el-select>
-          <el-select v-model="sourceRef" placeholder="选择角色" filterable :loading="charsLoading" @change="resetPreview">
-            <el-option v-for="c in characters" :key="c.id" :label="c.name" :value="String(c.id)" />
-          </el-select>
-        </div>
-      </div>
-      <div v-else-if="form.category === 'idea'" class="field">
-        <label class="field-label">来源对话（可选；先选小说再选对话，发布时导出为对话快照附件）</label>
-        <div class="source-row">
-          <el-select
-            v-model="sourceNovelId"
-            placeholder="选择小说"
-            clearable
-            filterable
-            @change="onSessionNovelChange"
-          >
-            <el-option label="未绑定小说" :value="''" />
-            <el-option v-for="n in novels" :key="n.id" :label="n.title" :value="n.id" />
-          </el-select>
-          <el-select
-            v-model="sourceRef"
-            placeholder="选择对话（不选则纯文字发布）"
-            clearable
-            filterable
-            :loading="sessionsLoading"
-            @change="resetPreview"
-          >
-            <el-option v-for="s in sessions" :key="s.sessionId" :label="s.title" :value="s.sessionId" />
-          </el-select>
-        </div>
-      </div>
+      <!-- 来源（按分区显示；SourcePicker 与下架编辑共用；弹窗可见才挂载，避免页面加载即发请求） -->
+      <SourcePicker
+        v-if="modelValue && (form.category === 'character' || form.category === 'idea')"
+        ref="srcPicker"
+        :category="form.category"
+        v-model="sourceRef"
+        v-model:novel-id="sourceNovelId"
+        @change="resetPreview"
+      />
 
       <!-- 正文 -->
       <div class="field">
@@ -104,10 +76,21 @@
 
       <!-- 配图 -->
       <div class="field">
-        <label class="field-label">配图（最多 9 张，首张为封面）</label>
-        <div class="img-grid">
-          <div v-for="(u, i) in form.images" :key="u" class="img-cell">
-            <img :src="u" alt="" />
+        <label class="field-label">配图（{{ form.images.length }}/9，首张为封面；按住拖动可调整顺序）</label>
+        <div
+          class="img-grid"
+          @pointerdown="onGridPointerDown"
+          @pointermove="onGridPointerMove"
+          @pointerup="onGridPointerUpWrapped"
+          @pointercancel="onGridPointerUp"
+        >
+          <div
+            v-for="(u, i) in form.images"
+            :key="u"
+            class="img-cell"
+            :class="{ dragging: dragIndex === i, 'drop-target': overIndex === i }"
+          >
+            <img :src="u" alt="" draggable="false" />
             <button type="button" class="img-del" title="移除" @click="removeImage(i)">×</button>
             <span v-if="i === 0" class="img-cover-tag">封面</span>
           </div>
@@ -121,6 +104,7 @@
             <span class="img-add-icon">＋</span>
             <span>{{ uploading ? '上传中…' : '添加图片' }}</span>
           </button>
+          <img v-if="ghostSrc" class="drag-ghost" :src="ghostSrc" :style="ghostStyle" alt="" />
         </div>
         <input
           ref="fileInput"
@@ -163,13 +147,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   getDraft, createDraft, updateDraft, publishDraft,
-  getNovelOptions, getCharacters, getChatSessions, listTags, uploadIdeaImage,
-  type IdeaCategory, type IdeaDraftItem,
+  listTags, uploadIdeaImage,
+  type IdeaCategory,
 } from '@/api/ideaApi'
+import { useImageDragSort } from '@/composables/useImageDragSort'
+import SourcePicker from '@/components/idea/SourcePicker.vue'
 
 const props = defineProps<{
   modelValue: boolean
@@ -203,12 +189,8 @@ const form = reactive({
 })
 const sourceRef = ref('')
 const sourceNovelId = ref<number | ''>('')
+const srcPicker = ref<InstanceType<typeof SourcePicker> | null>(null)
 
-const novels = ref<{ id: number; title: string }[]>([])
-const characters = ref<{ id: number; name: string }[]>([])
-const charsLoading = ref(false)
-const sessions = ref<{ sessionId: string; title: string; novelId?: number | null }[]>([])
-const sessionsLoading = ref(false)
 const hotTags = ref<{ tag: string; count: number }[]>([])
 
 const previewed = ref(false)
@@ -221,6 +203,15 @@ const publishError = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
 
 const previewTags = computed(() => form.tags)
+
+// 配图拖拽排序（第一张=封面）；真拖过才重置预览（顺序变化影响发布内容）
+const { dragIndex, overIndex, ghostSrc, ghostStyle, onGridPointerDown, onGridPointerMove, onGridPointerUp } =
+  useImageDragSort(() => form.images)
+const onGridPointerUpWrapped = (e: PointerEvent) => {
+  const wasDragging = dragIndex.value != null
+  onGridPointerUp(e)
+  if (wasDragging) resetPreview()
+}
 
 const resetPreview = () => {
   previewed.value = false
@@ -241,29 +232,10 @@ const onCategoryChange = (key: IdeaCategory) => {
   form.category = key
   sourceRef.value = ''
   sourceNovelId.value = ''
-  characters.value = []
   resetPreview()
 }
 
-// ---------- 来源对话级联（先选小说 → 再选对话） ----------
-
-const loadSessions = async (novelId?: number | '') => {
-  sessionsLoading.value = true
-  try {
-    const list = unwrap<{ sessionId: string; title: string; novelId?: number | null }[]>(
-      await getChatSessions(novelId ? Number(novelId) : null),
-    )
-    sessions.value = list ?? []
-  } finally {
-    sessionsLoading.value = false
-  }
-}
-
-const onSessionNovelChange = async () => {
-  sourceRef.value = ''
-  resetPreview()
-  await loadSessions(sourceNovelId.value)
-}
+// ---------- 来源对话级联已抽至 SourcePicker 组件 ----------
 
 // ---------- 配图 ----------
 
@@ -311,12 +283,8 @@ const init = async () => {
   form.category = 'idea'
   sourceRef.value = ''
   sourceNovelId.value = ''
-  characters.value = []
 
-  const [tagRes, novelRes, sessRes] = await Promise.all([listTags(20), getNovelOptions(), getChatSessions()])
-  hotTags.value = unwrap<{ tag: string; count: number }[]>(tagRes) ?? []
-  novels.value = unwrap<{ records: { id: number; title: string }[] }>(novelRes)?.records ?? []
-  sessions.value = unwrap<{ sessionId: string; title: string; novelId?: number | null }[]>(sessRes) ?? []
+  hotTags.value = unwrap<{ tag: string; count: number }[]>(await listTags(20)) ?? []
 
   if (props.draftId != null) {
     const d = unwrap<{
@@ -330,45 +298,10 @@ const init = async () => {
       form.tags = d.tags ?? []
       form.images = d.images ?? []
       sourceRef.value = d.sourceRef ?? ''
-      if (d.category === 'character' && d.sourceRef) {
-        // 载入角色所属小说以便回显级联
-        const cid = Number(d.sourceRef)
-        const all = await Promise.all(novels.value.map((n) => getCharacters(n.id)))
-        for (let i = 0; i < all.length; i++) {
-          const list = unwrap<{ id: number; name: string }[]>(all[i]) ?? []
-          const hit = list.find((c) => c.id === cid)
-          const nv = novels.value[i]
-          if (hit && nv) {
-            sourceNovelId.value = nv.id
-            characters.value = list
-            break
-          }
-        }
-      } else if (d.category === 'idea' && d.sourceRef) {
-        // 回显对话所属小说（全量 sessions 里找 novelId）
-        const hit = sessions.value.find((s) => s.sessionId === d.sourceRef)
-        if (hit?.novelId) {
-          sourceNovelId.value = hit.novelId
-          await loadSessions(hit.novelId)
-        }
-      }
+      // 交给 SourcePicker 反查所属小说并填充二级列表
+      await nextTick()
+      await srcPicker.value?.echo()
     }
-  }
-}
-
-const onNovelChange = async () => {
-  sourceRef.value = ''
-  resetPreview()
-  if (!sourceNovelId.value) {
-    characters.value = []
-    return
-  }
-  charsLoading.value = true
-  try {
-    const list = unwrap<{ id: number; name: string }[]>(await getCharacters(sourceNovelId.value))
-    characters.value = list ?? []
-  } finally {
-    charsLoading.value = false
   }
 }
 
@@ -427,12 +360,12 @@ const doPreview = async () => {
   }
   previewing.value = true
   try {
-    // 预览即生成附件来源摘要，确认后才允许发布
+    // 预览即生成附件来源摘要，确认后才允许发布（列表在 SourcePicker 内）
     if (form.category === 'character' && sourceRef.value) {
-      const hit = characters.value.find((c) => String(c.id) === sourceRef.value)
+      const hit = srcPicker.value?.characters.find((c) => String(c.id) === sourceRef.value)
       previewNote.value = `附件：角色卡「${hit?.name ?? sourceRef.value}」，发布时导出完整人设供他人一键导入。`
     } else if (form.category === 'idea' && sourceRef.value) {
-      const hit = sessions.value.find((s) => s.sessionId === sourceRef.value)
+      const hit = srcPicker.value?.sessions.find((s) => s.sessionId === sourceRef.value)
       previewNote.value = `附件：对话快照「${hit?.title ?? '所选对话'}」，发布时导出整条对话链为只读快照。`
     } else {
       previewNote.value = '纯文字发布，无附件。'
@@ -541,12 +474,6 @@ watch(
   font-weight: 600;
 }
 
-.source-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
 .preview-panel {
   border: 1px solid var(--accent-primary);
   background: var(--accent-soft);
@@ -645,6 +572,28 @@ watch(
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
   gap: 8px;
+  touch-action: none; /* 触屏拖拽排序前提，否则先被页面滚动抢走 */
+}
+
+.img-cell.dragging {
+  opacity: 0.35;
+}
+
+.img-cell.drop-target {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
+}
+
+.drag-ghost {
+  position: fixed;
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+  z-index: 2000; /* 压过 el-dialog 内容 */
+  opacity: 0.9;
+  box-shadow: var(--shadow-card, 0 8px 24px rgba(0, 0, 0, 0.5));
 }
 
 .img-cell {
@@ -731,10 +680,6 @@ watch(
 @media (max-width: 768px) {
   .editor-body {
     max-height: 72vh;
-  }
-
-  .source-row {
-    grid-template-columns: 1fr;
   }
 }
 </style>

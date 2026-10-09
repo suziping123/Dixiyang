@@ -572,7 +572,8 @@ html .el-option.is-selected {
 
   /* 输入框字号必须 ≥16px，否则 iOS Safari 聚焦时会放大整页 */
   .el-dialog .el-input__inner,
-  .el-dialog .el-textarea__inner {
+  .el-dialog .el-textarea__inner,
+  .el-dialog .el-select__input {
     font-size: 16px;
   }
 }

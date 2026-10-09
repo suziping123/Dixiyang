@@ -30,6 +30,10 @@ class PostUpdate(BaseModel):
     content: str | None = None
     tags: list[str] | None = None
     images: list[str] | None = None
+    # None=不改；""=清空来源（移除附件）；值=按新来源重建附件快照
+    source_ref: str | None = Field(default=None, alias="sourceRef")
+
+    model_config = {"populate_by_name": True}
 
 
 class CommentCreate(BaseModel):

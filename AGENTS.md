@@ -18,7 +18,7 @@
 9. **`.env` 文件禁令**：**禁止查看、读取、修改、搜索根目录的 `.env` 文件**（内含数据库密码、API Key 等真实凭据）。需要了解环境变量结构时，只允许查看**示例文件** `.env.example`（占位符模板，不含真实值）。确因任务必须接触 `.env` 时，须先向我明确说明原因并获得**一次性**授权（授权仅限当次对话，不可复用）。
 10. **motion-web 技能本地化**：技能目录 `motion-web-main/`、`.agents/`、`.trae/` **已移出版本库，仅本地保留**（GitHub 上不再有）。协作者克隆/拉取前**必须先执行一次** `git config core.hooksPath .githooks`（或 `powershell -File scripts/setup-hooks.ps1`），否则 `git pull` 会删除本地技能文件；一旦文件丢失，运行 `powershell -File scripts/restore-skills.ps1` 从 git 历史恢复。详见 `docs/技能库出库与同步.md`。
 
-## 前端三大必读（高频坑与适配规范，动前端前必看）
+## 前端四大必读（高频坑与适配规范，动前端前必看）
 
 ### 坑1：页面背景被"吃掉"（背景层叠坑）
 - **症状**：配置了背景图/背景色，进入某页面却不显示或被卡片盖住。
@@ -37,6 +37,12 @@
   3. 页面级 select 同病同治：`input.el-select__input, .el-input-number__input { backdrop-filter: none !important }`。
 - **易错点**：EP 浮层（popper/dropdown）一律 teleport 到 `body`，**不在 `.el-dialog` 内**，须用 `html .el-select__popper`/`html .el-popper` 全局前缀；`html .el-dialog .el-option` 是**错误选择器**（EP 实际类为 `.el-select-dropdown__item`）。
 - **验证套路**：CDP 打开弹窗聚焦控件 → dump `getComputedStyle(el).backdropFilter` 须为 `none` → 截图确认无白雾。
+
+### 坑3：`getNovelOptions` 返回 `{records:[...]}` 分页结构（unwrap 口径坑）
+- **症状**：来源/小说下拉**恒为空**、级联回显不了（用户话术"后端发来的数据显示不了"）。
+- **根因**：`GET /novel/listall` 的 `data` 是 `{ records: [...], total }`；按数组 unwrap → `null ?? []` 恒空 → 角色/对话二级列表全灭。
+- **修法**：`unwrap<{ records: T[] }>(res)?.records ?? []`。注意**同页混用两种口径**：`getCharacters`/`getChatSessions` 是**直接数组**，`getNovelOptions` 是分页对象——复制粘贴前先对齐。
+- 详见 `docs/点子库Demo实施记录.md` §12.2（下架编辑回显修复）。
 
 ### 移动端适配（Agent 必读，新建/改动页面必须逐条过）
 - **断点统一 768**：`@media (max-width: 768px)`。弹窗走 **main.css 全局贴底抽屉**（`html .el-dialog` 宽 100%、`margin:auto auto 0` 贴底、body 滚动）——新弹窗**不要自设宽度/高度**（会被全局 `!important` 压掉，直接复用即可）。

@@ -493,7 +493,8 @@
 - **踩坑记录（先查文档的一课）**：背景层叠 `position:relative` 致命坑、`userId` 存储 key、无 chat 分区（对话快照挂 idea 区）、FloatingNav 各 view 自挂、`enterSubmit` 回车约定、code≠200 resolve 等 8 项
 - **§10 第二轮（v1.1，2026-10-09）**：用户 5 问题修复（EP 浮层深色化、chat 段路径、频控 check/mark 分离+inline 错误条）+ 配图全链路（`idea_post_image`）+ 小红书瀑布流 + 来源对话级联；API 15/15 + 回归 40/40 + 冒烟 SMOKE2 PASS
 - **§11 第三轮（v1.2，2026-10-09）**：用户 9 条反馈修复（① emoji 图标 → 自绘 `IdeaIcon.vue` ② 赞/藏弹跳动画 ③ 卡脚快捷赞藏 + 后端 `collectedByMe` ④ 768 断点移动端 + 横向溢出根因修复 ⑤ 卡片 `#171a24` 实底 ⑥ 弹窗蒙板 blur 根因修复 ⑦ 详情画廊置顶 ⑧ 下架帖编辑 `PostEditDialog.vue` + toggle 取消修复）；API 19/19 + 回归 40/40+15/15 + 冒烟 26/26 + 基线 9/8/build ✓
-- 已知问题：setting/timeline 导出未接、配图文件不回收等（`collectedByMe` 已于第三轮落地）与后续路线
+- **§12 第四轮（v1.3，2026-10-09）**：下架改来源（`sourceRef` 附件重建/清空移除/无效整体回滚，API 专项 **25/25**）+ **来源选择器抽共享组件 `SourcePicker.vue`**（根治"没复用写点子代码/回显不了"——`getNovelOptions` 的 `records` 分页口径踩坑 + `destroy-on-close` 防串数据 + `ensureReady` 懒加载防 401 炸 console）+ **配图拖拽排序 `useImageDragSort.ts`**（零依赖 Pointer Events，两弹窗接入，拖影/高亮/move 语义/封面跟随）；回归 40/40+15/15+19/19 + SMOKE3 **28/28** + 拖拽 **8/8** + 回显 **9/9**
+- 已知问题：setting/timeline 导出未接、配图文件不回收等（`collectedByMe`、配图拖拽已落地）与后续路线
 
 **适用人群**: 前端、后端、测试
 
@@ -731,6 +732,9 @@
 
 ## 版本变更记录
 
+### v1.47 (2026-10-09)
+- **点子库第四轮**: [点子库Demo实施记录](./点子库Demo实施记录.md) 升级 **v1.3** — 用户两条反馈：① **下架编辑下拉没复用写点子/回显不了** → 抽共享组件 `SourcePicker.vue`（小说→角色/对话级联 + `echo()` 回显反查 + `records` 分页口径修正，两弹窗各删 ~90 行本地实现）+ PostEditDialog `:destroy-on-close`（`@open=init` 切帖不重跑的串数据隐患）+ `ensureReady()` 懒加载/失败重试（DraftEditor `v-if=modelValue` 弹窗可见才挂，页面加载不再发请求、未登录不炸 console）；后端 `sourceRef` 改来源首次全量验证（**新增 `test_idea_api_source.py` 25/25**：改源重建/无效角色·会话报错整体回滚/清空移除/空→再选恢复/tech 无害）；② **配图拖拽调顺序** → 手写零依赖 `useImageDragSort.ts`（Pointer Events、6px 阈值、pointer capture、拖影+drop 高亮、松手 move 语义、`touch-action:none` 触屏可用、首张封面），`PostEditDialog`/`DraftEditorDialog` 双接入（拖后 resetPreview）。验证：source **25/25** + round1 40/40 + round2 15/15 + round3 19/19 + SMOKE3 **28/28**（0 控制台错误）+ SMOKE2 PASS + `_smoke_ideas` PASS + 拖拽 **8/8** + 回显 **9/9**（idea/character CDP 实测）+ type-check/eslint/build ✓；踩坑 `getNovelOptions` 返回 `{records:[...]}`（非数组）写入根 AGENTS「前端三大必读」
+
 ### v1.46 (2026-10-09)
 - **点子库第三轮**: [点子库Demo实施记录](./点子库Demo实施记录.md) 升级 **v1.2** + 新增 [Redis与管理后台策划](./Redis与管理后台策划.md) — 用户 9 条反馈：① **emoji 图标 AI 味** → 自绘线性 SVG `IdeaIcon.vue`（eye/heart/bubble/star/clip/edit/share）替换全站 👁👍💬⭐❤📎；② **赞/藏无动画** → `stat-bump`/`act-bump` keyframes + `:active` 缩放 + 实心填色；③ **卡脚快捷互动** → `.stat-btn` 乐观更新+回滚 + 后端 `_collected_set` 下发 `collectedByMe`（5 调用点）；④ **移动端** → 768 断点（FAB 避让/双列 150/chip 横滑）+ 横向溢出根因（`.filter-row` 内 `flex-shrink:0` 撑 572px→实测复原 375）；**④-b 真机观感补丁**（用户"没有任何适配"：断言绿但真机=单列大卡+Tab截断）→ 避让 88→64（球46+边14+缓冲4 精算，内容 297 双列 minmax 140）、tab-btn 收紧、筛选改 chips/排序**分组独占行组内横滑**（排序不再被挤出首屏），冒烟增补双列/Tab全见断言 **28/28** + 375 截图肉眼复核；⑤ **卡片融合** → `.idea-page`/`.detail-body` 作用域 `--surface-card:#171a24` 实底；⑥ **模糊蒙板根因** → 全局 `input{backdrop-filter:blur(10px)}`+控件 5% 半透明，修 `html .el-dialog` 控件实底 `#191c27 !important`+去 blur、`.el-overlay` 加深 0.62；**⑥-b 下拉复燃**（filterable select 原生 `input.el-select__input` 聚焦展开命中全局 blur → 白雾、失焦消失）→ 补 `html .el-dialog input,textarea,select` 通配去 blur + 页面级同治，CDP 实测 focus `backdropFilter:none`、两大坑总结写入根 `AGENTS.md`「前端两大高频坑」；⑦ **详情图置顶** → 画廊移到 tags 后；⑧ **下架为修改服务** → 新建 `PostEditDialog.vue` 双入口（详情操作栏+我发布的 edit-entry）+ `updatePost` API + 附带修 toggle 悬空收藏无法取消 bug（取消允许 removed、新增限 published）；⑨ **Redis+管理后台** → 出策划不写码（`Redis与管理后台策划.md` v1.0：idea_cache 封装/迁移分期 + role/require_admin/四页面/M1-M5）。验证：round3 **19/19** + round1 **40/40** + round2 **15/15** + 冒烟 **26/26**（0 控制台错误）+ 基线 type-check 9/lint 8/build ✓
 
@@ -889,6 +893,6 @@
 
 ---
 
-*文档版本: v1.24*
+*文档版本: v1.25*
 *最后更新: 2026-10-06*
 *维护者: Dixiyang Team*

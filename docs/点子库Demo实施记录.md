@@ -213,8 +213,73 @@ npx vite build       # ✓ 9.08s
 
 1. 移动端管理后台不适配（明确不做，见策划 §2.5）。
 2. Redis/管理后台本轮仅策划未实施（见 [Redis与管理后台策划](./Redis与管理后台策划.md) §3 风险）。
-3. 配图文件回收、拖拽排序沿袭第二轮遗留（§10.5）。
+3. 配图文件回收沿袭第二轮遗留（§10.5）；**拖拽排序已于第四轮落地（§12）**。
 
 ---
 
-*文档版本: v1.2 ｜ 维护者: Dixiyang Team*（v1.0 2026-10-08 首版，v1.1 2026-10-09 第二轮修复与图片/瀑布流增强，v1.2 2026-10-09 第三轮九条反馈）
+## 12. 第四轮：下架改来源 + 来源组件复用 + 配图拖拽（2026-10-09，v1.3）
+
+### 12.1 需求
+
+用户两条反馈：
+
+1. **下架编辑的下拉表没复用写点子的代码**——效果与写点子不一致，**后端发来的数据回显不了**。
+2. **配图需要可以随意拖动**，以调整封面和顺序（写点子 + 下架编辑两处）。
+
+### 12.2 方案与实现
+
+**A. 来源选择器抽共享组件 `SourcePicker.vue`（根治复用与回显）**
+
+- 回显不了的根因：`getNovelOptions` 返回 **`{ records: [...] }` 分页结构**，PostEditDialog 误按数组 `unwrap` → `novels` 恒为空 → 小说/角色/对话级联全空。
+- 抽 `components/idea/SourcePicker.vue`：小说→角色 / 小说→对话级联、回显反查（`echo()`）、loading 态、`source-row` 双列/768 单列样式**全部内置**；`v-model`（sourceRef）+ `v-model:novel-id` + `@change`（写点子据此 resetPreview）。
+- `DraftEditorDialog`/`PostEditDialog` 删除各自 ~90 行本地实现，改为一行 `<SourcePicker>`；**效果保证与写点子原版一致**。
+- **`destroy-on-close`**：PostEditDialog 原 `@open="init"` 在弹窗已开时切帖**不重跑 init**（串数据隐患），加 `:destroy-on-close="true"` 根治。
+- **懒加载防 401 炸 console**：SourcePicker 原 setup 顶层 IIFE 挂载即请求（DraftEditor 弹窗 v-show 常驻 → 页面加载即发）；改 `ensureReady()` 懒 + 可重入 + 失败清缓存重试，且 DraftEditor 侧 `v-if="modelValue"` 弹窗可见才挂载。
+
+**B. 后端下架改来源（上轮已写码，本轮首轮验证）**
+
+- `PostUpdate.source_ref`（alias `sourceRef`）：`None`=不改、`""`=清空移除附件、值=按新来源重建附件快照（先建新、`err` 整体 `rollback` 保旧，成功再删旧行）；非附件分区（tech/setting/timeline）无害忽略。
+
+**C. 配图拖拽排序 `useImageDragSort.ts`（零依赖，桌面+触屏）**
+
+- 手写 Pointer Events：6px 阈值区分点按/滚动、`setPointerCapture`、拖影 `.drag-ghost` 跟手、`drop-target` 高亮、松手 **move 语义**（抽出插到落点）；`.img-grid { touch-action: none }` 防触屏抢滚动；删除/添加按钮不触发拖拽；`onBeforeUnmount` 清理。
+- 首张=封面语义不变（封面标签随首格）；DraftEditor 拖拽后 `resetPreview()`（顺序影响发布内容）。
+- 接入 `PostEditDialog` + `DraftEditorDialog` 两处 `.img-grid`。
+
+### 12.3 改动文件
+
+| 文件 | 改动 |
+|------|------|
+| `components/idea/SourcePicker.vue` | **新增**：共享来源选择器（级联+echo+懒加载 ensureReady） |
+| `components/idea/DraftEditorDialog.vue` | 来源区块/逻辑/样式替换为 SourcePicker（`v-if=modelValue`）；init 回显改 `srcPicker.echo()`；doPreview 列表改从 expose 取 |
+| `components/idea/PostEditDialog.vue` | 同上重构 + `:destroy-on-close` + save payload `sourceRef` |
+| `composables/useImageDragSort.ts` | **新增**：pointer 拖拽排序 composable |
+| `schemas/idea.py`（后端） | `PostUpdate.source_ref` alias（上轮） |
+| `services/idea_service.py`（后端） | `_build_attachment` 新签名 + `update_post` 重建/回滚/移除分支（上轮） |
+
+### 12.4 验证方式与结果
+
+```text
+# 后端 API（.venv python；跑前 unlock_user.py 解登录风控；发帖间隔 sleep 10.5 避频控）
+#   test_idea_api_source.py（新增专项）→ 25/25：发布即建附件/改来源重建(29→28)/
+#     无效角色报错+回滚(sourceRef保旧+title未落)/清空移除/空→再选恢复/
+#     idea 无效会话回滚+清空+重建/chat_snapshot、tech 分区 sourceRef 无害
+#   round1 → 40/40 ｜ round2 → 15/15 ｜ round3 → 19/19
+# 前端基线：type-check（本轮文件 0 错，全局 9=历史基线）/ eslint 全过（顺消基线1错）/ build ✓
+# CDP 回显（_dbg_echo*.mjs）：idea 帖回显（小说+对话+下拉 records 3 项）+ character 帖回显
+#   （小说+角色，GET posts/30=200）+ 下架提示条 + 保存关闭 → 9/9（阶段2）
+# CDP 拖拽（_dbg_drag.mjs）→ 8/8：拖影/高亮/顺序交换/状态清理/封面标签跟随（不保存不落库）
+# CDP 冒烟：SMOKE3 → 28/28（0 控制台错误，需先清残留旧 token 的 401 log）、
+#   SMOKE2 PASS（写点子回归）、_smoke_ideas PASS（0 错，懒加载修复后）
+# 截图：echo_idea / echo_character2 / drag_during / drag_after
+```
+
+### 12.5 遗留
+
+1. `getNovelOptions` 的 `records` 分页口径已写入根 `AGENTS.md`「前端三大必读」（本轮踩坑）。
+2. 配图文件回收仍沿袭 §10.5。
+3. 后端测试脚本在 `Temp/opencode/`（不入库）：`test_idea_api_source.py` 等。
+
+---
+
+*文档版本: v1.3 ｜ 维护者: Dixiyang Team*（v1.0 2026-10-08 首版，v1.1 2026-10-09 第二轮修复与图片/瀑布流增强，v1.2 2026-10-09 第三轮九条反馈，v1.3 2026-10-09 第四轮下架改来源/SourcePicker 复用/配图拖拽）
