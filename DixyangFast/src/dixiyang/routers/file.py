@@ -18,6 +18,7 @@ router = APIRouter(prefix="/upload", tags=["文件上传模块"])
 
 COVERS_DIR = os.path.join(UPLOAD_DIR, "covers")
 BACKGROUNDS_DIR = os.path.join(UPLOAD_DIR, "backgrounds")
+IDEA_IMAGES_DIR = os.path.join(UPLOAD_DIR, "idea-images")
 COVER_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 BG_TYPES = {"image/jpeg", "image/png", "image/webp"}
 MAX_SIZE = 10 * 1024 * 1024
@@ -104,6 +105,12 @@ async def delete_cover(url: str = Query(...), novelId: int = Query(..., alias="n
 @router.post("/background")
 async def upload_background(file: UploadFile):
     return _do_upload(file, BACKGROUNDS_DIR, "backgrounds", BG_TYPES)
+
+
+@router.post("/idea-image")
+async def upload_idea_image(file: UploadFile):
+    """点子库帖子配图（MD5 去重，复用通用上传）"""
+    return _do_upload(file, IDEA_IMAGES_DIR, "idea-images", COVER_TYPES)
 
 
 @router.delete("/background")

@@ -9,7 +9,7 @@ from sqlalchemy import and_, exists, func, or_
 from sqlalchemy.orm import Session
 
 from ..models.idea import (
-    IdeaAttachment, IdeaCollect, IdeaComment, IdeaDraft, IdeaLike, IdeaPost, IdeaPostTag,
+    IdeaAttachment, IdeaCollect, IdeaComment, IdeaDraft, IdeaLike, IdeaPost, IdeaPostImage, IdeaPostTag,
 )
 from ..models.user import AppUser
 from ..schemas.idea import CommentCreate, DraftCreate, DraftUpdate, ImportRequest, PostUpdate, PublishRequest
@@ -34,20 +34,26 @@ CATEGORY_ATTACH = {
 }
 PAGE_SIZE = 10
 TAG_MAX, TAG_LEN_MAX = 5, 50
+IMG_MAX = 9
+IMG_URL_PREFIX = "/api/uploads/idea-images/"
 COMMENT_LEN_MAX = 1000
 
 # Demo 频控（进程内存版；正式版换 Redis，见策划 §4）
 _rate: dict[str, float] = {}
 
 
-def _limited(key: str, seconds: float) -> bool:
-    """True = 触发频控"""
+def _limit_check(key: str, seconds: float) -> float:
+    """只读频控检查：0 = 放行；>0 = 需等待的剩余秒数（不计数，成功后 _limit_mark）"""
     now = time.monotonic()
     last = _rate.get(key)
     if last is not None and now - last < seconds:
-        return True
-    _rate[key] = now
-    return False
+        return seconds - (now - last)
+    return 0.0
+
+
+def _limit_mark(key: str) -> None:
+    """操作成功后打点；业务失败不消耗额度"""
+    _rate[key] = time.monotonic()
 
 
 class IdeaService:
@@ -72,6 +78,16 @@ class IdeaService:
             if t and t not in out:
                 out.append(t)
         return out[:TAG_MAX]
+
+    @staticmethod
+    def _clean_images(images: list[str] | None) -> list[str]:
+        """仅保留本服务 idea-images 目录下的 URL，最多 IMG_MAX 张（防伪造外链）"""
+        out = []
+        for u in images or []:
+            u = (u or "").strip()[:500]
+            if u.startswith(IMG_URL_PREFIX) and u not in out:
+                out.append(u)
+        return out[:IMG_MAX]
 
     @staticmethod
     def _write_body(rel_path: str, data: dict) -> str:
@@ -124,8 +140,21 @@ class IdeaService:
         ).all()
         return {r[0] for r in rows}
 
-    def _post_item(self, p: IdeaPost, tag_map: dict, att_map: dict, liked: set, with_content: bool = False) -> dict:
+    def _images_of(self, post_ids: list[int]) -> dict[int, list[str]]:
+        if not post_ids:
+            return {}
+        rows = self.db.query(IdeaPostImage).filter(
+            IdeaPostImage.post_id.in_(post_ids)
+        ).order_by(IdeaPostImage.sort.asc(), IdeaPostImage.id.asc()).all()
+        m: dict[int, list[str]] = {pid: [] for pid in post_ids}
+        for r in rows:
+            m.setdefault(r.post_id, []).append(r.url)
+        return m
+
+    def _post_item(self, p: IdeaPost, tag_map: dict, att_map: dict, liked: set,
+                    with_content: bool = False, img_map: dict | None = None) -> dict:
         name, _ = self._user_name(p.user_id)
+        imgs = (img_map or {}).get(p.id) or []
         item = {
             "id": p.id,
             "category": p.category,
@@ -135,6 +164,8 @@ class IdeaService:
             "authorName": name,
             "tags": tag_map.get(p.id, []),
             "attach": att_map.get(p.id),
+            "images": imgs,
+            "coverUrl": imgs[0] if imgs else None,
             "status": p.status,
             "viewCount": p.view_count,
             "likeCount": p.like_count,
@@ -162,7 +193,10 @@ class IdeaService:
         self.db.flush()
         d.body_path = self._write_body(
             f"community/{user_id}/draft_{d.id}.json",
-            {"title": req.title, "content": req.content, "tags": self._norm_tags(req.tags)},
+            {
+                "title": req.title, "content": req.content,
+                "tags": self._norm_tags(req.tags), "images": self._clean_images(req.images),
+            },
         )
         self.db.commit()
         return Result.success("创建成功", {"id": d.id})
@@ -173,7 +207,10 @@ class IdeaService:
             return Result.error("草稿不存在")
         if req.category not in CATEGORIES:
             return Result.error("无效分区")
-        body = {"title": req.title, "content": req.content, "tags": self._norm_tags(req.tags)}
+        body = {
+            "title": req.title, "content": req.content,
+            "tags": self._norm_tags(req.tags), "images": self._clean_images(req.images),
+        }
         delete_community_json(d.body_path)
         d.category = req.category
         d.title = req.title.strip()[:200]
@@ -200,6 +237,7 @@ class IdeaService:
         return Result.success("获取成功", {
             "id": d.id, "category": d.category, "title": d.title,
             "content": body.get("content", ""), "tags": body.get("tags", []),
+            "images": body.get("images", []),
             "sourceRef": d.source_ref, "updateTime": self._dt(d.update_time),
         })
 
@@ -229,8 +267,9 @@ class IdeaService:
     def publish(self, user_id: int, draft_id: int, req: PublishRequest) -> dict:
         if not req.previewed:
             return Result.error("请先预览附件")
-        if _limited(f"pub:{user_id}", 10):
-            return Result.error("发布过于频繁，请稍后再试")
+        remain = _limit_check(f"pub:{user_id}", 10)
+        if remain:
+            return Result.error(f"发布太频繁了，请 {int(remain) + 1} 秒后再试")
         d = self._own_draft(user_id, draft_id)
         if d is None:
             return Result.error("草稿不存在")
@@ -260,9 +299,13 @@ class IdeaService:
         for t in tags:
             self.db.add(IdeaPostTag(post_id=p.id, tag=t))
 
+        for i, u in enumerate(self._clean_images(body.get("images"))):
+            self.db.add(IdeaPostImage(post_id=p.id, url=u, sort=i))
+
         delete_community_json(d.body_path)
         self.db.delete(d)
         self.db.commit()
+        _limit_mark(f"pub:{user_id}")
         return Result.success("发布成功", {"postId": p.id, "attach": attach})
 
     def _build_attachment(self, user_id: int, post_id: int, d: IdeaDraft) -> tuple[dict | None, str | None]:
@@ -322,9 +365,10 @@ class IdeaService:
         ids = [p.id for p in rows]
         tag_map, att_map = self._tags_of(ids), self._attachments_of(ids)
         liked = self._liked_set(user_id, ids)
+        img_map = self._images_of(ids)
         return Result.success("获取成功", {
             "total": total,
-            "list": [self._post_item(p, tag_map, att_map, liked) for p in rows],
+            "list": [self._post_item(p, tag_map, att_map, liked, img_map=img_map) for p in rows],
         })
 
     def get_post(self, post_id: int, user_id: int | None) -> dict:
@@ -337,6 +381,7 @@ class IdeaService:
         item = self._post_item(
             p, self._tags_of([p.id]), self._attachments_of([p.id]),
             self._liked_set(user_id, [p.id]), with_content=True,
+            img_map=self._images_of([p.id]),
         )
         return Result.success("获取成功", item)
 
@@ -367,6 +412,11 @@ class IdeaService:
             self.db.query(IdeaPostTag).filter(IdeaPostTag.post_id == p.id).delete()
             for t in body["tags"]:
                 self.db.add(IdeaPostTag(post_id=p.id, tag=t))
+        if req.images is not None:
+            body["images"] = self._clean_images(req.images)
+            self.db.query(IdeaPostImage).filter(IdeaPostImage.post_id == p.id).delete()
+            for i, u in enumerate(body["images"]):
+                self.db.add(IdeaPostImage(post_id=p.id, url=u, sort=i))
         body["title"] = p.title
         delete_community_json(p.body_path)
         p.body_path = self._write_body(f"community/{user_id}/{p.id}.json", body)
@@ -397,7 +447,7 @@ class IdeaService:
         ids = [p.id for p in rows]
         return Result.success("获取成功", {
             "total": total,
-            "list": [self._post_item(p, self._tags_of(ids), self._attachments_of(ids), self._liked_set(user_id, ids)) for p in rows],
+            "list": [self._post_item(p, self._tags_of(ids), self._attachments_of(ids), self._liked_set(user_id, ids), img_map=self._images_of(ids)) for p in rows],
         })
 
     def _own_post(self, user_id: int, post_id: int) -> IdeaPost | None:
@@ -408,8 +458,9 @@ class IdeaService:
     # ---------- 附件导入 ----------
 
     def import_attachment(self, user_id: int, post_id: int, req: ImportRequest) -> dict:
-        if _limited(f"imp:{user_id}", 10):
-            return Result.error("操作过于频繁，请稍后再试")
+        remain = _limit_check(f"imp:{user_id}", 10)
+        if remain:
+            return Result.error(f"导入太频繁了，请 {int(remain) + 1} 秒后再试")
         p = self.db.get(IdeaPost, post_id)
         if p is None or p.status != "published":
             return Result.error("帖子不存在或已下架")
@@ -424,6 +475,7 @@ class IdeaService:
         if not snapshot or not snapshot.get("characters"):
             return Result.error("附件内容缺失")
         results = import_character_cards(self.db, user_id, req.novel_id, snapshot)
+        _limit_mark(f"imp:{user_id}")
         return Result.success("导入成功", {"characters": results})
 
     # ---------- 互动 ----------
@@ -475,7 +527,7 @@ class IdeaService:
         ids = [p.id for p in rows]
         return Result.success("获取成功", {
             "total": total,
-            "list": [self._post_item(p, self._tags_of(ids), self._attachments_of(ids), {p.id} | self._liked_set(user_id, ids)) for p in rows],
+            "list": [self._post_item(p, self._tags_of(ids), self._attachments_of(ids), {p.id} | self._liked_set(user_id, ids), img_map=self._images_of(ids)) for p in rows],
         })
 
     def list_mine_likes(self, user_id: int, page: int, page_size: int) -> dict:
@@ -487,7 +539,7 @@ class IdeaService:
         ids = [p.id for p in rows]
         return Result.success("获取成功", {
             "total": total,
-            "list": [self._post_item(p, self._tags_of(ids), self._attachments_of(ids), {p.id} | self._liked_set(user_id, ids)) for p in rows],
+            "list": [self._post_item(p, self._tags_of(ids), self._attachments_of(ids), {p.id} | self._liked_set(user_id, ids), img_map=self._images_of(ids)) for p in rows],
         })
 
     # ---------- 评论 ----------
@@ -498,8 +550,9 @@ class IdeaService:
             return Result.error("评论不能为空")
         if len(content) > COMMENT_LEN_MAX:
             return Result.error(f"评论不能超过{COMMENT_LEN_MAX}字")
-        if _limited(f"cmt:{user_id}", 15):
-            return Result.error("操作过于频繁，请稍后再试")
+        remain = _limit_check(f"cmt:{user_id}", 15)
+        if remain:
+            return Result.error(f"评论太频繁了，请 {int(remain) + 1} 秒后再试")
         p = self.db.get(IdeaPost, post_id)
         if p is None or p.status != "published":
             return Result.error("帖子不存在或已下架")
@@ -508,6 +561,7 @@ class IdeaService:
         p.comment_count += 1
         self._recompute_hot(p)
         self.db.commit()
+        _limit_mark(f"cmt:{user_id}")
         name, _ = self._user_name(user_id)
         return Result.success("评论成功", {
             "id": c.id, "authorName": name, "content": c.content,

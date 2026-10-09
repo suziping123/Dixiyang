@@ -22,6 +22,8 @@ export interface IdeaPostItem {
   likedByMe: boolean;
   createTime: string;
   content?: string;
+  images: string[];
+  coverUrl?: string | null;
 }
 
 export interface IdeaDraftItem {
@@ -36,6 +38,7 @@ export interface IdeaDraftItem {
 export interface IdeaDraftDetail extends IdeaDraftItem {
   content: string;
   tags: string[];
+  images?: string[];
 }
 
 export interface IdeaPage<T> {
@@ -77,6 +80,7 @@ export const createDraft = (body: {
   title: string;
   content: string;
   tags?: string[];
+  images?: string[];
   sourceRef?: string;
 }) => http.post('/idea/drafts', body);
 
@@ -84,7 +88,7 @@ export const getDraft = (id: number) => http.get<IdeaDraftDetail>(`/idea/drafts/
 
 export const updateDraft = (
   id: number,
-  body: { category: IdeaCategory; title: string; content: string; tags?: string[]; sourceRef?: string },
+  body: { category: IdeaCategory; title: string; content: string; tags?: string[]; images?: string[]; sourceRef?: string },
 ) => http.put(`/idea/drafts/${id}`, body);
 
 export const deleteDraft = (id: number) => http.delete(`/idea/drafts/${id}`);
@@ -151,4 +155,16 @@ export const getNovelOptions = () => http.get<{ records: { id: number; title: st
 
 export const getCharacters = (novelId: number) => http.get(`/novelCharacter/all/${novelId}`);
 
-export const getChatSessions = () => http.get('/chatHistory/sessions');
+export const getChatSessions = (novelId?: number | null) =>
+  http.get('/chatHistory/sessions', { params: novelId ? { novelId } : {} });
+
+// ==================== 配图上传 ====================
+
+export const uploadIdeaImage = async (file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await http.post('/upload/idea-image', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return res as { code?: number; msg?: string; data?: string };
+};

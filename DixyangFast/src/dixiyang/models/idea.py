@@ -96,3 +96,13 @@ class IdeaComment(Base):
     user_id: Mapped[int] = mapped_column(Integer, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     create_time: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class IdeaPostImage(Base):
+    """帖子配图（封面 = sort 最小一张；发布时由草稿 body 转正）"""
+    __tablename__ = "idea_post_image"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    post_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+    sort: Mapped[int] = mapped_column(Integer, default=0)

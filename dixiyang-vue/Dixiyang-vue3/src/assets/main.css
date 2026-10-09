@@ -476,14 +476,38 @@ html .el-dialog .el-textarea__inner::placeholder {
   color: var(--text-muted);
 }
 
-html .el-dialog .el-option {
-  background: var(--dark-bg);
+/* ========== EP 浮层（select 下拉 / popper / tooltip）全局深色 ==========
+   EP 的浮层一律 teleport 到 body（不在 .el-dialog 内部），原 `html .el-dialog .el-option`
+   是错误选择器（EP 实际类为 .el-select-dropdown__item / .el-option 挂在 li 上），
+   导致白底浮层在暗色面板上糊成"蒙版"。EP CSS 后导入，故用 html 前缀提特异性。 */
+html .el-select__popper,
+html .el-popper,
+html .el-popper.is-light,
+html .el-select-dropdown {
+  background: var(--surface-dialog);
+  border-color: var(--glass-border);
   color: var(--text-primary);
 }
 
-html .el-dialog .el-option:hover,
-html .el-dialog .el-option.is-selected {
+html .el-popper .el-popper__arrow::before,
+html .el-popper.is-light .el-popper__arrow::before {
+  background: var(--surface-dialog);
+  border-color: var(--glass-border);
+}
+
+html .el-select-dropdown__item,
+html .el-option {
+  background: transparent;
+  color: var(--text-primary);
+}
+
+html .el-select-dropdown__item.is-hovering,
+html .el-select-dropdown__item:hover,
+html .el-select-dropdown__item.is-selected,
+html .el-option:hover,
+html .el-option.is-selected {
   background: var(--accent-soft-strong);
+  color: var(--text-primary);
 }
 
 /* 逃生口：个别弹窗想改成实心更暗时加 class="dialog-plain"（当前无弹窗使用） */

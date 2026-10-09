@@ -18,7 +18,7 @@
             type="button"
             class="chip"
             :class="{ on: form.category === c.key }"
-            @click="form.category = c.key; resetPreview()"
+            @click="onCategoryChange(c.key)"
           >
             {{ c.label }}
           </button>
@@ -44,10 +44,29 @@
         </div>
       </div>
       <div v-else-if="form.category === 'idea'" class="field">
-        <label class="field-label">来源对话（可选；选中后发布时导出为对话快照附件）</label>
-        <el-select v-model="sourceRef" placeholder="选择对话（不选则纯文字发布）" clearable filterable @change="resetPreview">
-          <el-option v-for="s in sessions" :key="s.sessionId" :label="s.title" :value="s.sessionId" />
-        </el-select>
+        <label class="field-label">来源对话（可选；先选小说再选对话，发布时导出为对话快照附件）</label>
+        <div class="source-row">
+          <el-select
+            v-model="sourceNovelId"
+            placeholder="选择小说"
+            clearable
+            filterable
+            @change="onSessionNovelChange"
+          >
+            <el-option label="未绑定小说" :value="''" />
+            <el-option v-for="n in novels" :key="n.id" :label="n.title" :value="n.id" />
+          </el-select>
+          <el-select
+            v-model="sourceRef"
+            placeholder="选择对话（不选则纯文字发布）"
+            clearable
+            filterable
+            :loading="sessionsLoading"
+            @change="resetPreview"
+          >
+            <el-option v-for="s in sessions" :key="s.sessionId" :label="s.title" :value="s.sessionId" />
+          </el-select>
+        </div>
       </div>
 
       <!-- 正文 -->
@@ -83,6 +102,35 @@
         </el-select>
       </div>
 
+      <!-- 配图 -->
+      <div class="field">
+        <label class="field-label">配图（最多 9 张，首张为封面）</label>
+        <div class="img-grid">
+          <div v-for="(u, i) in form.images" :key="u" class="img-cell">
+            <img :src="u" alt="" />
+            <button type="button" class="img-del" title="移除" @click="removeImage(i)">×</button>
+            <span v-if="i === 0" class="img-cover-tag">封面</span>
+          </div>
+          <button
+            v-if="form.images.length < 9"
+            type="button"
+            class="img-add"
+            :disabled="uploading"
+            @click="pickImage"
+          >
+            <span class="img-add-icon">＋</span>
+            <span>{{ uploading ? '上传中…' : '添加图片' }}</span>
+          </button>
+        </div>
+        <input
+          ref="fileInput"
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          hidden
+          @change="onFileChange"
+        />
+      </div>
+
       <!-- 预览面板 -->
       <div v-if="previewed" class="preview-panel">
         <div class="preview-head">
@@ -101,11 +149,14 @@
 
     <template #footer>
       <div class="dialog-foot">
-        <el-button :loading="saving" @click="saveDraft">保存草稿</el-button>
-        <el-button :loading="previewing" @click="doPreview">预览</el-button>
-        <el-button type="primary" :disabled="!previewed" :loading="publishing" @click="doPublish">
-          确认发布
-        </el-button>
+        <div v-if="publishError" class="publish-error" role="alert">{{ publishError }}</div>
+        <div class="foot-btns">
+          <el-button :loading="saving" @click="saveDraft">保存草稿</el-button>
+          <el-button :loading="previewing" @click="doPreview">预览</el-button>
+          <el-button type="primary" :disabled="!previewed" :loading="publishing" @click="doPublish">
+            确认发布
+          </el-button>
+        </div>
       </div>
     </template>
   </el-dialog>
@@ -116,7 +167,7 @@ import { ref, reactive, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   getDraft, createDraft, updateDraft, publishDraft,
-  getNovelOptions, getCharacters, getChatSessions, listTags,
+  getNovelOptions, getCharacters, getChatSessions, listTags, uploadIdeaImage,
   type IdeaCategory, type IdeaDraftItem,
 } from '@/api/ideaApi'
 
@@ -148,6 +199,7 @@ const form = reactive({
   title: '',
   content: '',
   tags: [] as string[],
+  images: [] as string[],
 })
 const sourceRef = ref('')
 const sourceNovelId = ref<number | ''>('')
@@ -155,7 +207,8 @@ const sourceNovelId = ref<number | ''>('')
 const novels = ref<{ id: number; title: string }[]>([])
 const characters = ref<{ id: number; name: string }[]>([])
 const charsLoading = ref(false)
-const sessions = ref<{ sessionId: string; title: string }[]>([])
+const sessions = ref<{ sessionId: string; title: string; novelId?: number | null }[]>([])
+const sessionsLoading = ref(false)
 const hotTags = ref<{ tag: string; count: number }[]>([])
 
 const previewed = ref(false)
@@ -163,6 +216,9 @@ const previewing = ref(false)
 const previewNote = ref('')
 const saving = ref(false)
 const publishing = ref(false)
+const uploading = ref(false)
+const publishError = ref('')
+const fileInput = ref<HTMLInputElement | null>(null)
 
 const previewTags = computed(() => form.tags)
 
@@ -178,13 +234,80 @@ const unwrap = <T,>(res: unknown): T | null => {
   return null
 }
 
+// ---------- 分区切换（切分区必须清来源，防残留 id 被当 sessionId 上传） ----------
+
+const onCategoryChange = (key: IdeaCategory) => {
+  if (form.category === key) return
+  form.category = key
+  sourceRef.value = ''
+  sourceNovelId.value = ''
+  characters.value = []
+  resetPreview()
+}
+
+// ---------- 来源对话级联（先选小说 → 再选对话） ----------
+
+const loadSessions = async (novelId?: number | '') => {
+  sessionsLoading.value = true
+  try {
+    const list = unwrap<{ sessionId: string; title: string; novelId?: number | null }[]>(
+      await getChatSessions(novelId ? Number(novelId) : null),
+    )
+    sessions.value = list ?? []
+  } finally {
+    sessionsLoading.value = false
+  }
+}
+
+const onSessionNovelChange = async () => {
+  sourceRef.value = ''
+  resetPreview()
+  await loadSessions(sourceNovelId.value)
+}
+
+// ---------- 配图 ----------
+
+const pickImage = () => fileInput.value?.click()
+
+const onFileChange = async (e: Event) => {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  if (form.images.length >= 9) {
+    ElMessage.warning('最多 9 张配图')
+    return
+  }
+  uploading.value = true
+  try {
+    const res = await uploadIdeaImage(file)
+    if (res.code === 200 && res.data) {
+      form.images.push(res.data)
+      resetPreview()
+    } else {
+      const msg = res.msg || '上传失败'
+      ElMessage.warning(msg)
+      publishError.value = msg
+    }
+  } finally {
+    uploading.value = false
+  }
+}
+
+const removeImage = (i: number) => {
+  form.images.splice(i, 1)
+  resetPreview()
+}
+
 // ---------- 打开初始化 ----------
 
 const init = async () => {
   resetPreview()
+  publishError.value = ''
   form.title = ''
   form.content = ''
   form.tags = []
+  form.images = []
   form.category = 'idea'
   sourceRef.value = ''
   sourceNovelId.value = ''
@@ -193,17 +316,19 @@ const init = async () => {
   const [tagRes, novelRes, sessRes] = await Promise.all([listTags(20), getNovelOptions(), getChatSessions()])
   hotTags.value = unwrap<{ tag: string; count: number }[]>(tagRes) ?? []
   novels.value = unwrap<{ records: { id: number; title: string }[] }>(novelRes)?.records ?? []
-  sessions.value = unwrap<{ sessionId: string; title: string }[]>(sessRes) ?? []
+  sessions.value = unwrap<{ sessionId: string; title: string; novelId?: number | null }[]>(sessRes) ?? []
 
   if (props.draftId != null) {
-    const d = unwrap<{ category: IdeaCategory; title: string; content: string; tags: string[]; sourceRef?: string | null }>(
-      await getDraft(props.draftId),
-    )
+    const d = unwrap<{
+      category: IdeaCategory; title: string; content: string;
+      tags: string[]; images?: string[]; sourceRef?: string | null;
+    }>(await getDraft(props.draftId))
     if (d) {
       form.category = d.category
       form.title = d.title
       form.content = d.content
       form.tags = d.tags ?? []
+      form.images = d.images ?? []
       sourceRef.value = d.sourceRef ?? ''
       if (d.category === 'character' && d.sourceRef) {
         // 载入角色所属小说以便回显级联
@@ -218,6 +343,13 @@ const init = async () => {
             characters.value = list
             break
           }
+        }
+      } else if (d.category === 'idea' && d.sourceRef) {
+        // 回显对话所属小说（全量 sessions 里找 novelId）
+        const hit = sessions.value.find((s) => s.sessionId === d.sourceRef)
+        if (hit?.novelId) {
+          sourceNovelId.value = hit.novelId
+          await loadSessions(hit.novelId)
         }
       }
     }
@@ -242,20 +374,11 @@ const onNovelChange = async () => {
 
 // ---------- 保存 / 预览 / 发布 ----------
 
-const validate = () => {
-  if (!form.title.trim()) {
-    ElMessage.warning('请填写标题')
-    return false
-  }
-  if (!form.content.trim()) {
-    ElMessage.warning('请填写正文')
-    return false
-  }
-  if (form.category === 'character' && !sourceRef.value) {
-    ElMessage.warning('请选择来源角色')
-    return false
-  }
-  return true
+const validate = (): string | null => {
+  if (!form.title.trim()) return '请填写标题'
+  if (!form.content.trim()) return '请填写正文'
+  if (form.category === 'character' && !sourceRef.value) return '请选择来源角色'
+  return null
 }
 
 const payload = () => ({
@@ -263,11 +386,17 @@ const payload = () => ({
   title: form.title.trim(),
   content: form.content.trim(),
   tags: form.tags,
+  images: form.images,
   ...(sourceRef.value ? { sourceRef: sourceRef.value } : {}),
 })
 
 const saveDraft = async () => {
-  if (!validate()) return
+  const err = validate()
+  if (err) {
+    publishError.value = err
+    ElMessage.warning(err)
+    return
+  }
   saving.value = true
   try {
     const res =
@@ -276,10 +405,12 @@ const saveDraft = async () => {
         : await createDraft(payload())
     const r = res as { code?: number; msg?: string }
     if (r.code === 200) {
+      publishError.value = ''
       ElMessage.success('草稿已保存')
       emit('saved')
       if (props.draftId == null) emit('update:modelValue', false)
     } else {
+      publishError.value = r.msg || '保存失败'
       ElMessage.warning(r.msg || '保存失败')
     }
   } finally {
@@ -288,7 +419,12 @@ const saveDraft = async () => {
 }
 
 const doPreview = async () => {
-  if (!validate()) return
+  const err = validate()
+  if (err) {
+    publishError.value = err
+    ElMessage.warning(err)
+    return
+  }
   previewing.value = true
   try {
     // 预览即生成附件来源摘要，确认后才允许发布
@@ -302,6 +438,7 @@ const doPreview = async () => {
       previewNote.value = '纯文字发布，无附件。'
     }
     previewed.value = true
+    publishError.value = ''
   } finally {
     previewing.value = false
   }
@@ -309,6 +446,7 @@ const doPreview = async () => {
 
 const doPublish = async () => {
   if (!previewed.value) return
+  publishError.value = ''
   // 发布前确保草稿已保存（新草稿先落库）
   saving.value = true
   let draftId = props.draftId
@@ -316,6 +454,7 @@ const doPublish = async () => {
     if (draftId == null) {
       const res = (await createDraft(payload())) as { code?: number; msg?: string; data?: { id: number } }
       if (res.code !== 200) {
+        publishError.value = res.msg || '保存草稿失败'
         ElMessage.warning(res.msg || '保存草稿失败')
         return
       }
@@ -323,6 +462,7 @@ const doPublish = async () => {
     } else {
       const res = (await updateDraft(draftId, payload())) as { code?: number; msg?: string }
       if (res.code !== 200) {
+        publishError.value = res.msg || '保存草稿失败'
         ElMessage.warning(res.msg || '保存草稿失败')
         return
       }
@@ -335,9 +475,11 @@ const doPublish = async () => {
   try {
     const res = (await publishDraft(draftId, true)) as { code?: number; msg?: string }
     if (res.code === 200) {
+      publishError.value = ''
       ElMessage.success('发布成功')
       emit('published')
     } else {
+      publishError.value = res.msg || '发布失败'
       ElMessage.warning(res.msg || '发布失败')
     }
   } finally {
@@ -476,7 +618,112 @@ watch(
 
 .dialog-foot {
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.foot-btns {
+  display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+/* 发布/保存失败的弹窗内错误条（与 ElMessage 双保险，保证失败必有可见提示） */
+.publish-error {
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--danger, #f56c6c);
+  background: var(--danger-soft, rgba(245, 108, 108, 0.12));
+  border: 1px solid var(--danger-border, rgba(245, 108, 108, 0.4));
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+}
+
+/* 配图网格 */
+.img-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+}
+
+.img-cell {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  background: var(--surface-input);
+}
+
+.img-cell img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.img-del {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.img-del:hover {
+  background: var(--danger, #f56c6c);
+}
+
+.img-cover-tag {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  font-size: 10px;
+  color: #fff;
+  background: var(--accent-primary);
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+
+.img-add {
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--glass-border);
+  background: var(--surface-input);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  transition: all var(--dur-fast) var(--ease-out);
+}
+
+.img-add:hover:not(:disabled) {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.img-add:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.img-add-icon {
+  font-size: 20px;
+  line-height: 1;
 }
 </style>

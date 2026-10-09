@@ -59,7 +59,8 @@ def export_chat_snapshot(user_id: int, session_id: str) -> tuple[dict | None, st
     导出对话链为只读快照（目录即用户维度，天然归属校验）。
     返回 (snapshot_data, error)。
     """
-    chain_dir = os.path.join(CHAT_STORAGE_PATH, str(user_id), session_id)
+    # 链目录约定与 chat_history_service._session_dir 一致：storage/chat/{userId}/{sessionId}
+    chain_dir = os.path.join(CHAT_STORAGE_PATH, "chat", str(user_id), session_id)
     if not os.path.isdir(chain_dir):
         return None, "会话不存在或已删除"
     messages = read_chain(chain_dir)

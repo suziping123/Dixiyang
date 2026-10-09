@@ -28,6 +28,20 @@
 
         <div class="d-content">{{ post.content }}</div>
 
+        <!-- 配图画廊（点击放大） -->
+        <div v-if="post.images?.length" class="d-gallery">
+          <el-image
+            v-for="(u, i) in post.images"
+            :key="u"
+            class="d-gallery-img"
+            :src="u"
+            :preview-src-list="post.images"
+            :initial-index="i"
+            fit="cover"
+            hide-on-click-modal
+          />
+        </div>
+
         <!-- 附件区 -->
         <div v-if="post.attach" class="attach-box" v-loading="attLoading">
           <div class="attach-head">
@@ -448,6 +462,34 @@ const close = () => emit('update:modelValue', false)
   border-radius: var(--radius-md);
   padding: 16px;
   margin-bottom: 14px;
+}
+
+/* 配图画廊 */
+.d-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.d-gallery-img {
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--surface-glass-border);
+  cursor: zoom-in;
+  background: var(--surface-input);
+}
+
+.d-gallery-img :deep(.el-image__inner) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.d-gallery-img:hover :deep(.el-image__inner) {
+  transform: scale(1.05);
 }
 
 .attach-box {

@@ -7,6 +7,7 @@ class DraftBase(BaseModel):
     title: str
     content: str = ""
     tags: list[str] = []
+    images: list[str] = []
     source_ref: str | None = Field(default=None, alias="sourceRef")
 
     model_config = {"populate_by_name": True}
@@ -28,6 +29,7 @@ class PostUpdate(BaseModel):
     title: str | None = None
     content: str | None = None
     tags: list[str] | None = None
+    images: list[str] | None = None
 
 
 class CommentCreate(BaseModel):

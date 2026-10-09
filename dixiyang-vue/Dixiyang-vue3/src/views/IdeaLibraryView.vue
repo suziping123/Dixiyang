@@ -78,31 +78,36 @@
         </button>
       </div>
 
-      <div v-loading="loading" class="post-grid">
+      <div v-loading="loading" class="post-grid feed-waterfall">
         <article
           v-for="p in posts"
           :key="p.id"
-          class="post-card"
+          class="post-card xhs-card"
           tabindex="0"
           @click="openPost(p.id)"
           @keyup.enter="openPost(p.id)"
         >
-          <div class="card-top">
+          <div v-if="p.coverUrl" class="card-cover">
+            <img :src="p.coverUrl" alt="" loading="lazy" />
             <span class="cat-tag" :class="`cat-${p.category}`">{{ catLabel(p.category) }}</span>
             <span v-if="p.attach" class="attach-flag" title="含附件">📎</span>
           </div>
-          <h3 class="card-title">{{ p.title }}</h3>
-          <p class="card-summary">{{ p.summary }}</p>
-          <div v-if="p.tags?.length" class="card-tags">
-            <span v-for="tg in p.tags.slice(0, 3)" :key="tg" class="mini-tag">#{{ tg }}</span>
+          <div class="card-top" v-else>
+            <span class="cat-tag" :class="`cat-${p.category}`">{{ catLabel(p.category) }}</span>
+            <span v-if="p.attach" class="attach-flag" title="含附件">📎</span>
           </div>
-          <footer class="card-foot">
-            <span class="author">{{ p.authorName }}</span>
-            <span class="stat">👁{{ p.viewCount }}</span>
-            <span class="stat">👍{{ p.likeCount }}</span>
-            <span class="stat">💬{{ p.commentCount }}</span>
-            <span class="stat">⭐{{ p.collectCount }}</span>
-          </footer>
+          <div class="card-body">
+            <h3 class="card-title">{{ p.title }}</h3>
+            <p v-if="!p.coverUrl && p.summary" class="card-summary">{{ p.summary }}</p>
+            <div v-if="p.tags?.length" class="card-tags">
+              <span v-for="tg in p.tags.slice(0, 3)" :key="tg" class="mini-tag">#{{ tg }}</span>
+            </div>
+            <footer class="card-foot">
+              <span class="avatar">{{ (p.authorName || '?').slice(0, 1) }}</span>
+              <span class="author">{{ p.authorName }}</span>
+              <span class="stat like-stat">❤{{ p.likeCount }}</span>
+            </footer>
+          </div>
         </article>
         <el-empty v-if="!loading && !posts.length" description="这里还很安静，发第一篇吧" />
       </div>
@@ -587,6 +592,126 @@ onMounted(() => {
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 16px;
   min-height: 200px;
+}
+
+/* 广场小红书瀑布流：CSS multi-column，卡片 break-inside 避免截断，高度自然参差 */
+.feed-waterfall {
+  display: block;
+  column-width: 220px;
+  column-gap: 14px;
+}
+
+.feed-waterfall .xhs-card {
+  display: inline-block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 14px;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  break-inside: avoid;
+  vertical-align: top;
+}
+
+.feed-waterfall .xhs-card:hover,
+.feed-waterfall .xhs-card:focus-visible {
+  transform: translateY(-3px);
+}
+
+.card-cover {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  background: var(--surface-input);
+  overflow: hidden;
+}
+
+.card-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.card-cover .cat-tag {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+}
+
+.card-cover .attach-flag {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 12px;
+}
+
+.xhs-card .card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px 14px;
+}
+
+.xhs-card .card-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--text-on-card, var(--text-primary));
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.xhs-card .card-summary {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.xhs-card .card-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.xhs-card .avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent-soft-strong);
+  color: var(--accent-primary);
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.xhs-card .author {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xhs-card .like-stat {
+  color: var(--danger, #f56c6c);
 }
 
 .post-card {

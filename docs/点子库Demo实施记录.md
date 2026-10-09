@@ -1,8 +1,8 @@
 # 点子库 Demo 实施记录
 
 > **适用范围**: `DixyangFast/src/dixiyang/{models,schemas,services,routers}/idea*`、`dixiyang-vue/Dixiyang-vue3/src/{api/ideaApi.ts,views/IdeaLibraryView.vue,components/idea/*}`
-> **契约**: [点子库与创意社区策划](./点子库与创意社区策划.md) v1.1（唯一契约）
-> **文档版本**: v1.0 ｜ **最后更新**: 2026-10-08
+> **契约**: [点子库与创意社区策划](./点子库与创意社区策划.md) v1.2（唯一契约）
+> **文档版本**: v1.1 ｜ **最后更新**: 2026-10-09
 
 ## 1. 需求
 
@@ -80,8 +80,9 @@
 4. **setting/timeline 分区仅纯文字**：`idea_attachment` 结构支持，导出函数未实现（策划二期项）。
 5. **表单未接 `FieldError` 内联校验**：仍用 `ElMessage.warning`（与全站现存 37 处同风格）；后续按[表单内联校验与错误文案统一](../dixiyang-vue/docs/表单内联校验与错误文案统一.md)接入。
 6. **character 分区来源为单选**：后端支持逗号分隔多角色，前端下拉暂单选。
-7. **发布频控 10s 对同一用户全局生效**（含从失败调用计数），测试需注意时序。
+7. ~~**发布频控 10s 对同一用户全局生效**（含从失败调用计数）~~ → **第二轮已修复**：改为 `_limit_check`（只读）+ `_limit_mark`（成功才打点），业务失败不消耗额度，频控文案带剩余秒数（见 §10）。
 8. **测试账号** 11111 连续登录会触发 10 分钟 3 次风控，脚本跑前先执行 `unlock_user.py`（临时脚本，不入库）。
+9. **配图文件不回收**：删除/下架帖子与移除草稿图片仅删 DB 行/引用，`uploads/idea-images/` 实体文件保留（MD5 去重下重复上传可复用）；正式版加引用计数或定期清扫。
 
 ## 8. 验证方式与结果
 
@@ -109,6 +110,60 @@ npx vite build       # ✓ 9.08s
 
 按策划 §8 路线图：① Redis 接入（计数/热门/频控）→ ② `collectedByMe` 字段 + `avatar/pen_name` ALTER → ③ setting/timeline 附件导出 → ④ Chroma `idea_posts` 相似推荐 → ⑤ 分享按钮/作者主页。
 
+## 10. 第二轮：用户反馈修复与增强（2026-10-09，v1.1）
+
+### 10.1 需求
+
+用户实测反馈 5 问题：① 弹窗内下拉/输入框出现白色"蒙版" ② 发布报"会话不存在或已删除" ③ 失败后立即重试被"频繁发布"拦截且感觉无提示 ④ 来源角色两个下拉同样蒙版 ⑤ 广场要支持图片 + 改小红书瀑布流；追加 ⑥ 来源对话按小说分类（先选小说再选对话）。
+
+### 10.2 根因与方案
+
+| # | 根因 | 修复 |
+|---|------|------|
+| ①④ | `main.css:479` 选择器 `.el-option` **错误**（EP 实际类 `.el-select-dropdown__item`），且 EP 浮层 teleport 到 body 不在 dialog 内，白底浮层从未被深色化 | 重写为 `html .el-select__popper/.el-popper/.el-select-dropdown` 全局深色 `#222530` 实底 + 选项 hover 高亮（`html` 前缀提特异性压过后导入的 EP CSS） |
+| ② | `idea_export.export_chat_snapshot` 拼 `CHAT_STORAGE_PATH/{user}/{session}`，真实链目录是 `.../chat/{user}/{session}`（少 `chat` 段）→ 快照永远找不到 | 目录补 `chat` 段，对齐 `chat_history_service._session_dir`；同时前端 `DraftEditorDialog` 切分区不清 `sourceRef`（残留角色 id 被当 sessionId）→ `onCategoryChange()` 统一清来源 |
+| ③ | `_limited()` 检查即打点——**业务失败也扣频控额度** | 拆 `_limit_check()`（只读，返回剩余秒）+ `_limit_mark()`（发布/评论/导入**成功后**才打点）；文案带剩余秒数（"发布太频繁了，请 N 秒后再试"）；弹窗 footer 加 inline 红色错误条（与 ElMessage 双保险） |
+| ⑤ | 无图、网格布局 | 新表 `idea_post_image(post_id,url,sort)`（**新表避免 ALTER**，create_all 自动建）+ `POST /upload/idea-image`（复用 `_do_upload` MD5 去重，存 `uploads/idea-images/`）；草稿 body 存 images（`_clean_images` 白名单校验防外链，≤9 张），发布转正为行；列表/详情批量带 `images/coverUrl`；前端 `el-upload` 手写缩略图网格（首张标"封面"）、广场 CSS multi-column 瀑布流（3:4 封面卡）、详情 `el-image` 预览画廊 |
+| ⑥ | 后端 `GET /chatHistory/sessions?novelId=` 已支持 | 纯前端：来源对话改两级级联（小说下拉含「未绑定小说」→ `getChatSessions(novelId)` 过滤），编辑草稿按 `sessions[].novelId` 回显 |
+
+### 10.3 改动文件
+
+| 文件 | 改动 |
+|------|------|
+| `DixyangFast/src/dixiyang/services/idea_export.py` | 快照目录补 `chat` 段 |
+| `DixyangFast/src/dixiyang/services/idea_service.py` | 频控 check/mark 分离（publish/comment/import 三处）；`_clean_images`/`_images_of`；草稿/发布/`_post_item`/`update_post` 接入 images |
+| `DixyangFast/src/dixiyang/models/idea.py` | 新增 `IdeaPostImage`（第 8 张表） |
+| `DixyangFast/src/dixiyang/schemas/idea.py` | `DraftBase.images`、`PostUpdate.images` |
+| `DixyangFast/src/dixiyang/routers/file.py` | `POST /upload/idea-image` |
+| `dixiyang-vue/Dixiyang-vue3/src/assets/main.css` | EP 浮层全局深色（修错误选择器） |
+| `dixiyang-vue/Dixiyang-vue3/src/api/ideaApi.ts` | `images/coverUrl` 类型、`uploadIdeaImage`、`getChatSessions(novelId?)` |
+| `dixiyang-vue/Dixiyang-vue3/src/components/idea/DraftEditorDialog.vue` | 切分区清 sourceRef、小说→对话级联、配图上传网格、inline 错误条 |
+| `dixiyang-vue/Dixiyang-vue3/src/views/IdeaLibraryView.vue` | 广场 `.feed-waterfall` 小红书瀑布流 + `.xhs-card` 封面卡 |
+| `dixiyang-vue/Dixiyang-vue3/src/components/idea/PostDetailDialog.vue` | `.d-gallery` 配图画廊（`el-image` 预览） |
+
+### 10.4 验证方式与结果
+
+```bash
+# 后端 py_compile 5 文件 ✓
+# API 第二轮回归（Temp/opencode/test_idea_api_round2.py）→ 15/15 PASS
+#   配图上传/MD5复用/格式拒绝、草稿 images 清洗（去外链+去重）、失败不扣额度
+#   （连续两次"草稿不存在"仍返回草稿不存在而非频控）、失败重试后立即发布成功、
+#   列表/详情 images+coverUrl、频控文案带秒数、会话按小说过滤、
+#   真实会话快照发布 → 附件 messages=6（chat 段修复实证）
+# 既有 40 用例回归 → 40/40 PASS（频控新语义下全绿）
+# 前端基线 type-check 9 / lint 8 / build ✓ 9.30s
+# CDP 冒烟（_smoke_round2.mjs）→ SMOKE2 PASS ×2
+#   下拉 popper bg=rgb(34,37,48) 深色 ✓、级联两级下拉 ✓、
+#   选对话→切分区→切回 sourceRef 清空 ✓、错误条可见 ✓、守卫/瀑布流/0 控制台错误 ✓
+# 独立截图（_shot_errbar.mjs → errbar_shot.png）：错误条红底红字 + ElMessage 双提示 ✓
+```
+
+### 10.5 遗留
+
+1. 标题输入框在亮背景页上的观感待用户复核（`--surface-input` 5% 白半透明，本轮未收到确证反馈前不动）。
+2. 配图文件不回收（见 §7.9）。
+3. 拖拽排序/裁剪等进阶图片编辑未做（Demo 只支持增删、首图即封面）。
+
 ---
 
-*文档版本: v1.0 ｜ 维护者: Dixiyang Team*
+*文档版本: v1.1 ｜ 维护者: Dixiyang Team*（v1.0 2026-10-08 首版，v1.1 2026-10-09 第二轮修复与图片/瀑布流增强）

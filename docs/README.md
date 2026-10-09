@@ -491,7 +491,8 @@
 - 点子库功能 Demo 全链路落地（策划 v1.1 契约）：后端 7 表 + 草稿→预览→发布→广场→互动→评论→角色卡附件导入全流程（API 测试 **40/40 PASS**）；前端 `IdeaLibraryView` 四 Tab + 编辑/详情双弹窗 + `/ideas` 路由 + 导航入口（CDP 冒烟 **SMOKE PASS**，控制台 0 错误）
 - **Demo 裁剪差异表**：Redis 跳过（进程内存频控+实时热门）、`app_user` ALTER 跳过、附件仅接 chat_snapshot/character_card、前端 4 文件替代策划 6 组件
 - **踩坑记录（先查文档的一课）**：背景层叠 `position:relative` 致命坑、`userId` 存储 key、无 chat 分区（对话快照挂 idea 区）、FloatingNav 各 view 自挂、`enterSubmit` 回车约定、code≠200 resolve 等 8 项
-- 已知问题 8 条（`collectedByMe` 未回显、setting/timeline 导出未接、FieldError 未接入等）与后续路线
+- **§10 第二轮（v1.1，2026-10-09）**：用户 5 问题修复（EP 浮层深色化、chat 段路径、频控 check/mark 分离+inline 错误条）+ 配图全链路（`idea_post_image`）+ 小红书瀑布流 + 来源对话级联；API 15/15 + 回归 40/40 + 冒烟 SMOKE2 PASS
+- 已知问题 9 条（`collectedByMe` 未回显、setting/timeline 导出未接、配图文件不回收等）与后续路线
 
 **适用人群**: 前端、后端、测试
 
@@ -716,6 +717,9 @@
 ---
 
 ## 版本变更记录
+
+### v1.45 (2026-10-09)
+- **点子库第二轮**: [点子库Demo实施记录](./点子库Demo实施记录.md) 升级 **v1.1** + [点子库与创意社区策划](./点子库与创意社区策划.md) 升级 **v1.2** — 用户实测 5 问题修复与增强：① **EP 浮层白底蒙版**（`main.css` 错误选择器 `.el-option` → 重写 `.el-select__popper/.el-popper/.el-select-dropdown` 全局深色 `#222530`）；② **"会话不存在或已删除"**（`idea_export` 链目录漏 `chat` 段 + 前端切分区未清 sourceRef 双根因）；③ **失败也扣频控额度**（`_limited` 拆 `_limit_check`/`_limit_mark` 成功才打点、文案带剩余秒数 + 弹窗 inline 红色错误条双保险）；④ **配图全链路**（新表 `idea_post_image` 免 ALTER + `POST /upload/idea-image` MD5 去重 + 草稿 images 白名单清洗 + 列表 `images/coverUrl` + 编辑器 9 图网格首图封面 + 详情 `el-image` 画廊）；⑤ **小红书瀑布流**（CSS multi-column、3:4 封面卡、头像+❤卡脚）；⑥ **来源对话两级级联**（先选小说再选对话，`sessions?novelId=` 过滤）。验证：第二轮 API **15/15 PASS**（失败不扣额度/真实会话快照 messages=6/频控文案/图片流）+ 既有 **40/40 回归** + 基线 9/8/build ✓ + CDP 冒烟 **SMOKE2 PASS ×2**（popper bg=rgb(34,37,48)、级联、切分区清来源、错误条、0 控制台错误）+ 截图留证
 
 ### v1.44 (2026-10-08)
 - **新增**: [点子库Demo实施记录](./点子库Demo实施记录.md) — 点子库 Demo 全链路完成：后端 `models/idea.py`（7 表）+ `idea_service/idea_export/routers/idea.py` + 可选鉴权 `get_optional_user_id`，API 全链路测试 **40/40 PASS**（草稿→预览拦截→发布→分区/搜索/标签/排序→浏览+1→点赞收藏→评论频控→下架恢复→角色卡附件→导入同名后缀/越权/频控→发帖频控）；前端 `ideaApi.ts` + `IdeaLibraryView`（广场/草稿/我的/收藏四 Tab）+ `DraftEditorDialog`（保存→预览→发布三步流）+ `PostDetailDialog`（附件/导入/互动/评论）+ `/ideas` 路由 + FloatingNav 入口；**先查文档一次性修 8 坑**（背景层叠 `position:relative` 致命坑、`userId` key、chat 分区误设、FloatingNav 漏挂、enterSubmit 约定、payload 笔误、列表串数据、`post.value&&` lint）；验证 type-check 9 / lint 8 基线、build ✓、CDP 冒烟 SMOKE PASS×2；README 登记 8.27
