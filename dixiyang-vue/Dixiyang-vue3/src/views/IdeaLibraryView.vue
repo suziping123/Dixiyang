@@ -1061,8 +1061,10 @@ onMounted(() => {
 
 @media (max-width: 768px) {
   .idea-page {
-    /* 右侧 88px 避让 FAB 悬浮球（球常驻右侧居中，否则会盖住卡片内容） */
-    padding: 14px 88px 72px 14px;
+    /* 右侧避让 FAB 悬浮球：球 46px + 右缘 14px → 球左缘距右 60px；
+       padding-right 64 留 4px 缓冲，内容右界 311 < 球左缘 315，互不重叠。
+       注：不能用 88——内容被压到 273px 双列 150 放不下会退化单列（第三轮真机反馈根因） */
+    padding: 14px 64px 72px 14px;
     max-width: 100%;
   }
 
@@ -1096,32 +1098,45 @@ onMounted(() => {
   .tab-bar::-webkit-scrollbar { display: none; }
 
   .tab-btn {
-    padding: 9px 13px;
+    padding: 9px 10px;
     font-size: 14px;
     white-space: nowrap;
   }
 
-  /* 筛选 chips：整行横向滑动（chips 不压缩不换行，overflow 收在 .filter-row 块级容器内，
-     避免 flex-shrink:0 的 group 直接撑破文档宽度——第三轮移动端实测溢出根因） */
+  /* 筛选：chips 组与排序组**各自独占一行、组内横滑**——
+     滚动下沉到组自身（组 100% 宽不撑破文档），两组 wrap 换行。
+     第三轮真机根因：单行 filter-row 整体横滑会把"最新/热门"排序挤出首屏；
+     而整行 flex-shrink:0 长组又会撑破 375 视口（572 实测），两者都不行。 */
   .filter-row {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 8px;
+    overflow: visible;
+  }
+
+  .chip-group {
+    flex: 1 1 100%;
+    flex-wrap: nowrap;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
 
-  .filter-row::-webkit-scrollbar { display: none; }
+  .chip-group::-webkit-scrollbar { display: none; }
 
-  .chip-group,
   .sort-group {
+    width: 100%;
     flex-wrap: nowrap;
-    flex-shrink: 0;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
   }
+
+  .sort-group::-webkit-scrollbar { display: none; }
 
   .chip {
     white-space: nowrap;
     padding: 5px 12px;
+    flex-shrink: 0;
   }
 
   .tag-row {
@@ -1143,14 +1158,14 @@ onMounted(() => {
     flex-shrink: 0;
   }
 
-  /* 卡片：双列/单列自适应 */
+  /* 卡片：双列（内容宽 297 = 375-14-64，列 (297-10)/2≈143.5 ≥ 140 ✓） */
   .post-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 10px;
   }
 
   .feed-waterfall {
-    column-width: 150px;
+    column-width: 140px;
     column-gap: 10px;
   }
 

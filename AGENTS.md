@@ -18,7 +18,7 @@
 9. **`.env` 文件禁令**：**禁止查看、读取、修改、搜索根目录的 `.env` 文件**（内含数据库密码、API Key 等真实凭据）。需要了解环境变量结构时，只允许查看**示例文件** `.env.example`（占位符模板，不含真实值）。确因任务必须接触 `.env` 时，须先向我明确说明原因并获得**一次性**授权（授权仅限当次对话，不可复用）。
 10. **motion-web 技能本地化**：技能目录 `motion-web-main/`、`.agents/`、`.trae/` **已移出版本库，仅本地保留**（GitHub 上不再有）。协作者克隆/拉取前**必须先执行一次** `git config core.hooksPath .githooks`（或 `powershell -File scripts/setup-hooks.ps1`），否则 `git pull` 会删除本地技能文件；一旦文件丢失，运行 `powershell -File scripts/restore-skills.ps1` 从 git 历史恢复。详见 `docs/技能库出库与同步.md`。
 
-## 前端两大高频坑（Agent 必读，动前端样式前必看）
+## 前端三大必读（高频坑与适配规范，动前端前必看）
 
 ### 坑1：页面背景被"吃掉"（背景层叠坑）
 - **症状**：配置了背景图/背景色，进入某页面却不显示或被卡片盖住。
@@ -37,6 +37,16 @@
   3. 页面级 select 同病同治：`input.el-select__input, .el-input-number__input { backdrop-filter: none !important }`。
 - **易错点**：EP 浮层（popper/dropdown）一律 teleport 到 `body`，**不在 `.el-dialog` 内**，须用 `html .el-select__popper`/`html .el-popper` 全局前缀；`html .el-dialog .el-option` 是**错误选择器**（EP 实际类为 `.el-select-dropdown__item`）。
 - **验证套路**：CDP 打开弹窗聚焦控件 → dump `getComputedStyle(el).backdropFilter` 须为 `none` → 截图确认无白雾。
+
+### 移动端适配（Agent 必读，新建/改动页面必须逐条过）
+- **断点统一 768**：`@media (max-width: 768px)`。弹窗走 **main.css 全局贴底抽屉**（`html .el-dialog` 宽 100%、`margin:auto auto 0` 贴底、body 滚动）——新弹窗**不要自设宽度/高度**（会被全局 `!important` 压掉，直接复用即可）。
+- **避让浮动层（第三轮真机教训，原"padding-left 88"写法是错的）**：FAB 是 **FloatingNav 右侧 46px 悬浮球**（触屏/≤1024px 切 FAB 模式，右锚条 74px = 球 46 + 右缘 14），页面应在**右侧**避让且**精算宽度**：`padding-right: 64px`（14+46+4 缓冲，球左缘 315 / 内容右界 311 互不重叠）。**禁止盲目避让 88**——375 视口下内容被压到 273px，双列 `minmax(150px)` 放不下退化单列，观感 = "完全没有适配"（用户原话暴怒点）；双列列宽用 `minmax(140px, 1fr)`（内容 297 → 列 143.5 ✓）。
+- **筛选行分组横滑**：chips 组与排序组**各自独占一行（`flex-wrap: wrap`）+ 组内 `overflow-x: auto`**——整行单行横滑会把"最新/热门"排序挤出首屏，整行 `flex-shrink:0` 长组又会撑破 375 视口（实测 572），两者都是错的。滚动必须下沉到组自身（组 100% 宽不撑文档）。
+- **横向溢出防呆（本轮实测坑）**：筛选行/chip/tag 行等横滑组必须收在**块级容器内** `overflow-x: auto`，组内元素 `flex-shrink` 允许压缩或整行滚动；**禁止整行 `flex-shrink: 0` + `white-space: nowrap` 长组**——实测把 375 视口撑到 572、整页横向滚动。`nowrap` 只可用于单行标签头（如 `.tag-row-label`），不可用于整行组。
+- **表单**：弹窗内双列选择行（`.source-row` 等）移动端改 1 列；操作按钮行 `.d-actions` 加 `flex-wrap: wrap`。
+- **卡片列表**：双列 `grid` 或瀑布流 `column-width: 150px`，图片横滑区独立。
+- **输入字号 ≥16px**：否则 iOS Safari 聚焦时放大整页（main.css 已全局给 `.el-dialog .el-input__inner/.el-textarea__inner`，新控件自查）。
+- **验证套路（升级：光断言属性不够，必须肉眼复核）**：CDP `Emulation.setDeviceMetricsOverride {375, 812, 2, mobile:true}` → 断言 `document.documentElement.scrollWidth === 375`（无横向溢出）、**卡片确为双列**（瀑布流用 `left` 分两档判定，不能用 `top`——CSS columns 按列填充相邻卡 top 必不同）、`tab-bar.scrollWidth <= clientWidth`（Tab 全见）、弹窗宽 375、控件单列；**最后必须 375 截图肉眼看一遍**（列数/截断/空白带），只跑数字断言会漏掉"单列大卡=没适配"这类观感问题。
 
 ## 聊天编辑 & 重新生成设计
 

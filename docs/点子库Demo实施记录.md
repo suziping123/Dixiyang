@@ -179,7 +179,7 @@ npx vite build       # ✓ 9.08s
 | ① | 全站 emoji（👁👍💬⭐❤📎） | 新建 `IdeaIcon.vue`（viewBox 24 / stroke currentColor / 1.6px 自绘线性 SVG）替换全部 |
 | ② | 无反馈 | `stat-bump`/`act-bump` keyframes（图标+计数弹跳）+ `:active` 缩放 + 实心填色 |
 | ③ | 卡片统计仅展示 | 卡脚 `.stat-btn`（♡/☆）`@click.stop` 乐观更新+失败回滚；后端补发 `collectedByMe` |
-| ④ | 无断点样式 | IdeaLibraryView 768 media：padding `14px 88px 72px 14px` 避让 FAB、tab/chip/tag 横滑、grid 150px 双列、瀑布流 column-width 150；DraftEditor source-row 1 列；PostDetail .d-actions 换行；**横向溢出根因**=`.filter-row` 内 chip/sort 组 `flex-shrink:0`+nowrap 撑到 572px → 改 overflow-x 收在块级容器内（实测 scrollWidth 572→375） |
+| ④ | 无断点样式 | IdeaLibraryView 768 media：padding 避让 FAB、tab/chip/tag 横滑、grid 150px 双列、瀑布流 column-width 150；DraftEditor source-row 1 列；PostDetail .d-actions 换行；**横向溢出根因**=`.filter-row` 内 chip/sort 组 `flex-shrink:0`+nowrap 撑到 572px → 改 overflow-x 收在块级容器内（实测 scrollWidth 572→375）。**④-b 真机观感补丁（用户"没有任何适配"反馈）**：断言全绿但真机截图=单列大卡+Tab 截断——根因是 `padding-right:88` 避让把内容压到 273px（双列 150 放不下退化单列）、tab 304>273 截断、排序组被整行横滑挤出首屏。修：避让 88→**64**（球46+右缘14+缓冲4，球左缘315/内容右界311 不重叠）、双列 minmax 150→**140**、tab-btn padding 13→10、筛选改**chips 组与排序组各自独占一行组内横滑**；冒烟增补双列(chips left 分档判定)/Tab 全见/chips 横滑+排序换行断言 |
 | ⑤ | `--surface-card` 全局 `rgba(255,255,255,0.04)` | `.idea-page` 与 `PostDetailDialog .detail-body` 作用域覆盖 `#171a24` 实底+border/shadow（grep 实证全站仅此 2 文件 6 处引用） |
 | ⑥ | 全局 `input,textarea,select{backdrop-filter:blur(10px)}` + 控件 5% 半透明 | `html .el-dialog` 控件 `background:#191c27 !important; backdrop-filter:none !important`（!important 压 main.css 尾部全局 `.el-input__wrapper !important`）、面板去 blur、`.el-overlay` 加深 0.62。**⑥-b 复燃修复**：filterable select 的原生 `input.el-select__input` 聚焦展开时命中全局 blur 规则 → 白雾蒙板（点击出现、失焦 input 塌缩消失）；补 `html .el-dialog input,textarea,select{backdrop-filter:none !important}` 通配 + 页面级 `input.el-select__input,.el-input-number__input` 同治（CDP 实测 focus 态 `backdropFilter:none`，26/26 回归） |
 | ⑦ | 画廊在正文后被挤出视口 | 详情模板画廊移到 tags 后、`d-content` 前（置顶） |
@@ -201,9 +201,10 @@ npx vite build       # ✓ 9.08s
 #   更新配图、恢复上架、下架后仍可取消收藏
 # round2 → 15/15 ｜ round1 → 40/40（先 unlock_user.py 解登录风控；跑前 sleep 11 避发布频控）
 # 前端基线 type-check 9 / lint 8 / npx vite build ✓ 8.53s
-# CDP 冒烟（_smoke_round3.mjs）→ 26/26 PASS、控制台 0 错误
-#   图标/动画/卡脚赞藏/详情画廊置顶/编辑弹窗回显/移动端 375 无横向溢出/蒙板实底
-# 截图复核：smoke3_detail / smoke3_mobile / smoke3_editor ✓
+# CDP 冒烟（_smoke_round3.mjs）→ 28/28 PASS、控制台 0 错误
+#   图标/动画/卡脚赞藏/详情画廊置顶/编辑弹窗回显/移动端 375 无横向溢出/蒙板实底/
+#   ④-b：双列卡片 cardW=144(chips left 分档判定)、Tab 四项全见、chips 组横滑+排序组换行
+# 截图复核：smoke3_detail / smoke3_mobile / smoke3_editor ✓；真机 375 复核 mobile_real.png ✓
 # ⑥-b 蒙板复燃专项（_dbg_select.mjs CDP）：focus 态 dump 全部 backdropFilter=none ✓、sel_focus.png 无白雾 ✓
 #   注：冒烟选帖改为"第一个带图卡"（首卡可能无图，数据依赖非代码回归）
 ```
