@@ -21,7 +21,8 @@ from dixiyang.models.novel_relation import NovelRelation
 from dixiyang.models.chat_session import ChatSession
 from dixiyang.models.volume import Volume
 from dixiyang.models.chapter import Chapter
-from dixiyang.routers import auth, novel, character, story_node, timeline, file, user, chat, user_config, chat_history, rag, volume, chapter, ai
+from dixiyang.models import idea as idea_model  # noqa: F401  注册 idea_* 7 张表到 Base.metadata
+from dixiyang.routers import auth, novel, character, story_node, timeline, file, user, chat, user_config, chat_history, rag, volume, chapter, ai, idea
 from dixiyang.utils.database import Base, engine
 from dixiyang.config import UPLOAD_DIR
 
@@ -61,6 +62,7 @@ app.include_router(rag.router, prefix="/api")
 app.include_router(volume.router, prefix="/api")
 app.include_router(chapter.router, prefix="/api")
 app.include_router(ai.router, prefix="/api")
+app.include_router(idea.router, prefix="/api")
 
 
 @app.get("/")

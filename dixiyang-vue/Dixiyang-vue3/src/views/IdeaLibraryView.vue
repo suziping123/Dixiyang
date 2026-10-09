@@ -1,0 +1,744 @@
+<template>
+  <div class="idea-page">
+    <FloatingNav />
+    <header class="page-head">
+      <div class="head-title">
+        <h1>点子库</h1>
+        <span class="head-sub">私有草稿写灵感，发布后进入创意社区</span>
+      </div>
+      <div class="head-actions">
+        <el-input
+          v-model="search"
+          class="search-box"
+          placeholder="搜索标题 / 摘要"
+          clearable
+          :prefix-icon="Search"
+          @keyup.enter="enterSubmit(onSearch, $event)"
+          @clear="onSearch"
+        />
+        <el-button type="primary" :icon="EditPen" @click="openEditor(null)">写点子</el-button>
+      </div>
+    </header>
+
+    <nav class="tab-bar" role="tablist">
+      <button
+        v-for="t in tabs"
+        :key="t.key"
+        type="button"
+        class="tab-btn"
+        :class="{ active: tab === t.key }"
+        role="tab"
+        :aria-selected="tab === t.key"
+        @click="switchTab(t.key)"
+      >
+        {{ t.label }}
+      </button>
+    </nav>
+
+    <!-- ========== 广场 ========== -->
+    <section v-if="tab === 'feed'" class="tab-section">
+      <div class="filter-row">
+        <div class="chip-group" role="group" aria-label="分区筛选">
+          <button
+            v-for="c in categories"
+            :key="c.key"
+            type="button"
+            class="chip"
+            :class="{ on: category === c.key }"
+            @click="category = c.key; page = 1; loadFeed()"
+          >
+            {{ c.label }}
+          </button>
+        </div>
+        <div class="sort-group">
+          <button
+            v-for="s in sorts"
+            :key="s.key"
+            type="button"
+            class="chip"
+            :class="{ on: sort === s.key }"
+            @click="sort = s.key; page = 1; loadFeed()"
+          >
+            {{ s.label }}
+          </button>
+        </div>
+      </div>
+
+      <div v-if="hotTags.length" class="tag-row">
+        <span class="tag-row-label">热门标签</span>
+        <button
+          v-for="t in hotTags"
+          :key="t.tag"
+          type="button"
+          class="tag-chip"
+          :class="{ on: activeTag === t.tag }"
+          @click="toggleTag(t.tag)"
+        >
+          #{{ t.tag }}<i>{{ t.count }}</i>
+        </button>
+      </div>
+
+      <div v-loading="loading" class="post-grid">
+        <article
+          v-for="p in posts"
+          :key="p.id"
+          class="post-card"
+          tabindex="0"
+          @click="openPost(p.id)"
+          @keyup.enter="openPost(p.id)"
+        >
+          <div class="card-top">
+            <span class="cat-tag" :class="`cat-${p.category}`">{{ catLabel(p.category) }}</span>
+            <span v-if="p.attach" class="attach-flag" title="含附件">📎</span>
+          </div>
+          <h3 class="card-title">{{ p.title }}</h3>
+          <p class="card-summary">{{ p.summary }}</p>
+          <div v-if="p.tags?.length" class="card-tags">
+            <span v-for="tg in p.tags.slice(0, 3)" :key="tg" class="mini-tag">#{{ tg }}</span>
+          </div>
+          <footer class="card-foot">
+            <span class="author">{{ p.authorName }}</span>
+            <span class="stat">👁{{ p.viewCount }}</span>
+            <span class="stat">👍{{ p.likeCount }}</span>
+            <span class="stat">💬{{ p.commentCount }}</span>
+            <span class="stat">⭐{{ p.collectCount }}</span>
+          </footer>
+        </article>
+        <el-empty v-if="!loading && !posts.length" description="这里还很安静，发第一篇吧" />
+      </div>
+
+      <el-pagination
+        v-if="feedTotal > pageSize"
+        v-model:current-page="page"
+        class="pager"
+        layout="prev, pager, next"
+        :total="feedTotal"
+        :page-size="pageSize"
+        @current-change="loadFeed()"
+      />
+    </section>
+
+    <!-- ========== 草稿箱 ========== -->
+    <section v-else-if="tab === 'drafts'" class="tab-section">
+      <div v-loading="loading" class="draft-list">
+        <div v-for="d in drafts" :key="d.id" class="draft-row">
+          <div class="draft-main">
+            <span class="cat-tag" :class="`cat-${d.category}`">{{ catLabel(d.category) }}</span>
+            <b class="draft-title">{{ d.title }}</b>
+            <span class="draft-time">{{ d.updateTime }}</span>
+          </div>
+          <div class="draft-ops">
+            <el-button size="small" @click="openEditor(d.id)">编辑</el-button>
+            <el-button size="small" type="primary" plain @click="quickPublish(d.id)">发布</el-button>
+            <el-button size="small" type="danger" plain @click="onDeleteDraft(d.id)">删除</el-button>
+          </div>
+        </div>
+        <el-empty v-if="!loading && !drafts.length" description="草稿箱是空的" />
+      </div>
+      <el-pagination
+        v-if="draftTotal > pageSize"
+        v-model:current-page="page"
+        class="pager"
+        layout="prev, pager, next"
+        :total="draftTotal"
+        :page-size="pageSize"
+        @current-change="loadDrafts()"
+      />
+    </section>
+
+    <!-- ========== 我发布的 ========== -->
+    <section v-else-if="tab === 'mine'" class="tab-section">
+      <div v-loading="loading" class="post-grid">
+        <article v-for="p in posts" :key="p.id" class="post-card" tabindex="0" @click="openPost(p.id)">
+          <div class="card-top">
+            <span class="cat-tag" :class="`cat-${p.category}`">{{ catLabel(p.category) }}</span>
+            <span v-if="p.status === 'removed'" class="removed-flag">已下架</span>
+          </div>
+          <h3 class="card-title">{{ p.title }}</h3>
+          <p class="card-summary">{{ p.summary }}</p>
+          <footer class="card-foot">
+            <span class="stat">👁{{ p.viewCount }}</span>
+            <span class="stat">👍{{ p.likeCount }}</span>
+            <span class="stat">💬{{ p.commentCount }}</span>
+            <span class="stat">⭐{{ p.collectCount }}</span>
+          </footer>
+        </article>
+        <el-empty v-if="!loading && !posts.length" description="还没有发布过点子" />
+      </div>
+      <el-pagination
+        v-if="feedTotal > pageSize"
+        v-model:current-page="page"
+        class="pager"
+        layout="prev, pager, next"
+        :total="feedTotal"
+        :page-size="pageSize"
+        @current-change="loadMine()"
+      />
+    </section>
+
+    <!-- ========== 我的收藏 ========== -->
+    <section v-else class="tab-section">
+      <div v-loading="loading" class="post-grid">
+        <article v-for="p in posts" :key="p.id" class="post-card" tabindex="0" @click="openPost(p.id)">
+          <div class="card-top">
+            <span class="cat-tag" :class="`cat-${p.category}`">{{ catLabel(p.category) }}</span>
+          </div>
+          <h3 class="card-title">{{ p.title }}</h3>
+          <p class="card-summary">{{ p.summary }}</p>
+          <footer class="card-foot">
+            <span class="author">{{ p.authorName }}</span>
+            <span class="stat">👍{{ p.likeCount }}</span>
+            <span class="stat">💬{{ p.commentCount }}</span>
+          </footer>
+        </article>
+        <el-empty v-if="!loading && !posts.length" description="收藏夹是空的" />
+      </div>
+      <el-pagination
+        v-if="feedTotal > pageSize"
+        v-model:current-page="page"
+        class="pager"
+        layout="prev, pager, next"
+        :total="feedTotal"
+        :page-size="pageSize"
+        @current-change="loadCollects()"
+      />
+    </section>
+
+    <DraftEditorDialog
+      v-model="editorVisible"
+      :draft-id="editingDraftId"
+      @saved="onDraftSaved"
+      @published="onPublished"
+    />
+    <PostDetailDialog v-model="detailVisible" :post-id="detailPostId" @change="reload" />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import { Search, EditPen } from '@element-plus/icons-vue'
+import {
+  listPosts, listDrafts, deleteDraft, publishDraft,
+  listMinePosts, listMineCollects, listTags,
+  type IdeaPostItem, type IdeaDraftItem, type IdeaCategory, type IdeaSort,
+} from '@/api/ideaApi'
+import DraftEditorDialog from '@/components/idea/DraftEditorDialog.vue'
+import PostDetailDialog from '@/components/idea/PostDetailDialog.vue'
+import FloatingNav from '@/components/FloatingNav.vue'
+import { confirmDelete } from '@/utils/confirm'
+import { enterSubmit } from '@/utils/enterSubmit'
+
+type TabKey = 'feed' | 'drafts' | 'mine' | 'collects'
+
+const tabs: { key: TabKey; label: string }[] = [
+  { key: 'feed', label: '广场' },
+  { key: 'drafts', label: '草稿箱' },
+  { key: 'mine', label: '我发布的' },
+  { key: 'collects', label: '我的收藏' },
+]
+
+const categories: { key: string; label: string }[] = [
+  { key: '', label: '全部' },
+  { key: 'idea', label: '点子' },
+  { key: 'character', label: '角色' },
+  { key: 'setting', label: '设定' },
+  { key: 'timeline', label: '时间线' },
+  { key: 'tech', label: '技术' },
+]
+
+const sorts: { key: IdeaSort; label: string }[] = [
+  { key: 'new', label: '最新' },
+  { key: 'hot', label: '热门' },
+  { key: 'like', label: '最多赞' },
+]
+
+const CATEGORY_LABEL: Record<string, string> = {
+  idea: '点子', character: '角色', setting: '设定', timeline: '时间线', tech: '技术',
+}
+const catLabel = (c: string) => CATEGORY_LABEL[c] ?? c
+
+const tab = ref<TabKey>('feed')
+const loading = ref(false)
+const search = ref('')
+const category = ref('')
+const sort = ref<IdeaSort>('new')
+const activeTag = ref('')
+const page = ref(1)
+const pageSize = 12
+
+const posts = ref<IdeaPostItem[]>([])
+const feedTotal = ref(0)
+const drafts = ref<IdeaDraftItem[]>([])
+const draftTotal = ref(0)
+const hotTags = ref<{ tag: string; count: number }[]>([])
+
+const editorVisible = ref(false)
+const editingDraftId = ref<number | null>(null)
+const detailVisible = ref(false)
+const detailPostId = ref(0)
+
+const unwrap = <T,>(res: unknown): T | null => {
+  const r = res as { code?: number; msg?: string; data?: T }
+  if (r && r.code === 200) return r.data as T
+  ElMessage.warning((r && r.msg) || '操作失败')
+  return null
+}
+
+// ---------- 数据加载 ----------
+
+const loadFeed = async () => {
+  loading.value = true
+  try {
+    const data = unwrap<{ total: number; list: IdeaPostItem[] }>(
+      await listPosts({
+        category: category.value || undefined,
+        sort: sort.value,
+        q: search.value || undefined,
+        tags: activeTag.value || undefined,
+        page: page.value,
+        pageSize,
+      }),
+    )
+    if (data) {
+      posts.value = data.list
+      feedTotal.value = data.total
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+const loadDrafts = async () => {
+  loading.value = true
+  try {
+    const data = unwrap<{ total: number; list: IdeaDraftItem[] }>(
+      await listDrafts({ category: category.value || undefined, q: search.value || undefined, page: page.value, pageSize }),
+    )
+    if (data) {
+      drafts.value = data.list
+      draftTotal.value = data.total
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+const loadMine = async () => {
+  loading.value = true
+  try {
+    const data = unwrap<{ total: number; list: IdeaPostItem[] }>(await listMinePosts({ page: page.value, pageSize }))
+    if (data) {
+      posts.value = data.list
+      feedTotal.value = data.total
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+const loadCollects = async () => {
+  loading.value = true
+  try {
+    const data = unwrap<{ total: number; list: IdeaPostItem[] }>(await listMineCollects({ page: page.value, pageSize }))
+    if (data) {
+      posts.value = data.list
+      feedTotal.value = data.total
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+const loadTags = async () => {
+  const data = unwrap<{ tag: string; count: number }[]>(await listTags(20))
+  if (data) hotTags.value = data
+}
+
+const reload = () => {
+  if (tab.value === 'feed') loadFeed()
+  else if (tab.value === 'drafts') loadDrafts()
+  else if (tab.value === 'mine') loadMine()
+  else loadCollects()
+}
+
+// ---------- 交互 ----------
+
+const switchTab = (key: TabKey) => {
+  tab.value = key
+  page.value = 1
+  reload()
+}
+
+const onSearch = () => {
+  page.value = 1
+  reload()
+}
+
+const toggleTag = (tag: string) => {
+  activeTag.value = activeTag.value === tag ? '' : tag
+  page.value = 1
+  loadFeed()
+}
+
+const openEditor = (draftId: number | null) => {
+  editingDraftId.value = draftId
+  editorVisible.value = true
+}
+
+const quickPublish = (draftId: number) => {
+  editingDraftId.value = draftId
+  editorVisible.value = true
+}
+
+const onDraftSaved = () => reload()
+
+const onPublished = () => {
+  editorVisible.value = false
+  tab.value = 'feed'
+  page.value = 1
+  activeTag.value = ''
+  loadFeed()
+  loadTags()
+}
+
+const onDeleteDraft = async (id: number) => {
+  const ok = await confirmDelete('确定删除这篇草稿吗？删除后无法恢复。', '警告')
+  if (!ok) return
+  const res = (await deleteDraft(id)) as { code?: number; msg?: string }
+  if (res.code === 200) {
+    ElMessage.success('已删除')
+    loadDrafts()
+  } else {
+    ElMessage.warning(res.msg || '删除失败')
+  }
+}
+
+const openPost = (id: number) => {
+  detailPostId.value = id
+  detailVisible.value = true
+}
+
+onMounted(() => {
+  loadFeed()
+  loadTags()
+})
+</script>
+
+<style scoped>
+.idea-page {
+  /* ⚠️ 警告后续 agent：新增页面根容器必须 position:relative，否则有背景图时整页被 #theme-bg 压住（看不见但可点）。
+     先例：docs/404页被背景图覆盖修复.md、docs/小说编辑页背景图层叠与视觉AI修复.md */
+  position: relative;
+  min-height: 100vh;
+  padding: 32px 32px 64px;
+  color: var(--text-on-page);
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+/* 窄屏（FAB 悬浮球占右侧 74px）时避让，防止遮住卡片操作 */
+@media (max-width: 1024px) {
+  .idea-page {
+    padding-right: 88px;
+  }
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.head-title h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.head-sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.head-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.search-box {
+  width: 240px;
+}
+
+/* ---------- Tab ---------- */
+
+.tab-bar {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid var(--surface-glass-border);
+  margin-bottom: 18px;
+}
+
+.tab-btn {
+  padding: 10px 18px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  font-size: 15px;
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+
+.tab-btn:hover {
+  color: var(--text-on-page);
+}
+
+.tab-btn.active {
+  color: var(--accent-primary);
+  border-bottom-color: var(--accent-primary);
+  font-weight: 600;
+}
+
+/* ---------- 筛选 ---------- */
+
+.filter-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.chip-group,
+.sort-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--surface-glass-border);
+  background: var(--surface-glass);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease-out);
+}
+
+.chip:hover {
+  color: var(--text-on-page);
+  border-color: var(--accent-primary);
+}
+
+.chip.on {
+  background: var(--accent-soft-strong);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+.tag-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.tag-row-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.tag-chip {
+  border: none;
+  background: var(--accent-soft);
+  color: var(--text-secondary);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.tag-chip i {
+  font-style: normal;
+  margin-left: 4px;
+  opacity: 0.6;
+}
+
+.tag-chip.on {
+  background: var(--accent-soft-strong);
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+/* ---------- 卡片 ---------- */
+
+.post-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  min-height: 200px;
+}
+
+.post-card {
+  background: var(--surface-card);
+  border: 1px solid var(--surface-glass-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.post-card:hover,
+.post-card:focus-visible {
+  transform: translateY(-3px);
+  border-color: var(--accent-primary);
+  box-shadow: var(--shadow-card);
+  outline: none;
+}
+
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cat-tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-cyan);
+}
+
+.cat-character { color: var(--accent-purple); }
+.cat-setting { color: #f0c674; }
+.cat-timeline { color: #8be98b; }
+.cat-tech { color: var(--accent-primary); }
+
+.attach-flag {
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.removed-flag {
+  font-size: 11px;
+  color: var(--danger);
+  background: var(--danger-soft);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.card-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.card-summary {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+}
+
+.card-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.mini-tag {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--surface-input);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+.card-foot {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--surface-glass-border);
+  padding-top: 8px;
+}
+
+.author {
+  color: var(--text-secondary);
+  font-weight: 600;
+  margin-right: auto;
+}
+
+.stat {
+  white-space: nowrap;
+}
+
+/* ---------- 草稿列表 ---------- */
+
+.draft-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 160px;
+}
+
+.draft-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-glass-border);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  flex-wrap: wrap;
+}
+
+.draft-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.draft-title {
+  font-size: 15px;
+}
+
+.draft-time {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.draft-ops {
+  display: flex;
+  gap: 6px;
+}
+
+.pager {
+  margin-top: 20px;
+  justify-content: center;
+}
+</style>

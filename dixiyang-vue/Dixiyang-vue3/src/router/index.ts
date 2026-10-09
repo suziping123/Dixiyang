@@ -16,6 +16,7 @@ import NovelEditorView from '../views/NovelEditorView.vue'
 import CharacterManagerView from '../views/CharacterManagerView.vue'
 import RagAssistantView from '../views/RagAssistantView.vue'
 import RagKnowledgeView from '../views/RagKnowledgeView.vue'
+import IdeaLibraryView from '../views/IdeaLibraryView.vue'
 import { isTokenValid, clearAuth } from '@/utils/auth'
 
 const router = createRouter({
@@ -69,6 +70,12 @@ const router = createRouter({
       name: 'rag-knowledge',
       component: RagKnowledgeView,
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/ideas',
+      name: 'idea-library',
+      component: IdeaLibraryView,
+      meta: { requiresAuth: true, title: '点子库 · DIXIYANG' }
     },
     {
       path: '/novel/:novelId/timeline',

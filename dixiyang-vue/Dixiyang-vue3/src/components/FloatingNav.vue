@@ -43,7 +43,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ChatDotRound, House, Setting, Menu, Close } from '@element-plus/icons-vue'
+import { ChatDotRound, House, Setting, Menu, Close, Collection } from '@element-plus/icons-vue'
 
 interface NavItem {
   icon: typeof House
@@ -108,6 +108,7 @@ const handleLeave = () => {
 const navItems: NavItem[] = [
   { icon: House, label: '首页', path: '/home' },
   { icon: ChatDotRound, label: 'RAG 助手', path: '/rag-assistant' },
+  { icon: Collection, label: '点子库', path: '/ideas' },
   { icon: Setting, label: '设置', path: '/settings' },
 ]
 
@@ -435,6 +436,10 @@ const handleNavClick = (idx: number) => {
 
   .floating-nav.visible .nav-item:nth-child(3) {
     transition-delay: 120ms;
+  }
+
+  .floating-nav.visible .nav-item:nth-child(4) {
+    transition-delay: 160ms;
   }
 
   .nav-item svg {

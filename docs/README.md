@@ -484,6 +484,19 @@
 
 ---
 
+### 8.27 [点子库Demo实施记录](./点子库Demo实施记录.md) ✨ 新增
+**位置**: `docs/点子库Demo实施记录.md`
+
+**内容**:
+- 点子库功能 Demo 全链路落地（策划 v1.1 契约）：后端 7 表 + 草稿→预览→发布→广场→互动→评论→角色卡附件导入全流程（API 测试 **40/40 PASS**）；前端 `IdeaLibraryView` 四 Tab + 编辑/详情双弹窗 + `/ideas` 路由 + 导航入口（CDP 冒烟 **SMOKE PASS**，控制台 0 错误）
+- **Demo 裁剪差异表**：Redis 跳过（进程内存频控+实时热门）、`app_user` ALTER 跳过、附件仅接 chat_snapshot/character_card、前端 4 文件替代策划 6 组件
+- **踩坑记录（先查文档的一课）**：背景层叠 `position:relative` 致命坑、`userId` 存储 key、无 chat 分区（对话快照挂 idea 区）、FloatingNav 各 view 自挂、`enterSubmit` 回车约定、code≠200 resolve 等 8 项
+- 已知问题 8 条（`collectedByMe` 未回显、setting/timeline 导出未接、FieldError 未接入等）与后续路线
+
+**适用人群**: 前端、后端、测试
+
+---
+
 ## 现有文档（已存在）
 
 ### 9. [后端开发技术文档](./后端开发技术文档.md)
@@ -703,6 +716,9 @@
 ---
 
 ## 版本变更记录
+
+### v1.44 (2026-10-08)
+- **新增**: [点子库Demo实施记录](./点子库Demo实施记录.md) — 点子库 Demo 全链路完成：后端 `models/idea.py`（7 表）+ `idea_service/idea_export/routers/idea.py` + 可选鉴权 `get_optional_user_id`，API 全链路测试 **40/40 PASS**（草稿→预览拦截→发布→分区/搜索/标签/排序→浏览+1→点赞收藏→评论频控→下架恢复→角色卡附件→导入同名后缀/越权/频控→发帖频控）；前端 `ideaApi.ts` + `IdeaLibraryView`（广场/草稿/我的/收藏四 Tab）+ `DraftEditorDialog`（保存→预览→发布三步流）+ `PostDetailDialog`（附件/导入/互动/评论）+ `/ideas` 路由 + FloatingNav 入口；**先查文档一次性修 8 坑**（背景层叠 `position:relative` 致命坑、`userId` key、chat 分区误设、FloatingNav 漏挂、enterSubmit 约定、payload 笔误、列表串数据、`post.value&&` lint）；验证 type-check 9 / lint 8 基线、build ✓、CDP 冒烟 SMOKE PASS×2；README 登记 8.27
 
 ### v1.43 (2026-10-08)
 - **策划扩展**: [点子库与创意社区策划](./点子库与创意社区策划.md) 升级 **v1.1** — 用户四项决策落地：① **五分区**（点子/角色/设定/时间线/技术，`idea_post.category`）+ **四类结构化附件**（`idea_attachment` 多态表替代单 snapshot_path；对话/角色/设定/时间线从现有表导出只读快照）+ **角色附件一键导入到我的小说**（复制行+extra、vector_id 置空，频控 10s）；② 数据库补强：时间统一 `create_time`（对齐全库/Java 惯例）、标签改 `idea_post_tag` 关联表、评论 `Text`、组合索引、`app_user` 加可空 `avatar_url`/`pen_name`；③ §8 功能路线图：ChromaDB（非 Qdrant）`idea_posts` 相似推荐、设定/时间线导入、投票征集、存入知识库等二期候选 + 同类产品调研依据（SillyTavern/DZMM/造物纪/饼次元/LitMemo/云作者）；④ Java 双栈保留、稳健版清理等决策同步落实（见 v1.42）

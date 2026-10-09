@@ -29,3 +29,27 @@ async def get_current_user_id(
         if user is None or sid != user.session_id:
             raise HTTPException(status_code=401, detail="账号已在其他设备登录")
     return user_id
+
+
+async def get_optional_user_id(
+    authorization: str | None = Header(default=None), db: Session = Depends(get_db)
+) -> int | None:
+    """可选鉴权：公开接口用——带合法 token 返回 user_id，否则 None（不抛 401）"""
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    payload = verify_token(authorization[7:])
+    if payload is None:
+        return None
+    sub = payload.get("sub")
+    if sub is None:
+        return None
+    try:
+        user_id = int(sub)
+    except (ValueError, TypeError):
+        return None
+    sid = payload.get("sid")
+    if sid:
+        user = db.get(AppUser, user_id)
+        if user is None or sid != user.session_id:
+            return None
+    return user_id
