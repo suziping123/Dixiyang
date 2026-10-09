@@ -129,6 +129,18 @@ class IdeaCache:
             self._mark_down(f"hot_top: {e}")
             return None
 
+    def hot_top_scores(self, n: int) -> list[tuple[int, float]] | None:
+        """热门榜 TopN（id, score），供综合推荐热度项使用；None = 无数据/降级"""
+        c = self._get()
+        if c is None:
+            return None
+        try:
+            rows = c.zrevrange("idea:hot", 0, n - 1, withscores=True)
+            return [(int(a), float(b)) for a, b in rows] if rows else None
+        except Exception as e:  # noqa: BLE001
+            self._mark_down(f"hot_top_scores: {e}")
+            return None
+
     def hot_rebuild(self, pairs: list[tuple[int, float]]) -> None:
         """全量重建（临时 key + RENAME 原子替换，防重建窗口内榜单为空）"""
         c = self._get()

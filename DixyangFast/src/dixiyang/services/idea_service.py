@@ -1,8 +1,11 @@
 """点子库核心业务：草稿/发布/帖子/附件/互动/评论/导入（Demo 版：计数与排序直读 DB，Redis 层预留）"""
 import json
 import logging
+import math
 import os
 import time
+from collections import Counter
+from datetime import datetime, timedelta
 
 from fastapi import Depends
 from sqlalchemy import and_, exists, func, or_
@@ -365,6 +368,50 @@ class IdeaService:
 
     # ---------- 帖子列表/详情 ----------
 
+    def _user_taste_tags(self, user_id: int) -> Counter:
+        """轻量 Item-CF 近似：取用户赞/藏过的帖的标签作为兴趣画像（权重 藏>赞）"""
+        pairs = (
+            self.db.query(IdeaPostTag.post_id, IdeaPostTag.tag, IdeaLike.post_id.label("lk"))
+            .join(IdeaLike, IdeaLike.post_id == IdeaPostTag.post_id)
+            .filter(IdeaLike.user_id == user_id).all()
+        )
+        c: Counter = Counter()
+        for row in pairs:
+            c[row.tag] += 2  # 点赞
+        pairs2 = (
+            self.db.query(IdeaPostTag.post_id, IdeaPostTag.tag, IdeaCollect.post_id.label("cc"))
+            .join(IdeaCollect, IdeaCollect.post_id == IdeaPostTag.post_id)
+            .filter(IdeaCollect.user_id == user_id).all()
+        )
+        for row in pairs2:
+            c[row.tag] += 3  # 收藏权重更高
+        return c
+
+    def _recommend_rows(self, query, user_id: int | None, page: int, page_size: int) -> list:
+        """综合推荐 = Redis 热度(与热门同源) × 时间衰减 + 兴趣标签加成（与 最新/热门 拉开区分度）"""
+        since = datetime.now() - timedelta(days=14)
+        cand = query.order_by(IdeaPost.id.desc()).limit(HOT_TOP_MAX).all()
+        seen = {p.id for p in cand}
+        fresh = (
+            query.filter(IdeaPost.create_time >= since)
+            .order_by(IdeaPost.create_time.desc()).limit(200).all()
+        )
+        cand.extend(p for p in fresh if p.id not in seen)
+        hot_map = {pid: s for pid, s in (cache.hot_top_scores(HOT_TOP_MAX) or [])}  # ZSET 分数（回写滞后时仍有效）
+        taste = self._user_taste_tags(user_id) if user_id else Counter()
+        tag_map = self._tags_of([p.id for p in cand]) if taste else {}
+        now = datetime.now()
+
+        def score(p: IdeaPost) -> float:
+            hours = max(0.0, (now - (p.create_time or now)).total_seconds() / 3600.0)
+            decay = 1.0 / (1.0 + hours / 48.0) ** 1.0  # 48h 衰减，比热门更"保鲜"
+            hot = float(hot_map.get(p.id, p.hot_score or 0)) + 3.0  # +3 平滑零互动新帖
+            aff = sum(min(taste.get(t, 0), 6) for t in tag_map.get(p.id, [])) * 1.5
+            return hot * decay + aff
+
+        cand.sort(key=score, reverse=True)
+        return cand[(page - 1) * page_size: page * page_size]
+
     def list_posts(self, user_id: int | None, category: str | None, sort: str,
                    q: str | None, tags: list[str] | None, page: int, page_size: int) -> dict:
         query = self.db.query(IdeaPost).filter(IdeaPost.status == "published")
@@ -378,7 +425,9 @@ class IdeaService:
                 and_(IdeaPostTag.post_id == IdeaPost.id, IdeaPostTag.tag == t)
             ))
         total = query.count()
-        if sort in ("hot", "recommend"):
+        if sort == "recommend":
+            rows = self._recommend_rows(query, user_id, page, page_size)
+        elif sort == "hot":
             # Redis 热门榜优先（ZSET O(logN+M)）；无数据/降级回源 hot_score 全表排序
             ranked = cache.hot_top((page - 1) * page_size + page_size)
             if ranked:
