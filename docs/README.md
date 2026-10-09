@@ -492,9 +492,22 @@
 - **Demo 裁剪差异表**：Redis 跳过（进程内存频控+实时热门）、`app_user` ALTER 跳过、附件仅接 chat_snapshot/character_card、前端 4 文件替代策划 6 组件
 - **踩坑记录（先查文档的一课）**：背景层叠 `position:relative` 致命坑、`userId` 存储 key、无 chat 分区（对话快照挂 idea 区）、FloatingNav 各 view 自挂、`enterSubmit` 回车约定、code≠200 resolve 等 8 项
 - **§10 第二轮（v1.1，2026-10-09）**：用户 5 问题修复（EP 浮层深色化、chat 段路径、频控 check/mark 分离+inline 错误条）+ 配图全链路（`idea_post_image`）+ 小红书瀑布流 + 来源对话级联；API 15/15 + 回归 40/40 + 冒烟 SMOKE2 PASS
-- 已知问题 9 条（`collectedByMe` 未回显、setting/timeline 导出未接、配图文件不回收等）与后续路线
+- **§11 第三轮（v1.2，2026-10-09）**：用户 9 条反馈修复（① emoji 图标 → 自绘 `IdeaIcon.vue` ② 赞/藏弹跳动画 ③ 卡脚快捷赞藏 + 后端 `collectedByMe` ④ 768 断点移动端 + 横向溢出根因修复 ⑤ 卡片 `#171a24` 实底 ⑥ 弹窗蒙板 blur 根因修复 ⑦ 详情画廊置顶 ⑧ 下架帖编辑 `PostEditDialog.vue` + toggle 取消修复）；API 19/19 + 回归 40/40+15/15 + 冒烟 26/26 + 基线 9/8/build ✓
+- 已知问题：setting/timeline 导出未接、配图文件不回收等（`collectedByMe` 已于第三轮落地）与后续路线
 
 **适用人群**: 前端、后端、测试
+
+---
+
+### 8.28 [Redis与管理后台策划](./Redis与管理后台策划.md) ✨ 新增（策划评审稿 v1.0）
+**位置**: `docs/Redis与管理后台策划.md`
+
+**内容**:
+- **Redis 落地实施**（衔接点子库策划 §4 设计）：现状（内存频控 `_limit_check/_limit_mark`、直写 DB 计数）、`services/idea_cache.py` 封装层 API（rate/count/hot/view_seen + 降级铁律 Redis 挂全回源 DB）、迁移分期 P0-P2（频控迁移 → 计数旁路 → 热门 ZSET → 浏览去重 → 60s 回写/10min 重建定时任务）
+- **管理后台策划**（全新）：`app_user.role` 零破坏 ALTER、`require_admin` + 前端路由守卫、P0 四页面（仪表盘/用户管理/内容审核/举报 P1）、`/admin/*` API 草案、`src/views/AdminView.vue` 组件结构、M1-M5 里程碑
+- 风险：管理员 SQL 手工开通、平台下架 vs 作者重新上架绕过约定、移动端不适配（明确不做）
+
+**适用人群**: 产品、前后端开发者
 
 ---
 
@@ -717,6 +730,9 @@
 ---
 
 ## 版本变更记录
+
+### v1.46 (2026-10-09)
+- **点子库第三轮**: [点子库Demo实施记录](./点子库Demo实施记录.md) 升级 **v1.2** + 新增 [Redis与管理后台策划](./Redis与管理后台策划.md) — 用户 9 条反馈：① **emoji 图标 AI 味** → 自绘线性 SVG `IdeaIcon.vue`（eye/heart/bubble/star/clip/edit/share）替换全站 👁👍💬⭐❤📎；② **赞/藏无动画** → `stat-bump`/`act-bump` keyframes + `:active` 缩放 + 实心填色；③ **卡脚快捷互动** → `.stat-btn` 乐观更新+回滚 + 后端 `_collected_set` 下发 `collectedByMe`（5 调用点）；④ **移动端** → 768 断点（FAB 避让 88px/双列 150/chip 横滑）+ 横向溢出根因（`.filter-row` 内 `flex-shrink:0` 撑 572px→实测复原 375）；⑤ **卡片融合** → `.idea-page`/`.detail-body` 作用域 `--surface-card:#171a24` 实底；⑥ **模糊蒙板根因** → 全局 `input{backdrop-filter:blur(10px)}`+控件 5% 半透明，修 `html .el-dialog` 控件实底 `#191c27 !important`+去 blur、`.el-overlay` 加深 0.62；**⑥-b 下拉复燃**（filterable select 原生 `input.el-select__input` 聚焦展开命中全局 blur → 白雾、失焦消失）→ 补 `html .el-dialog input,textarea,select` 通配去 blur + 页面级同治，CDP 实测 focus `backdropFilter:none`、两大坑总结写入根 `AGENTS.md`「前端两大高频坑」；⑦ **详情图置顶** → 画廊移到 tags 后；⑧ **下架为修改服务** → 新建 `PostEditDialog.vue` 双入口（详情操作栏+我发布的 edit-entry）+ `updatePost` API + 附带修 toggle 悬空收藏无法取消 bug（取消允许 removed、新增限 published）；⑨ **Redis+管理后台** → 出策划不写码（`Redis与管理后台策划.md` v1.0：idea_cache 封装/迁移分期 + role/require_admin/四页面/M1-M5）。验证：round3 **19/19** + round1 **40/40** + round2 **15/15** + 冒烟 **26/26**（0 控制台错误）+ 基线 type-check 9/lint 8/build ✓
 
 ### v1.45 (2026-10-09)
 - **点子库第二轮**: [点子库Demo实施记录](./点子库Demo实施记录.md) 升级 **v1.1** + [点子库与创意社区策划](./点子库与创意社区策划.md) 升级 **v1.2** — 用户实测 5 问题修复与增强：① **EP 浮层白底蒙版**（`main.css` 错误选择器 `.el-option` → 重写 `.el-select__popper/.el-popper/.el-select-dropdown` 全局深色 `#222530`）；② **"会话不存在或已删除"**（`idea_export` 链目录漏 `chat` 段 + 前端切分区未清 sourceRef 双根因）；③ **失败也扣频控额度**（`_limited` 拆 `_limit_check`/`_limit_mark` 成功才打点、文案带剩余秒数 + 弹窗 inline 红色错误条双保险）；④ **配图全链路**（新表 `idea_post_image` 免 ALTER + `POST /upload/idea-image` MD5 去重 + 草稿 images 白名单清洗 + 列表 `images/coverUrl` + 编辑器 9 图网格首图封面 + 详情 `el-image` 画廊）；⑤ **小红书瀑布流**（CSS multi-column、3:4 封面卡、头像+❤卡脚）；⑥ **来源对话两级级联**（先选小说再选对话，`sessions?novelId=` 过滤）。验证：第二轮 API **15/15 PASS**（失败不扣额度/真实会话快照 messages=6/频控文案/图片流）+ 既有 **40/40 回归** + 基线 9/8/build ✓ + CDP 冒烟 **SMOKE2 PASS ×2**（popper bg=rgb(34,37,48)、级联、切分区清来源、错误条、0 控制台错误）+ 截图留证

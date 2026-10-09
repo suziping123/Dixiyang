@@ -726,4 +726,15 @@ watch(
   font-size: 20px;
   line-height: 1;
 }
+
+/* 移动端：来源双列下拉改单列，编辑体加高 */
+@media (max-width: 768px) {
+  .editor-body {
+    max-height: 72vh;
+  }
+
+  .source-row {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

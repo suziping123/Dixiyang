@@ -90,11 +90,11 @@
           <div v-if="p.coverUrl" class="card-cover">
             <img :src="p.coverUrl" alt="" loading="lazy" />
             <span class="cat-tag" :class="`cat-${p.category}`">{{ catLabel(p.category) }}</span>
-            <span v-if="p.attach" class="attach-flag" title="含附件">📎</span>
+            <span v-if="p.attach" class="attach-flag" title="含附件"><IdeaIcon name="clip" :size="15" /></span>
           </div>
           <div class="card-top" v-else>
             <span class="cat-tag" :class="`cat-${p.category}`">{{ catLabel(p.category) }}</span>
-            <span v-if="p.attach" class="attach-flag" title="含附件">📎</span>
+            <span v-if="p.attach" class="attach-flag" title="含附件"><IdeaIcon name="clip" :size="15" /></span>
           </div>
           <div class="card-body">
             <h3 class="card-title">{{ p.title }}</h3>
@@ -105,7 +105,27 @@
             <footer class="card-foot">
               <span class="avatar">{{ (p.authorName || '?').slice(0, 1) }}</span>
               <span class="author">{{ p.authorName }}</span>
-              <span class="stat like-stat">❤{{ p.likeCount }}</span>
+              <button
+                type="button"
+                class="stat-btn"
+                :class="{ on: p.likedByMe, bump: animKey === `like-${p.id}` }"
+                :aria-label="p.likedByMe ? '取消点赞' : '点赞'"
+                @click.stop="onCardLike(p)"
+              >
+                <IdeaIcon name="heart" :size="15" :filled="p.likedByMe" />
+                <span :key="p.likeCount" class="stat-num">{{ p.likeCount }}</span>
+              </button>
+              <span class="stat-btn static" title="评论数"><IdeaIcon name="bubble" :size="15" /><span>{{ p.commentCount }}</span></span>
+              <button
+                type="button"
+                class="stat-btn star"
+                :class="{ on: p.collectedByMe, bump: animKey === `collect-${p.id}` }"
+                :aria-label="p.collectedByMe ? '取消收藏' : '收藏'"
+                @click.stop="onCardCollect(p)"
+              >
+                <IdeaIcon name="star" :size="15" :filled="p.collectedByMe" />
+                <span :key="p.collectCount" class="stat-num">{{ p.collectCount }}</span>
+              </button>
             </footer>
           </div>
         </article>
@@ -162,10 +182,19 @@
           <h3 class="card-title">{{ p.title }}</h3>
           <p class="card-summary">{{ p.summary }}</p>
           <footer class="card-foot">
-            <span class="stat">👁{{ p.viewCount }}</span>
-            <span class="stat">👍{{ p.likeCount }}</span>
-            <span class="stat">💬{{ p.commentCount }}</span>
-            <span class="stat">⭐{{ p.collectCount }}</span>
+            <span class="stat"><IdeaIcon name="eye" :size="14" />{{ p.viewCount }}</span>
+            <span class="stat"><IdeaIcon name="heart" :size="14" />{{ p.likeCount }}</span>
+            <span class="stat"><IdeaIcon name="bubble" :size="14" />{{ p.commentCount }}</span>
+            <span class="stat"><IdeaIcon name="star" :size="14" />{{ p.collectCount }}</span>
+            <button
+              v-if="p.status === 'removed'"
+              type="button"
+              class="edit-entry"
+              title="下架后可修改，改完重新上架"
+              @click.stop="openPostEdit(p.id)"
+            >
+              <IdeaIcon name="edit" :size="14" />编辑
+            </button>
           </footer>
         </article>
         <el-empty v-if="!loading && !posts.length" description="还没有发布过点子" />
@@ -192,8 +221,18 @@
           <p class="card-summary">{{ p.summary }}</p>
           <footer class="card-foot">
             <span class="author">{{ p.authorName }}</span>
-            <span class="stat">👍{{ p.likeCount }}</span>
-            <span class="stat">💬{{ p.commentCount }}</span>
+            <span class="stat"><IdeaIcon name="heart" :size="14" />{{ p.likeCount }}</span>
+            <span class="stat"><IdeaIcon name="bubble" :size="14" />{{ p.commentCount }}</span>
+            <button
+              type="button"
+              class="stat-btn star on"
+              :class="{ bump: animKey === `collect-${p.id}` }"
+              aria-label="取消收藏"
+              @click.stop="onCardCollect(p)"
+            >
+              <IdeaIcon name="star" :size="15" filled />
+              <span :key="p.collectCount" class="stat-num">{{ p.collectCount }}</span>
+            </button>
           </footer>
         </article>
         <el-empty v-if="!loading && !posts.length" description="收藏夹是空的" />
@@ -216,6 +255,7 @@
       @published="onPublished"
     />
     <PostDetailDialog v-model="detailVisible" :post-id="detailPostId" @change="reload" />
+    <PostEditDialog v-model="editVisible" :post-id="editPostId" @saved="reload" />
   </div>
 </template>
 
@@ -225,11 +265,13 @@ import { ElMessage } from 'element-plus'
 import { Search, EditPen } from '@element-plus/icons-vue'
 import {
   listPosts, listDrafts, deleteDraft, publishDraft,
-  listMinePosts, listMineCollects, listTags,
+  listMinePosts, listMineCollects, listTags, toggleLike, toggleCollect,
   type IdeaPostItem, type IdeaDraftItem, type IdeaCategory, type IdeaSort,
 } from '@/api/ideaApi'
 import DraftEditorDialog from '@/components/idea/DraftEditorDialog.vue'
 import PostDetailDialog from '@/components/idea/PostDetailDialog.vue'
+import PostEditDialog from '@/components/idea/PostEditDialog.vue'
+import IdeaIcon from '@/components/idea/IdeaIcon.vue'
 import FloatingNav from '@/components/FloatingNav.vue'
 import { confirmDelete } from '@/utils/confirm'
 import { enterSubmit } from '@/utils/enterSubmit'
@@ -282,6 +324,10 @@ const editorVisible = ref(false)
 const editingDraftId = ref<number | null>(null)
 const detailVisible = ref(false)
 const detailPostId = ref(0)
+const editVisible = ref(false)
+const editPostId = ref(0)
+/** 互动弹跳动画键：`like-12` / `collect-12`，300ms 后清除 */
+const animKey = ref('')
 
 const unwrap = <T,>(res: unknown): T | null => {
   const r = res as { code?: number; msg?: string; data?: T }
@@ -424,6 +470,67 @@ const openPost = (id: number) => {
   detailVisible.value = true
 }
 
+const openPostEdit = (id: number) => {
+  editPostId.value = id
+  editVisible.value = true
+}
+
+// ---------- 卡片快捷互动（乐观更新，失败回滚） ----------
+
+const playBump = (key: string) => {
+  animKey.value = key
+  window.setTimeout(() => {
+    if (animKey.value === key) animKey.value = ''
+  }, 320)
+}
+
+const onCardLike = async (p: IdeaPostItem) => {
+  const prevLiked = p.likedByMe
+  const prevCount = p.likeCount
+  p.likedByMe = !prevLiked
+  p.likeCount = prevCount + (prevLiked ? -1 : 1)
+  playBump(`like-${p.id}`)
+  try {
+    const r = (await toggleLike(p.id)) as { code?: number; data?: { liked: boolean; likeCount: number } }
+    if (r.code === 200 && r.data) {
+      p.likedByMe = r.data.liked
+      p.likeCount = r.data.likeCount
+    } else {
+      p.likedByMe = prevLiked
+      p.likeCount = prevCount
+      ElMessage.warning((r as { msg?: string }).msg || '点赞失败')
+    }
+  } catch {
+    p.likedByMe = prevLiked
+    p.likeCount = prevCount
+    ElMessage.warning('网络异常，已还原')
+  }
+}
+
+const onCardCollect = async (p: IdeaPostItem) => {
+  const prev = p.collectedByMe
+  const prevCount = p.collectCount
+  p.collectedByMe = !prev
+  p.collectCount = prevCount + (prev ? -1 : 1)
+  playBump(`collect-${p.id}`)
+  try {
+    const r = (await toggleCollect(p.id)) as { code?: number; data?: { collected: boolean; collectCount: number } }
+    if (r.code === 200 && r.data) {
+      p.collectedByMe = r.data.collected
+      p.collectCount = r.data.collectCount
+      ElMessage.success(r.data.collected ? '已收藏' : '已取消收藏')
+    } else {
+      p.collectedByMe = prev
+      p.collectCount = prevCount
+      ElMessage.warning((r as { msg?: string }).msg || '收藏失败')
+    }
+  } catch {
+    p.collectedByMe = prev
+    p.collectCount = prevCount
+    ElMessage.warning('网络异常，已还原')
+  }
+}
+
 onMounted(() => {
   loadFeed()
   loadTags()
@@ -440,6 +547,8 @@ onMounted(() => {
   color: var(--text-on-page);
   max-width: 1280px;
   margin: 0 auto;
+  /* 卡片实底化：全局 --surface-card 是 4% 半透明，叠在背景图上会"融为一体"（用户反馈⑤），此处作用域覆盖为深色实底 */
+  --surface-card: #171a24;
 }
 
 /* 窄屏（FAB 悬浮球占右侧 74px）时避让，防止遮住卡片操作 */
@@ -710,19 +819,17 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-.xhs-card .like-stat {
-  color: var(--danger, #f56c6c);
-}
-
 .post-card {
   background: var(--surface-card);
-  border: 1px solid var(--surface-glass-border);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: var(--radius-md);
   padding: 16px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  /* 常驻微投影：卡片从背景图上"浮起来"，不再融为一体 */
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
   transition: transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out),
     box-shadow var(--dur-fast) var(--ease-out);
 }
@@ -755,8 +862,9 @@ onMounted(() => {
 .cat-tech { color: var(--accent-primary); }
 
 .attach-flag {
-  font-size: 13px;
-  opacity: 0.8;
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.85;
 }
 
 .removed-flag {
@@ -817,7 +925,89 @@ onMounted(() => {
 }
 
 .stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   white-space: nowrap;
+}
+
+/* ---------- 卡片快捷互动（图标按钮 + 弹跳反馈） ---------- */
+
+.stat-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: none;
+  padding: 3px 6px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 1;
+  transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+
+.stat-btn.static {
+  cursor: default;
+}
+
+.stat-btn:hover:not(.static) {
+  color: var(--text-on-page);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.stat-btn:active:not(.static) {
+  transform: scale(0.9);
+}
+
+.stat-btn.on {
+  color: var(--danger, #f56c6c);
+}
+
+.stat-btn.star.on {
+  color: #f0c674;
+}
+
+.stat-btn.bump .idea-icon,
+.stat-btn.bump .stat-num {
+  animation: stat-bump 0.32s var(--ease-out);
+}
+
+.stat-num {
+  display: inline-block;
+  min-width: 1em;
+}
+
+@keyframes stat-bump {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.42); }
+  70% { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+
+/* 我发布的：下架帖编辑入口（下架为修改服务） */
+.edit-entry {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--danger, #f56c6c);
+  background: var(--danger-soft, rgba(245, 108, 108, 0.12));
+  color: var(--danger, #f56c6c);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+
+.edit-entry:hover {
+  background: rgba(245, 108, 108, 0.22);
+}
+
+.edit-entry:active {
+  transform: scale(0.94);
 }
 
 /* ---------- 草稿列表 ---------- */
@@ -865,5 +1055,137 @@ onMounted(() => {
 .pager {
   margin-top: 20px;
   justify-content: center;
+}
+
+/* ---------- 移动端（用户反馈④） ---------- */
+
+@media (max-width: 768px) {
+  .idea-page {
+    /* 右侧 88px 避让 FAB 悬浮球（球常驻右侧居中，否则会盖住卡片内容） */
+    padding: 14px 88px 72px 14px;
+    max-width: 100%;
+  }
+
+  .page-head {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .head-title h1 {
+    font-size: 22px;
+  }
+
+  .head-actions {
+    flex-wrap: wrap;
+  }
+
+  .search-box {
+    width: auto;
+    flex: 1;
+    min-width: 140px;
+  }
+
+  /* Tab：可横滑，不换行 */
+  .tab-bar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .tab-bar::-webkit-scrollbar { display: none; }
+
+  .tab-btn {
+    padding: 9px 13px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  /* 筛选 chips：整行横向滑动（chips 不压缩不换行，overflow 收在 .filter-row 块级容器内，
+     避免 flex-shrink:0 的 group 直接撑破文档宽度——第三轮移动端实测溢出根因） */
+  .filter-row {
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .filter-row::-webkit-scrollbar { display: none; }
+
+  .chip-group,
+  .sort-group {
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+  }
+
+  .chip {
+    white-space: nowrap;
+    padding: 5px 12px;
+  }
+
+  .tag-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .tag-row::-webkit-scrollbar { display: none; }
+
+  .tag-row-label {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .tag-chip {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* 卡片：双列/单列自适应 */
+  .post-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+  }
+
+  .feed-waterfall {
+    column-width: 150px;
+    column-gap: 10px;
+  }
+
+  .feed-waterfall .xhs-card {
+    margin-bottom: 10px;
+  }
+
+  .post-card {
+    padding: 12px;
+  }
+
+  .xhs-card .card-body {
+    padding: 10px 11px 11px;
+  }
+
+  .xhs-card .card-title {
+    font-size: 14px;
+  }
+
+  .card-foot {
+    gap: 6px;
+    font-size: 11px;
+  }
+
+  .stat-btn {
+    padding: 4px;
+  }
+
+  .draft-row {
+    padding: 10px 12px;
+  }
+
+  .draft-ops {
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
 </style>

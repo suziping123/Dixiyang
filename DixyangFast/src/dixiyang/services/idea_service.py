@@ -140,6 +140,14 @@ class IdeaService:
         ).all()
         return {r[0] for r in rows}
 
+    def _collected_set(self, user_id: int | None, post_ids: list[int]) -> set[int]:
+        if not user_id or not post_ids:
+            return set()
+        rows = self.db.query(IdeaCollect.post_id).filter(
+            IdeaCollect.user_id == user_id, IdeaCollect.post_id.in_(post_ids)
+        ).all()
+        return {r[0] for r in rows}
+
     def _images_of(self, post_ids: list[int]) -> dict[int, list[str]]:
         if not post_ids:
             return {}
@@ -152,7 +160,8 @@ class IdeaService:
         return m
 
     def _post_item(self, p: IdeaPost, tag_map: dict, att_map: dict, liked: set,
-                    with_content: bool = False, img_map: dict | None = None) -> dict:
+                    with_content: bool = False, img_map: dict | None = None,
+                    collected: set | None = None) -> dict:
         name, _ = self._user_name(p.user_id)
         imgs = (img_map or {}).get(p.id) or []
         item = {
@@ -172,6 +181,7 @@ class IdeaService:
             "commentCount": p.comment_count,
             "collectCount": p.collect_count,
             "likedByMe": p.id in liked,
+            "collectedByMe": p.id in (collected or set()),
             "createTime": self._dt(p.create_time),
         }
         if with_content:
@@ -365,10 +375,11 @@ class IdeaService:
         ids = [p.id for p in rows]
         tag_map, att_map = self._tags_of(ids), self._attachments_of(ids)
         liked = self._liked_set(user_id, ids)
+        collected = self._collected_set(user_id, ids)
         img_map = self._images_of(ids)
         return Result.success("获取成功", {
             "total": total,
-            "list": [self._post_item(p, tag_map, att_map, liked, img_map=img_map) for p in rows],
+            "list": [self._post_item(p, tag_map, att_map, liked, img_map=img_map, collected=collected) for p in rows],
         })
 
     def get_post(self, post_id: int, user_id: int | None) -> dict:
@@ -382,6 +393,7 @@ class IdeaService:
             p, self._tags_of([p.id]), self._attachments_of([p.id]),
             self._liked_set(user_id, [p.id]), with_content=True,
             img_map=self._images_of([p.id]),
+            collected=self._collected_set(user_id, [p.id]),
         )
         return Result.success("获取成功", item)
 
@@ -447,7 +459,7 @@ class IdeaService:
         ids = [p.id for p in rows]
         return Result.success("获取成功", {
             "total": total,
-            "list": [self._post_item(p, self._tags_of(ids), self._attachments_of(ids), self._liked_set(user_id, ids), img_map=self._images_of(ids)) for p in rows],
+            "list": [self._post_item(p, self._tags_of(ids), self._attachments_of(ids), self._liked_set(user_id, ids), img_map=self._images_of(ids), collected=self._collected_set(user_id, ids)) for p in rows],
         })
 
     def _own_post(self, user_id: int, post_id: int) -> IdeaPost | None:
@@ -482,38 +494,44 @@ class IdeaService:
 
     def toggle_like(self, user_id: int, post_id: int) -> dict:
         p = self.db.get(IdeaPost, post_id)
-        if p is None or p.status != "published":
+        if p is None:
             return Result.error("帖子不存在或已下架")
         row = self.db.query(IdeaLike).filter(
             IdeaLike.user_id == user_id, IdeaLike.post_id == post_id
         ).first()
         if row:
+            # 取消点赞：已下架帖也允许，避免悬空点赞无法移除
             self.db.delete(row)
             p.like_count = max(0, p.like_count - 1)
             liked = False
-        else:
+        elif p.status == "published":
             self.db.add(IdeaLike(user_id=user_id, post_id=post_id))
             p.like_count += 1
             liked = True
+        else:
+            return Result.error("帖子不存在或已下架")
         self._recompute_hot(p)
         self.db.commit()
         return Result.success("操作成功", {"liked": liked, "likeCount": p.like_count})
 
     def toggle_collect(self, user_id: int, post_id: int) -> dict:
         p = self.db.get(IdeaPost, post_id)
-        if p is None or p.status != "published":
+        if p is None:
             return Result.error("帖子不存在或已下架")
         row = self.db.query(IdeaCollect).filter(
             IdeaCollect.user_id == user_id, IdeaCollect.post_id == post_id
         ).first()
         if row:
+            # 取消收藏：已下架帖也允许，避免悬空收藏无法移除
             self.db.delete(row)
             p.collect_count = max(0, p.collect_count - 1)
             collected = False
-        else:
+        elif p.status == "published":
             self.db.add(IdeaCollect(user_id=user_id, post_id=post_id))
             p.collect_count += 1
             collected = True
+        else:
+            return Result.error("帖子不存在或已下架")
         self._recompute_hot(p)
         self.db.commit()
         return Result.success("操作成功", {"collected": collected, "collectCount": p.collect_count})
@@ -527,7 +545,7 @@ class IdeaService:
         ids = [p.id for p in rows]
         return Result.success("获取成功", {
             "total": total,
-            "list": [self._post_item(p, self._tags_of(ids), self._attachments_of(ids), {p.id} | self._liked_set(user_id, ids), img_map=self._images_of(ids)) for p in rows],
+            "list": [self._post_item(p, self._tags_of(ids), self._attachments_of(ids), {p.id} | self._liked_set(user_id, ids), img_map=self._images_of(ids), collected={p.id}) for p in rows],
         })
 
     def list_mine_likes(self, user_id: int, page: int, page_size: int) -> dict:
@@ -539,7 +557,7 @@ class IdeaService:
         ids = [p.id for p in rows]
         return Result.success("获取成功", {
             "total": total,
-            "list": [self._post_item(p, self._tags_of(ids), self._attachments_of(ids), {p.id} | self._liked_set(user_id, ids), img_map=self._images_of(ids)) for p in rows],
+            "list": [self._post_item(p, self._tags_of(ids), self._attachments_of(ids), {p.id} | self._liked_set(user_id, ids), img_map=self._images_of(ids), collected=self._collected_set(user_id, ids)) for p in rows],
         })
 
     # ---------- 评论 ----------

@@ -400,16 +400,23 @@ tr:hover { background: rgba(59,130,246,0.04); }
    不透明度为 1，故在亮/暗两种页面上观感都稳定（半透明玻璃在亮页上会糊成一片白）。
    注意 1：这里取代了原先的 `background: var(--surface-page) !important`，对抗源消失后组件内不必再用 !important。
    注意 2：main.ts 里 element-plus/dist/index.css 在本文件之后导入，EP 自带的 `.el-dialog`
-   （margin/padding/border-radius 等）同特异性且后到会赢，故用 `html .el-dialog` 提升特异性。 */
+   （margin/padding/border-radius 等）同特异性且后到会赢，故用 `html .el-dialog` 提升特异性。
+   注意 3（第三轮反馈"模糊蒙板"）：面板已是不透明实底，backdrop-filter: blur 对其无视觉贡献，
+   仅徒增"模糊"观感与 GPU 开销——移除；弹窗遮罩统一在下方 .el-overlay 加深。 */
 html .el-dialog {
   background: var(--surface-dialog);
-  -webkit-backdrop-filter: blur(20px);
-  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
   color: var(--text-primary); /* 顺带兜住组件里用到但项目未定义的 --text-on-card 等继承 */
   padding: 17px; /* EP 默认 16px + 1px 边框回填，保证内容盒不缩水 */
+}
+
+/* 弹窗遮罩：默认 50% 黑在亮背景图上压不住，统一加深到 62%（第三轮反馈轮反馈⑤⑥层次感） */
+.el-overlay {
+  background-color: rgba(0, 0, 0, 0.62) !important;
 }
 
 /* 头部 / 底部与正文分层
@@ -442,20 +449,46 @@ html .el-dialog .el-form-item__label {
   color: var(--text-primary);
 }
 
+/* 第三轮反馈⑥"模糊蒙板"根因修复：全局原生 input/textarea/select 带 backdrop-filter: blur(10px)
+   且控件底为 5% 半透明，叠在弹窗上呈"毛玻璃发虚"——弹窗内一律实底 + 关闭 blur。
+   注意 !important：尾部有全局 `.el-input__wrapper { background: ... !important }`，同为 !important
+   时按特异性取胜（html .el-dialog 前缀更高），故此处 background 必须也带 !important 才能压过。 */
 html .el-dialog .el-input__wrapper,
 html .el-dialog .el-textarea__inner,
 html .el-dialog .el-select__wrapper,
 html .el-dialog .el-input-number__wrapper {
-  background: var(--surface-input);
-  border-color: var(--glass-border);
+  background: #191c27 !important;
+  border-color: rgba(255, 255, 255, 0.14);
   color: var(--text-primary);
   box-shadow: none;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
 }
 
 html .el-dialog .el-input__inner,
 html .el-dialog .el-textarea__inner,
 html .el-dialog .el-select__placeholder {
   color: var(--text-primary);
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* 第三轮补丁⑥-b：filterable select 的原生输入框 input.el-select__input 聚焦时展开
+   （失焦塌缩），命中全局 `input { backdrop-filter: blur(10px) }` 把下层 placeholder
+   模糊成白雾蒙板——"点击出现、失焦消失"的真凶。弹窗内全部原生输入一律关闭 blur
+   （背景不动：有 wrapper 承托的透明即可，textarea 实底已由上组提供）。 */
+html .el-dialog input,
+html .el-dialog textarea,
+html .el-dialog select {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* 页面级（非弹窗）同病：.el-select__input 透明底 blur 无设计价值，全局关闭 */
+input.el-select__input,
+.el-input-number__input {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
 }
 
 html .el-dialog .el-input__wrapper:hover,

@@ -2,7 +2,7 @@
 
 > **适用范围**: `DixyangFast/src/dixiyang/{models,schemas,services,routers}/idea*`、`dixiyang-vue/Dixiyang-vue3/src/{api/ideaApi.ts,views/IdeaLibraryView.vue,components/idea/*}`
 > **契约**: [点子库与创意社区策划](./点子库与创意社区策划.md) v1.2（唯一契约）
-> **文档版本**: v1.1 ｜ **最后更新**: 2026-10-09
+> **文档版本**: v1.2 ｜ **最后更新**: 2026-10-09
 
 ## 1. 需求
 
@@ -166,4 +166,54 @@ npx vite build       # ✓ 9.08s
 
 ---
 
-*文档版本: v1.1 ｜ 维护者: Dixiyang Team*（v1.0 2026-10-08 首版，v1.1 2026-10-09 第二轮修复与图片/瀑布流增强）
+## 11. 第三轮：九条用户反馈（2026-10-09，v1.2）
+
+### 11.1 需求
+
+用户 9 条反馈：① emoji 统计图标 AI 味 ② 赞/藏无动画 ③ 必须进详情才能互动 ④ 手机端无优化 ⑤ 卡片与背景不融合 ⑥ 输入弹窗模糊蒙板 ⑦ 详情图"点进去没了" ⑧ 下架应为修改服务 ⑨ Redis+管理员策划（→ 见 [Redis与管理后台策划](./Redis与管理后台策划.md)，本轮仅出文档）。
+
+### 11.2 根因与方案
+
+| # | 根因（实测） | 方案 |
+|---|---|---|
+| ① | 全站 emoji（👁👍💬⭐❤📎） | 新建 `IdeaIcon.vue`（viewBox 24 / stroke currentColor / 1.6px 自绘线性 SVG）替换全部 |
+| ② | 无反馈 | `stat-bump`/`act-bump` keyframes（图标+计数弹跳）+ `:active` 缩放 + 实心填色 |
+| ③ | 卡片统计仅展示 | 卡脚 `.stat-btn`（♡/☆）`@click.stop` 乐观更新+失败回滚；后端补发 `collectedByMe` |
+| ④ | 无断点样式 | IdeaLibraryView 768 media：padding `14px 88px 72px 14px` 避让 FAB、tab/chip/tag 横滑、grid 150px 双列、瀑布流 column-width 150；DraftEditor source-row 1 列；PostDetail .d-actions 换行；**横向溢出根因**=`.filter-row` 内 chip/sort 组 `flex-shrink:0`+nowrap 撑到 572px → 改 overflow-x 收在块级容器内（实测 scrollWidth 572→375） |
+| ⑤ | `--surface-card` 全局 `rgba(255,255,255,0.04)` | `.idea-page` 与 `PostDetailDialog .detail-body` 作用域覆盖 `#171a24` 实底+border/shadow（grep 实证全站仅此 2 文件 6 处引用） |
+| ⑥ | 全局 `input,textarea,select{backdrop-filter:blur(10px)}` + 控件 5% 半透明 | `html .el-dialog` 控件 `background:#191c27 !important; backdrop-filter:none !important`（!important 压 main.css 尾部全局 `.el-input__wrapper !important`）、面板去 blur、`.el-overlay` 加深 0.62。**⑥-b 复燃修复**：filterable select 的原生 `input.el-select__input` 聚焦展开时命中全局 blur 规则 → 白雾蒙板（点击出现、失焦 input 塌缩消失）；补 `html .el-dialog input,textarea,select{backdrop-filter:none !important}` 通配 + 页面级 `input.el-select__input,.el-input-number__input` 同治（CDP 实测 focus 态 `backdropFilter:none`，26/26 回归） |
+| ⑦ | 画廊在正文后被挤出视口 | 详情模板画廊移到 tags 后、`d-content` 前（置顶） |
+| ⑧ | 后端 update_post 已支持 removed；前端无编辑入口 | 新建 `PostEditDialog.vue`（标题/正文/标签/配图，分区只读+removed 提示条）；入口：详情操作栏「编辑帖子」+「我发布的」removed 卡 `.edit-entry`；**附带修 bug**：toggle_like/collect 原要求 published 导致悬空收藏无法取消 → 改为取消操作允许 removed、新增仍限 published |
+| ⑨ | — | 仅策划：[Redis与管理后台策划](./Redis与管理后台策划.md) v1.0 |
+
+### 11.3 改动文件
+
+- **前端**：`components/idea/IdeaIcon.vue`（新）、`components/idea/PostEditDialog.vue`（新）、`IdeaLibraryView.vue`、`PostDetailDialog.vue`、`DraftEditorDialog.vue`、`assets/main.css`、`api/ideaApi.ts`（`collectedByMe` + `updatePost`）。
+- **后端**：`services/idea_service.py` — `_collected_set()`、`_post_item(..., collected)` 下发 `collectedByMe`、5 调用点（list_posts/get_post/list_mine_posts/collects/likes）、toggle 双修。
+- **文档**：本记录 v1.2、`Redis与管理后台策划.md`（新）、README 登记。
+
+### 11.4 验证方式与结果
+
+```bash
+# 后端 py_compile ✓
+# round3 API（test_idea_api_round3.py）→ 19/19 PASS
+#   collectedByMe 全链路（赞/藏后 feed/详情/我喜欢/我收藏）、下架帖可 update、
+#   更新配图、恢复上架、下架后仍可取消收藏
+# round2 → 15/15 ｜ round1 → 40/40（先 unlock_user.py 解登录风控；跑前 sleep 11 避发布频控）
+# 前端基线 type-check 9 / lint 8 / npx vite build ✓ 8.53s
+# CDP 冒烟（_smoke_round3.mjs）→ 26/26 PASS、控制台 0 错误
+#   图标/动画/卡脚赞藏/详情画廊置顶/编辑弹窗回显/移动端 375 无横向溢出/蒙板实底
+# 截图复核：smoke3_detail / smoke3_mobile / smoke3_editor ✓
+# ⑥-b 蒙板复燃专项（_dbg_select.mjs CDP）：focus 态 dump 全部 backdropFilter=none ✓、sel_focus.png 无白雾 ✓
+#   注：冒烟选帖改为"第一个带图卡"（首卡可能无图，数据依赖非代码回归）
+```
+
+### 11.5 遗留
+
+1. 移动端管理后台不适配（明确不做，见策划 §2.5）。
+2. Redis/管理后台本轮仅策划未实施（见 [Redis与管理后台策划](./Redis与管理后台策划.md) §3 风险）。
+3. 配图文件回收、拖拽排序沿袭第二轮遗留（§10.5）。
+
+---
+
+*文档版本: v1.2 ｜ 维护者: Dixiyang Team*（v1.0 2026-10-08 首版，v1.1 2026-10-09 第二轮修复与图片/瀑布流增强，v1.2 2026-10-09 第三轮九条反馈）

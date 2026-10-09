@@ -17,18 +17,16 @@
         <h2 class="d-title">{{ post.title }}</h2>
         <div class="d-meta">
           <b>{{ post.authorName }}</b>
-          <span>👁 {{ post.viewCount }}</span>
-          <span>💬 {{ post.commentCount }}</span>
-          <span>⭐ {{ post.collectCount }}</span>
+          <span><IdeaIcon name="eye" :size="14" />{{ post.viewCount }}</span>
+          <span><IdeaIcon name="bubble" :size="14" />{{ post.commentCount }}</span>
+          <span><IdeaIcon name="star" :size="14" />{{ post.collectCount }}</span>
         </div>
 
         <div v-if="post.tags?.length" class="d-tags">
           <span v-for="t in post.tags" :key="t" class="mini-tag">#{{ t }}</span>
         </div>
 
-        <div class="d-content">{{ post.content }}</div>
-
-        <!-- 配图画廊（点击放大） -->
+        <!-- 配图画廊（置顶展示：封面点进详情第一眼可见，用户反馈⑦；点击放大） -->
         <div v-if="post.images?.length" class="d-gallery">
           <el-image
             v-for="(u, i) in post.images"
@@ -42,10 +40,12 @@
           />
         </div>
 
+        <div class="d-content">{{ post.content }}</div>
+
         <!-- 附件区 -->
         <div v-if="post.attach" class="attach-box" v-loading="attLoading">
           <div class="attach-head">
-            <span class="attach-title">📎 {{ post.attach.type === 'character_card' ? '角色卡附件' : '对话快照附件' }}</span>
+            <span class="attach-title"><IdeaIcon name="clip" :size="14" />{{ post.attach.type === 'character_card' ? '角色卡附件' : '对话快照附件' }}</span>
             <el-button
               v-if="post.attach.type === 'character_card' && attachData?.characters?.length"
               size="small"
@@ -82,18 +82,39 @@
           </template>
         </div>
 
-        <!-- 操作栏 -->
+        <!-- 操作栏：图标化 + 点击弹跳反馈 -->
         <div class="d-actions">
-          <el-button :type="post.likedByMe ? 'primary' : 'default'" :loading="acting" @click="onLike">
-            👍 点赞 {{ post.likeCount }}
-          </el-button>
-          <el-button :type="collected ? 'warning' : 'default'" :loading="acting" @click="onCollect">
-            ⭐ 收藏 {{ post.collectCount }}
-          </el-button>
+          <button
+            type="button"
+            class="act-btn"
+            :class="{ on: post.likedByMe, bump: bumpKey === 'like' }"
+            :disabled="acting"
+            @click="onLike"
+          >
+            <IdeaIcon name="heart" :size="17" :filled="post.likedByMe" />
+            <span :key="post.likeCount" class="act-num">点赞 {{ post.likeCount }}</span>
+          </button>
+          <button
+            type="button"
+            class="act-btn star"
+            :class="{ on: post.collectedByMe, bump: bumpKey === 'collect' }"
+            :disabled="acting"
+            @click="onCollect"
+          >
+            <IdeaIcon name="star" :size="17" :filled="post.collectedByMe" />
+            <span :key="post.collectCount" class="act-num">收藏 {{ post.collectCount }}</span>
+          </button>
           <span class="spacer" />
           <template v-if="isAuthor">
-            <el-button v-if="post.status === 'published'" type="danger" plain @click="onRemove">下架</el-button>
-            <el-button v-else type="success" plain @click="onRestore">重新上架</el-button>
+            <template v-if="post.status === 'published'">
+              <el-button type="danger" plain @click="onRemove">下架</el-button>
+            </template>
+            <template v-else>
+              <el-button type="primary" plain @click="openEdit">
+                <IdeaIcon name="edit" :size="14" />&nbsp;编辑帖子
+              </el-button>
+              <el-button type="success" plain @click="onRestore">重新上架</el-button>
+            </template>
           </template>
         </div>
 
@@ -147,6 +168,9 @@
         <el-button type="primary" :loading="importing" @click="onImport">确认导入</el-button>
       </template>
     </el-dialog>
+
+    <!-- 下架帖编辑（下架为修改服务，用户反馈⑧） -->
+    <PostEditDialog v-model="editVisible" :post-id="props.postId" @saved="onEdited" append-to-body />
   </el-dialog>
 </template>
 
@@ -160,6 +184,8 @@ import {
   removePost, restorePost, getNovelOptions,
   type IdeaPostItem, type IdeaComment, type CharacterCard,
 } from '@/api/ideaApi'
+import IdeaIcon from '@/components/idea/IdeaIcon.vue'
+import PostEditDialog from '@/components/idea/PostEditDialog.vue'
 import { confirmDelete } from '@/utils/confirm'
 
 const props = defineProps<{
@@ -182,7 +208,9 @@ const post = ref<IdeaPostItem | null>(null)
 const attLoading = ref(false)
 const attachData = ref<{ characters?: CharacterCard[]; messages?: { role: string; content: string }[] } | null>(null)
 const acting = ref(false)
-const collected = ref(false)
+/** 点赞/收藏按钮弹跳动画键，320ms 后清除 */
+const bumpKey = ref('')
+const editVisible = ref(false)
 
 const comments = ref<IdeaComment[]>([])
 const commentTotal = ref(0)
@@ -231,7 +259,6 @@ const load = async () => {
   commentPage.value = 1
   commentText.value = ''
   attachData.value = null
-  collected.value = false
   try {
     const data = unwrap<IdeaPostItem>(await getPost(props.postId))
     if (data) {
@@ -269,34 +296,80 @@ const loadComments = async () => {
 
 // ---------- 互动 ----------
 
+const playBump = (key: string) => {
+  bumpKey.value = key
+  window.setTimeout(() => {
+    if (bumpKey.value === key) bumpKey.value = ''
+  }, 320)
+}
+
 const onLike = async () => {
-  if (!post.value) return
+  if (!post.value || acting.value) return
+  const p = post.value
+  const prevLiked = p.likedByMe
+  const prevCount = p.likeCount
+  p.likedByMe = !prevLiked
+  p.likeCount = prevCount + (prevLiked ? -1 : 1)
+  playBump('like')
   acting.value = true
   try {
-    const data = unwrap<{ liked: boolean; likeCount: number }>(await toggleLike(post.value.id))
-    if (data) {
-      post.value.likedByMe = data.liked
-      post.value.likeCount = data.likeCount
+    const res = (await toggleLike(p.id)) as { code?: number; msg?: string; data?: { liked: boolean; likeCount: number } }
+    if (res.code === 200 && res.data) {
+      p.likedByMe = res.data.liked
+      p.likeCount = res.data.likeCount
       emit('change')
+    } else {
+      p.likedByMe = prevLiked
+      p.likeCount = prevCount
+      ElMessage.warning(res.msg || '点赞失败')
     }
+  } catch {
+    p.likedByMe = prevLiked
+    p.likeCount = prevCount
+    ElMessage.warning('网络异常，已还原')
   } finally {
     acting.value = false
   }
 }
 
 const onCollect = async () => {
-  if (!post.value) return
+  if (!post.value || acting.value) return
+  const p = post.value
+  const prev = p.collectedByMe
+  const prevCount = p.collectCount
+  p.collectedByMe = !prev
+  p.collectCount = prevCount + (prev ? -1 : 1)
+  playBump('collect')
   acting.value = true
   try {
-    const data = unwrap<{ collected: boolean; collectCount: number }>(await toggleCollect(post.value.id))
-    if (data) {
-      collected.value = data.collected
-      post.value.collectCount = data.collectCount
+    const res = (await toggleCollect(p.id)) as { code?: number; msg?: string; data?: { collected: boolean; collectCount: number } }
+    if (res.code === 200 && res.data) {
+      p.collectedByMe = res.data.collected
+      p.collectCount = res.data.collectCount
       emit('change')
+    } else {
+      p.collectedByMe = prev
+      p.collectCount = prevCount
+      ElMessage.warning(res.msg || '收藏失败')
     }
+  } catch {
+    p.collectedByMe = prev
+    p.collectCount = prevCount
+    ElMessage.warning('网络异常，已还原')
   } finally {
     acting.value = false
   }
+}
+
+// ---------- 下架帖编辑（用户反馈⑧：下架为修改服务） ----------
+
+const openEdit = () => {
+  editVisible.value = true
+}
+
+const onEdited = () => {
+  load()
+  emit('change')
 }
 
 const onRemove = async () => {
@@ -388,6 +461,8 @@ const close = () => emit('update:modelValue', false)
   max-height: 64vh;
   overflow-y: auto;
   padding-right: 4px;
+  /* 弹窗内容区卡片实底化（teleport 到 body 后脱离 .idea-page 作用域，此处单独覆盖 4% 半透明全局值） */
+  --surface-card: #171a24;
 }
 
 .d-head {
@@ -436,6 +511,12 @@ const close = () => emit('update:modelValue', false)
   font-size: 13px;
   color: var(--text-secondary);
   margin-bottom: 10px;
+}
+
+.d-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .d-tags {
@@ -508,6 +589,9 @@ const close = () => emit('update:modelValue', false)
 }
 
 .attach-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 13px;
   font-weight: 700;
   color: var(--accent-primary);
@@ -578,10 +662,71 @@ const close = () => emit('update:modelValue', false)
   gap: 8px;
   align-items: center;
   margin-bottom: 16px;
+  flex-wrap: wrap;
 }
 
 .spacer {
   flex: 1;
+}
+
+/* ---------- 操作按钮：图标化 + 点击弹跳（用户反馈①②） ---------- */
+
+.act-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--surface-glass-border);
+  background: var(--surface-glass);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 7px 16px;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+
+.act-btn:hover:not(:disabled) {
+  color: var(--text-on-page);
+  border-color: var(--accent-primary);
+}
+
+.act-btn:active:not(:disabled) {
+  transform: scale(0.93);
+}
+
+.act-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.act-btn.on {
+  color: var(--danger, #f56c6c);
+  border-color: var(--danger, #f56c6c);
+  background: var(--danger-soft, rgba(245, 108, 108, 0.12));
+}
+
+.act-btn.star.on {
+  color: #f0c674;
+  border-color: #f0c674;
+  background: rgba(240, 198, 116, 0.12);
+}
+
+.act-btn.bump .idea-icon,
+.act-btn.bump .act-num {
+  animation: act-bump 0.32s var(--ease-out);
+}
+
+.act-num {
+  display: inline-block;
+}
+
+@keyframes act-bump {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.3); }
+  70% { transform: scale(0.92); }
+  100% { transform: scale(1); }
 }
 
 .comment-box h4 {
@@ -646,5 +791,41 @@ const close = () => emit('update:modelValue', false)
   color: var(--text-muted);
   text-align: center;
   padding: 12px 0;
+}
+
+/* 移动端：操作栏换行，内容区紧凑 */
+@media (max-width: 768px) {
+  .detail-body {
+    max-height: 74vh;
+  }
+
+  .d-title {
+    font-size: 18px;
+  }
+
+  .d-meta {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .d-actions .spacer {
+    display: none;
+  }
+
+  .d-actions .el-button {
+    margin-left: 0;
+  }
+
+  .d-gallery {
+    grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  }
+
+  .comment-input {
+    flex-direction: column;
+  }
+
+  .comment-input .el-button {
+    align-self: flex-end;
+  }
 }
 </style>
