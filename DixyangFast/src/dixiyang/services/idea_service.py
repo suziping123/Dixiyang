@@ -19,6 +19,7 @@ from .idea_export import (
     delete_community_json, export_character_cards, export_chat_snapshot,
     import_character_cards, read_community_json, write_community_json,
 )
+from .idea_cache import cache
 from .storage_service import STORAGE_ROOT
 
 log = logging.getLogger(__name__)
@@ -38,22 +39,32 @@ IMG_MAX = 9
 IMG_URL_PREFIX = "/api/uploads/idea-images/"
 COMMENT_LEN_MAX = 1000
 
-# Demo 频控（进程内存版；正式版换 Redis，见策划 §4）
+# 热度事件权重（与 hot_score 公式一致：3赞+2藏+2评+1浏览）
+HOT_W = {"like": 3.0, "collect": 2.0, "comment": 2.0, "view": 1.0}
+HOT_TOP_MAX = 200  # sort=hot 时从 ZSET 预取的深水区上限
+
+# 内存频控（Redis 降级兜底；正常态走 idea:rl:* TTL）
 _rate: dict[str, float] = {}
 
 
-def _limit_check(key: str, seconds: float) -> float:
-    """只读频控检查：0 = 放行；>0 = 需等待的剩余秒数（不计数，成功后 _limit_mark）"""
+def _limit_check(scope: str, uid: int, seconds: float) -> float:
+    """只读频控检查：0 = 放行；>0 = 剩余秒（Redis 优先，降级内存 dict）"""
+    remain = cache.rate_check(scope, uid, seconds)
+    if cache.healthy():
+        return remain
     now = time.monotonic()
-    last = _rate.get(key)
+    last = _rate.get(f"{scope}:{uid}")
     if last is not None and now - last < seconds:
         return seconds - (now - last)
     return 0.0
 
 
-def _limit_mark(key: str) -> None:
+def _limit_mark(scope: str, uid: int, seconds: float) -> None:
     """操作成功后打点；业务失败不消耗额度"""
-    _rate[key] = time.monotonic()
+    if cache.rate_mark(scope, uid, seconds):
+        _rate.pop(f"{scope}:{uid}", None)
+        return
+    _rate[f"{scope}:{uid}"] = time.monotonic()
 
 
 class IdeaService:
@@ -277,7 +288,7 @@ class IdeaService:
     def publish(self, user_id: int, draft_id: int, req: PublishRequest) -> dict:
         if not req.previewed:
             return Result.error("请先预览附件")
-        remain = _limit_check(f"pub:{user_id}", 10)
+        remain = _limit_check("pub", user_id, 10)
         if remain:
             return Result.error(f"发布太频繁了，请 {int(remain) + 1} 秒后再试")
         d = self._own_draft(user_id, draft_id)
@@ -315,7 +326,7 @@ class IdeaService:
         delete_community_json(d.body_path)
         self.db.delete(d)
         self.db.commit()
-        _limit_mark(f"pub:{user_id}")
+        _limit_mark("pub", user_id, 10)
         return Result.success("发布成功", {"postId": p.id, "attach": attach})
 
     def _build_attachment(self, user_id: int, post_id: int, category: str,
@@ -367,12 +378,24 @@ class IdeaService:
                 and_(IdeaPostTag.post_id == IdeaPost.id, IdeaPostTag.tag == t)
             ))
         total = query.count()
-        order = {
-            "hot": IdeaPost.hot_score.desc(),
-            "like": IdeaPost.like_count.desc(),
-            "new": IdeaPost.create_time.desc(),
-        }.get(sort, IdeaPost.create_time.desc())
-        rows = query.order_by(order, IdeaPost.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
+        if sort in ("hot", "recommend"):
+            # Redis 热门榜优先（ZSET O(logN+M)）；无数据/降级回源 hot_score 全表排序
+            ranked = cache.hot_top((page - 1) * page_size + page_size)
+            if ranked:
+                pos = {pid: i for i, pid in enumerate(ranked)}
+                rows = [r for r in query.filter(IdeaPost.id.in_(pos)).all()]
+                rows.sort(key=lambda r: pos.get(r.id, HOT_TOP_MAX))
+                rows = rows[(page - 1) * page_size: page * page_size]
+            else:
+                rows = query.order_by(IdeaPost.hot_score.desc(), IdeaPost.id.desc()).offset(
+                    (page - 1) * page_size
+                ).limit(page_size).all()
+        else:
+            order = {
+                "like": IdeaPost.like_count.desc(),
+                "new": IdeaPost.create_time.desc(),
+            }.get(sort, IdeaPost.create_time.desc())
+            rows = query.order_by(order, IdeaPost.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
         ids = [p.id for p in rows]
         tag_map, att_map = self._tags_of(ids), self._attachments_of(ids)
         liked = self._liked_set(user_id, ids)
@@ -387,15 +410,24 @@ class IdeaService:
         p = self.db.get(IdeaPost, post_id)
         if p is None or (p.status != "published" and p.user_id != user_id):
             return Result.error("帖子不存在或已下架")
-        p.view_count += 1
-        self._recompute_hot(p)
-        self.db.commit()
+        if user_id is not None and cache.view_seen(p.id, user_id):
+            pass  # 600s 内重复浏览：跳过计数（去重）
+        elif cache.healthy():
+            cache.view_incr(p.id)  # 增量暂存，60s 后台回写 DB
+            cache.hot_zincr(p.id, HOT_W["view"])
+        else:
+            p.view_count += 1  # 降级：原行为，每次详情直写
+            self._recompute_hot(p)
+            self.db.commit()
         item = self._post_item(
             p, self._tags_of([p.id]), self._attachments_of([p.id]),
             self._liked_set(user_id, [p.id]), with_content=True,
             img_map=self._images_of([p.id]),
             collected=self._collected_set(user_id, [p.id]),
         )
+        pending = cache.view_pending(p.id)
+        if pending:  # 叠加未回写增量，详情页计数实时可见
+            item["viewCount"] = (item.get("viewCount") or 0) + pending
         return Result.success("获取成功", item)
 
     def get_attachment(self, post_id: int, user_id: int | None) -> dict:
@@ -493,7 +525,7 @@ class IdeaService:
     # ---------- 附件导入 ----------
 
     def import_attachment(self, user_id: int, post_id: int, req: ImportRequest) -> dict:
-        remain = _limit_check(f"imp:{user_id}", 10)
+        remain = _limit_check("imp", user_id, 10)
         if remain:
             return Result.error(f"导入太频繁了，请 {int(remain) + 1} 秒后再试")
         p = self.db.get(IdeaPost, post_id)
@@ -510,7 +542,7 @@ class IdeaService:
         if not snapshot or not snapshot.get("characters"):
             return Result.error("附件内容缺失")
         results = import_character_cards(self.db, user_id, req.novel_id, snapshot)
-        _limit_mark(f"imp:{user_id}")
+        _limit_mark("imp", user_id, 10)
         return Result.success("导入成功", {"characters": results})
 
     # ---------- 互动 ----------
@@ -526,15 +558,16 @@ class IdeaService:
             # 取消点赞：已下架帖也允许，避免悬空点赞无法移除
             self.db.delete(row)
             p.like_count = max(0, p.like_count - 1)
-            liked = False
+            liked, delta = False, -1
         elif p.status == "published":
             self.db.add(IdeaLike(user_id=user_id, post_id=post_id))
             p.like_count += 1
-            liked = True
+            liked, delta = True, 1
         else:
             return Result.error("帖子不存在或已下架")
         self._recompute_hot(p)
         self.db.commit()
+        cache.hot_zincr(post_id, HOT_W["like"] * delta)
         return Result.success("操作成功", {"liked": liked, "likeCount": p.like_count})
 
     def toggle_collect(self, user_id: int, post_id: int) -> dict:
@@ -548,15 +581,16 @@ class IdeaService:
             # 取消收藏：已下架帖也允许，避免悬空收藏无法移除
             self.db.delete(row)
             p.collect_count = max(0, p.collect_count - 1)
-            collected = False
+            collected, delta = False, -1
         elif p.status == "published":
             self.db.add(IdeaCollect(user_id=user_id, post_id=post_id))
             p.collect_count += 1
-            collected = True
+            collected, delta = True, 1
         else:
             return Result.error("帖子不存在或已下架")
         self._recompute_hot(p)
         self.db.commit()
+        cache.hot_zincr(post_id, HOT_W["collect"] * delta)
         return Result.success("操作成功", {"collected": collected, "collectCount": p.collect_count})
 
     def list_mine_collects(self, user_id: int, page: int, page_size: int) -> dict:
@@ -591,7 +625,7 @@ class IdeaService:
             return Result.error("评论不能为空")
         if len(content) > COMMENT_LEN_MAX:
             return Result.error(f"评论不能超过{COMMENT_LEN_MAX}字")
-        remain = _limit_check(f"cmt:{user_id}", 15)
+        remain = _limit_check("cmt", user_id, 15)
         if remain:
             return Result.error(f"评论太频繁了，请 {int(remain) + 1} 秒后再试")
         p = self.db.get(IdeaPost, post_id)
@@ -602,7 +636,8 @@ class IdeaService:
         p.comment_count += 1
         self._recompute_hot(p)
         self.db.commit()
-        _limit_mark(f"cmt:{user_id}")
+        cache.hot_zincr(post_id, HOT_W["comment"])
+        _limit_mark("cmt", user_id, 15)
         name, _ = self._user_name(user_id)
         return Result.success("评论成功", {
             "id": c.id, "authorName": name, "content": c.content,
@@ -621,6 +656,7 @@ class IdeaService:
             self._recompute_hot(p)
         self.db.delete(c)
         self.db.commit()
+        cache.hot_zincr(c.post_id, -HOT_W["comment"])
         return Result.success("删除成功")
 
     def list_comments(self, post_id: int, user_id: int | None, page: int, page_size: int) -> dict:

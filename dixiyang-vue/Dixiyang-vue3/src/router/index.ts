@@ -75,7 +75,7 @@ const router = createRouter({
       path: '/ideas',
       name: 'idea-library',
       component: IdeaLibraryView,
-      meta: { requiresAuth: true, title: '点子库 · DIXIYANG' }
+      meta: { requiresAuth: true, title: '广场 · DIXIYANG' }
     },
     {
       path: '/novel/:novelId/timeline',

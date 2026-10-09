@@ -25,13 +25,16 @@ from dixiyang.models import idea as idea_model  # noqa: F401  注册 idea_* 7 �
 from dixiyang.routers import auth, novel, character, story_node, timeline, file, user, chat, user_config, chat_history, rag, volume, chapter, ai, idea
 from dixiyang.utils.database import Base, engine
 from dixiyang.config import UPLOAD_DIR
+from dixiyang.services.idea_cache import cache as idea_cache
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     Base.metadata.create_all(bind=engine)
+    idea_cache.start_background()
     yield
+    idea_cache.stop_background()
 
 
 app = FastAPI(title="Dixiyang API - Python 版", version="1.0.0", lifespan=lifespan)

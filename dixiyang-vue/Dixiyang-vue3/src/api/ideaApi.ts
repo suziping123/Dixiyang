@@ -3,7 +3,7 @@ import http from '@/utils/http';
 // ==================== 类型 ====================
 
 export type IdeaCategory = 'idea' | 'character' | 'setting' | 'timeline' | 'tech';
-export type IdeaSort = 'new' | 'hot' | 'like';
+export type IdeaSort = 'new' | 'hot' | 'like' | 'recommend';
 
 export interface IdeaPostItem {
   id: number;

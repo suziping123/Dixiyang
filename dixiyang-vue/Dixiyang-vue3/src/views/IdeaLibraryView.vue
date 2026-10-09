@@ -3,7 +3,7 @@
     <FloatingNav />
     <header class="page-head">
       <div class="head-title">
-        <h1>点子库</h1>
+        <h1>广场</h1>
         <span class="head-sub">私有草稿写灵感，发布后进入创意社区</span>
       </div>
       <div class="head-actions">
@@ -295,6 +295,7 @@ const categories: { key: string; label: string }[] = [
 ]
 
 const sorts: { key: IdeaSort; label: string }[] = [
+  { key: 'recommend', label: '综合推荐' },
   { key: 'new', label: '最新' },
   { key: 'hot', label: '热门' },
   { key: 'like', label: '最多赞' },
@@ -309,7 +310,7 @@ const tab = ref<TabKey>('feed')
 const loading = ref(false)
 const search = ref('')
 const category = ref('')
-const sort = ref<IdeaSort>('new')
+const sort = ref<IdeaSort>('recommend')
 const activeTag = ref('')
 const page = ref(1)
 const pageSize = 12

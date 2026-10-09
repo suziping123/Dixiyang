@@ -108,7 +108,7 @@ const handleLeave = () => {
 const navItems: NavItem[] = [
   { icon: House, label: '首页', path: '/home' },
   { icon: ChatDotRound, label: 'RAG 助手', path: '/rag-assistant' },
-  { icon: Collection, label: '点子库', path: '/ideas' },
+  { icon: Collection, label: '广场', path: '/ideas' },
   { icon: Setting, label: '设置', path: '/settings' },
 ]
 

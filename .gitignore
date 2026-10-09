@@ -168,3 +168,5 @@ opencode.json
 
 # 一代 Flask+聊天原型（历史归档，仅本地保留，2026-10-08 出库）
 DixyangFast/daily-log/
+
+dump.rdb

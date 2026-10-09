@@ -512,6 +512,18 @@
 
 ---
 
+### 8.29 [局域网访问与launch调试](./局域网访问与launch调试.md) ✨ 新增（v1.0）
+**位置**: `docs/局域网访问与launch调试.md`
+
+**内容**:
+- **网线/USB 共享网络设备访问开发服务**：`vite.config.ts` 加 `server.host: true`（根因修复，监听 0.0.0.0）+ 新建 `.vscode/launch.json`（前端 Vite / 后端 FastAPI debugpy / 全栈 compound 一键启动，Trae/VS Code 通用）
+- **踩坑**：launch 里给 npm 追加 `--host 0.0.0.0` 会被 npm 吞参、`0.0.0.0` 被 Vite 当 root 目录 → `vite.config.ts` 不加载 → `@` 别名/`/api` 代理全失效 → **页面全黑**；修法 = launch 不传 args，host 一律由 config 负责
+- 防火墙 5173/8084 放行命令、`Network:` 日志取址、真机验证套路；debugpy attach_amd64.dll 警告为无害
+
+**适用人群**: 前端、测试（真机调试）
+
+---
+
 ## 现有文档（已存在）
 
 ### 9. [后端开发技术文档](./后端开发技术文档.md)
@@ -731,6 +743,12 @@
 ---
 
 ## 版本变更记录
+
+### v1.49 (2026-10-09)
+- **新增**: [广场综合推荐与Redis接入](./广场综合推荐与Redis接入.md) — 「点子库」更名「广场」（页面/导航/路由 title）；排序新增「综合推荐」为默认（后端 `sort in ("hot","recommend")` 走 Redis ZSET 热门榜优先路径）；Redis P0/P1 接入：`idea_cache.py` 新封装（频控 TTL/热门 ZSET 镜像+10min 重建/浏览 SETNX 600s 去重+60s Lua 原子回写 DB/3s 冷却降级回原路径），`main.py` lifespan 挂后台任务，连接串走环境变量 `REDIS_URL`（密码不入库，redis-py 强制 `protocol=2`）；局域网 host:true + adb auto-reverse + launch.json 三启动项（launch 传 `--host` 被 npm 吞参致全黑的坑）
+
+### v1.48 (2026-10-09)
+- **新增**: [局域网访问与launch调试](./局域网访问与launch调试.md) — `vite.config.ts host:true` + `.vscode/launch.json` 三启动项（Vite/debugpy/compound），网线 Linux 与 USB 共享安卓可访问 `http://10.24.142.24:5173`；含 launch 追加 `--host` 被 npm 吞参致页面全黑的踩坑与防火墙放行命令
 
 ### v1.47 (2026-10-09)
 - **点子库第四轮**: [点子库Demo实施记录](./点子库Demo实施记录.md) 升级 **v1.3** — 用户两条反馈：① **下架编辑下拉没复用写点子/回显不了** → 抽共享组件 `SourcePicker.vue`（小说→角色/对话级联 + `echo()` 回显反查 + `records` 分页口径修正，两弹窗各删 ~90 行本地实现）+ PostEditDialog `:destroy-on-close`（`@open=init` 切帖不重跑的串数据隐患）+ `ensureReady()` 懒加载/失败重试（DraftEditor `v-if=modelValue` 弹窗可见才挂，页面加载不再发请求、未登录不炸 console）；后端 `sourceRef` 改来源首次全量验证（**新增 `test_idea_api_source.py` 25/25**：改源重建/无效角色·会话报错整体回滚/清空移除/空→再选恢复/tech 无害）；② **配图拖拽调顺序** → 手写零依赖 `useImageDragSort.ts`（Pointer Events、6px 阈值、pointer capture、拖影+drop 高亮、松手 move 语义、`touch-action:none` 触屏可用、首张封面），`PostEditDialog`/`DraftEditorDialog` 双接入（拖后 resetPreview）。验证：source **25/25** + round1 40/40 + round2 15/15 + round3 19/19 + SMOKE3 **28/28**（0 控制台错误）+ SMOKE2 PASS + `_smoke_ideas` PASS + 拖拽 **8/8** + 回显 **9/9**（idea/character CDP 实测）+ type-check/eslint/build ✓；踩坑 `getNovelOptions` 返回 `{records:[...]}`（非数组）写入根 AGENTS「前端三大必读」
