@@ -16,7 +16,7 @@ export const useUserStore = defineStore('user', () => {
   const nickname = ref(localStorage.getItem('nickname') || '')
   const email = ref(localStorage.getItem('email') || '')
 
-  const setLoginInfo = (newToken: string, newUsername: string, newId: string, newNickname: string, newEmail: string) => {
+  const setLoginInfo = (newToken: string, newUsername: string, newId: string, newNickname: string, newEmail: string, newRole: string = 'user') => {
     token.value = newToken
     username.value = newUsername
     userId.value = newId
@@ -28,6 +28,7 @@ export const useUserStore = defineStore('user', () => {
     localStorage.setItem('userId', newId)
     localStorage.setItem('nickname', newNickname)
     localStorage.setItem('email', newEmail)
+    localStorage.setItem('role', newRole)
   }
 
   const setNickname = (newNickname: string) => {

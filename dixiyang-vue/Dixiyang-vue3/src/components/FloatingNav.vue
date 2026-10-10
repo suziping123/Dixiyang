@@ -43,7 +43,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ChatDotRound, House, Setting, Menu, Close, Collection } from '@element-plus/icons-vue'
+import { ChatDotRound, House, Setting, Menu, Close, Collection, DataBoard } from '@element-plus/icons-vue'
 
 interface NavItem {
   icon: typeof House
@@ -104,15 +104,21 @@ const handleLeave = () => {
   if (!isFab.value) isVisible.value = false
 }
 
-// 只列真实存在的路由（/discover /library /notifications 无路由，已移除）
-const navItems: NavItem[] = [
+// 只列真实存在的路由（/discover /library /notifications 无路由，已移除）；管理后台仅 admin 可见
+const baseNavItems: NavItem[] = [
   { icon: House, label: '首页', path: '/home' },
   { icon: ChatDotRound, label: 'RAG 助手', path: '/rag-assistant' },
   { icon: Collection, label: '广场', path: '/ideas' },
   { icon: Setting, label: '设置', path: '/settings' },
 ]
+const navItems = computed<NavItem[]>(() => {
+  if (localStorage.getItem('role') === 'admin') {
+    return [...baseNavItems.slice(0, 3), { icon: DataBoard, label: '管理后台', path: '/admin' }, baseNavItems[3]!]
+  }
+  return baseNavItems
+})
 
-const pathToIndex = (path: string) => navItems.findIndex((item) => item.path === path)
+const pathToIndex = (path: string) => navItems.value.findIndex((item) => item.path === path)
 
 watch(
   () => route.path,
@@ -130,7 +136,7 @@ const handleNavClick = (idx: number) => {
   activeNav.value = idx
   emit('update:modelValue', idx)
   if (isFab.value) fabOpen.value = false
-  const item = navItems[idx]
+  const item = navItems.value[idx]
   if (item) {
     router.push(item.path)
   }

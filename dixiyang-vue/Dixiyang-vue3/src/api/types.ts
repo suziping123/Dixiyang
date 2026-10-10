@@ -12,6 +12,7 @@ export interface LoginResponse {
   username: string
   nickname: string
   email?: string
+  role?: 'user' | 'admin'
 }
 
 // 注册响应数据

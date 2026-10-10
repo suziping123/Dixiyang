@@ -125,6 +125,11 @@ router.beforeEach((to, from, next) => {
     return next('/login')
   }
 
+  // 管理后台：非 admin 直接拦截在门外（不进入页面）
+  if (to.name === 'admin' && localStorage.getItem('role') !== 'admin') {
+    return next('/home')
+  }
+
   next()
 })
 

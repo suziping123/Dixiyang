@@ -128,7 +128,7 @@ export function useAuth() {
           ElMessage.error('用户信息缺失')
           return
         }
-        userStore.setLoginInfo(token, user.username, String(user.userId), user.nickname!, user.email || '')
+        userStore.setLoginInfo(token, user.username, String(user.userId), user.nickname!, user.email || '', user.role || 'user')
         loadFromServer()
         ElMessage.success(`欢迎回来, ${user.nickname}`)
         router.push('/home')
@@ -158,7 +158,7 @@ export function useAuth() {
           ElMessage.error('用户信息缺失')
           return
         }
-        userStore.setLoginInfo(token, user.username, String(user.userId), user.nickname!, user.email || '')
+        userStore.setLoginInfo(token, user.username, String(user.userId), user.nickname!, user.email || '', user.role || 'user')
         loadFromServer()
         ElMessage.success(`欢迎回来, ${user.nickname}`)
         router.push('/home')

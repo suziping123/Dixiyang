@@ -83,6 +83,7 @@ class AuthService:
                 "username": user.username,
                 "nickname": user.nickname or user.username,
                 "email": user.email or "",
+                "role": getattr(user, "role", "user"),
             },
         }
         return Result.success("操作成功", data)
@@ -257,6 +258,7 @@ class AuthService:
                 "username": user.username,
                 "nickname": user.nickname or user.username,
                 "email": user.email or "",
+                "role": getattr(user, "role", "user"),
             },
         }
         return Result.success("操作成功", data)
