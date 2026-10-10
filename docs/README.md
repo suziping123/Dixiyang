@@ -744,6 +744,9 @@
 
 ## 版本变更记录
 
+### v1.51 (2026-10-10)
+- **新增**: [Redis优化效果对比](./Redis优化效果对比.md) + [ECharts接入(并入管理后台M1文档)](./管理后台M1.md) — ECharts 按需引入+暗色主题封装 `EChart.vue`；管理后台发帖趋势柱图&分区环图；RAG 三图重构为横向条形图；JMeter 20线程双态压测 6000 req/态 0 错误：**P95 204ms vs 1649ms（8×）**、吞吐 57.5 vs 38.7 req/s（+49%）、降级 0 错误可用性验证
+
 ### v1.50 (2026-10-09)
 - **新增**: [管理后台M1](./管理后台M1.md) + [综合推荐算法升级(并入广场综合推荐与Redis接入)](./广场综合推荐与Redis接入.md) — 后端：`app_user.role` 列(启动自动 ALTER)+`require_admin`+`/api/admin/stats|users|role`；前端 `/admin` AdminView(统计卡/分区chips/用户表格改角色)；综合推荐改为 Redis热度×时间衰减+点藏标签兴趣加成(近似ItemCF)，与最新/热门拉开区分度；uvicorn reload 默认关闭(Windows 启动 30s→2s)
 
