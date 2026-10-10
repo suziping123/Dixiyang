@@ -52,39 +52,15 @@
       <div class="charts-row" v-if="hasCharts">
         <section class="chart-card" v-if="sourceKeys.length">
           <h3 class="chart-title">按来源分布</h3>
-          <div class="bar-chart">
-            <div v-for="k in sourceKeys" :key="k" class="bar-row">
-              <span class="bar-label" :title="k">{{ k }}</span>
-              <div class="bar-track">
-                <div class="bar-fill" :style="{ width: barWidth(k, sourceDist) }"></div>
-              </div>
-              <span class="bar-count">{{ sourceDist[k] }}</span>
-            </div>
-          </div>
+          <EChart :option="distOption(sourceDist)" height="260px" />
         </section>
         <section class="chart-card" v-if="catKeys.length">
           <h3 class="chart-title">按分类分布</h3>
-          <div class="bar-chart">
-            <div v-for="k in catKeys" :key="k" class="bar-row">
-              <span class="bar-label" :title="k">{{ k }}</span>
-              <div class="bar-track">
-                <div class="bar-fill cat-fill" :style="{ width: barWidth(k, catDist) }"></div>
-              </div>
-              <span class="bar-count">{{ catDist[k] }}</span>
-            </div>
-          </div>
+          <EChart :option="distOption(catDist)" height="260px" />
         </section>
         <section class="chart-card" v-if="bookKeys.length">
           <h3 class="chart-title">按书籍/来源分布 (Top 20)</h3>
-          <div class="bar-chart">
-            <div v-for="k in bookKeys" :key="k" class="bar-row">
-              <span class="bar-label" :title="k">{{ k }}</span>
-              <div class="bar-track">
-                <div class="bar-fill book-fill" :style="{ width: barWidth(k, bookDist) }"></div>
-              </div>
-              <span class="bar-count">{{ bookDist[k] }}</span>
-            </div>
-          </div>
+          <EChart :option="distOption(bookDist, 20)" height="260px" />
         </section>
       </div>
 
@@ -158,6 +134,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import FloatingNav from '@/components/FloatingNav.vue'
+import EChart from '@/components/EChart.vue'
 import { getRagStats, getRagDocuments, searchRag } from '@/api/ragApi'
 import type { RagStats, RagDocPage, RagSearchResult } from '@/api/ragApi'
 
@@ -189,10 +166,21 @@ const catKeys = computed(() => Object.keys(catDist.value))
 const bookKeys = computed(() => Object.keys(bookDist.value).slice(0, 20))
 const hasCharts = computed(() => sourceKeys.value.length > 0 || catKeys.value.length > 0 || bookKeys.value.length > 0)
 
-function barWidth(key: string, dist: Record<string, number>) {
-  const vals = Object.values(dist)
-  const max = Math.max(...vals, 1)
-  return Math.max(((dist[key] ?? 0) / max) * 100, 2) + '%'
+/** 分布数据 → ECharts 横向条形图 option（倒序显示，量大在上） */
+function distOption(dist: Record<string, number>, top = 0) {
+  let entries = Object.entries(dist).sort((a, b) => a[1] - b[1])
+  if (top > 0 && entries.length > top) entries = entries.slice(-top)
+  return {
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    grid: { left: 8, right: 40, top: 8, bottom: 8, containLabel: true },
+    xAxis: { type: 'value', minInterval: 1 },
+    yAxis: {
+      type: 'category',
+      data: entries.map(([k]) => (k.length > 16 ? k.slice(0, 16) + '…' : k)),
+      axisLabel: { width: 120, overflow: 'truncate' },
+    },
+    series: [{ type: 'bar', data: entries.map(([, v]) => v), barMaxWidth: 16, itemStyle: { borderRadius: [0, 4, 4, 0] } }],
+  }
 }
 
 function switchTab(tab: 'docs' | 'search') {
@@ -337,48 +325,6 @@ onMounted(() => {
   font-size: 0.95rem;
   font-weight: 600;
   margin: 0 0 12px;
-}
-.bar-chart { display: flex; flex-direction: column; gap: 4px; }
-.bar-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.82rem;
-}
-.bar-label {
-  width: 120px;
-  text-align: right;
-  color: var(--text-secondary, #8892b0);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex-shrink: 0;
-}
-.bar-track {
-  flex: 1;
-  height: 18px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 4px;
-  overflow: hidden;
-}
-.bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #6c5ce7, #a78bfa);
-  border-radius: 4px;
-  min-width: 2px;
-  transition: width 0.3s;
-}
-.cat-fill {
-  background: linear-gradient(90deg, #3b82f6, #60a5fa);
-}
-.book-fill {
-  background: linear-gradient(90deg, #10b981, #34d399);
-}
-.bar-count {
-  width: 50px;
-  color: var(--text-muted, #5a6a8a);
-  flex-shrink: 0;
-  text-align: right;
 }
 
 .search-section {

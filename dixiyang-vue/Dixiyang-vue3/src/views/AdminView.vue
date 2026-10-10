@@ -28,6 +28,18 @@
       </span>
     </section>
 
+    <!-- 图表：发帖趋势 + 分区占比 -->
+    <section class="charts-row" v-if="stats">
+      <div class="chart-card">
+        <h3>近 7 天发帖趋势</h3>
+        <EChart :option="trendOption" height="240px" />
+      </div>
+      <div class="chart-card">
+        <h3>帖子分区占比</h3>
+        <EChart :option="catOption" height="240px" />
+      </div>
+    </section>
+
     <!-- 用户管理 -->
     <section class="user-panel">
       <h2>用户管理 <em>共 {{ userTotal }} 人</em></h2>
@@ -75,6 +87,7 @@ import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import FloatingNav from '@/components/FloatingNav.vue'
+import EChart from '@/components/EChart.vue'
 import { getAdminStats, getAdminUsers, updateUserRole } from '@/api/adminApi'
 import type { AdminStats, AdminUserItem } from '@/api/adminApi'
 
@@ -98,6 +111,29 @@ const statCards = computed(() => [
   { label: '广场帖子', value: stats.value?.totals.posts ?? '-' },
   { label: '对话会话', value: stats.value?.totals.sessions ?? '-' },
 ])
+
+// 图表 option：近7天发帖趋势（柱）+ 分区占比（环形）
+const trendOption = computed(() => {
+  const list = stats.value?.postTrend ?? []
+  return {
+    tooltip: { trigger: 'axis' },
+    grid: { left: 40, right: 16, top: 24, bottom: 28 },
+    xAxis: { type: 'category', data: list.map((d) => d.date.slice(5)) },
+    yAxis: { type: 'value', minInterval: 1 },
+    series: [{ type: 'bar', data: list.map((d) => d.count), barWidth: '46%', itemStyle: { borderRadius: [4, 4, 0, 0] } }],
+  }
+})
+const catOption = computed(() => ({
+  tooltip: { trigger: 'item' },
+  legend: { bottom: 0 },
+  series: [{
+    type: 'pie',
+    radius: ['42%', '68%'],
+    center: ['50%', '44%'],
+    label: { color: '#c3cbdd' },
+    data: (stats.value?.postCategories ?? []).map((c) => ({ name: catLabel(c.category), value: c.count })),
+  }],
+}))
 
 const unwrap = <T,>(res: unknown): T | null => {
   const r = res as { code?: number; msg?: string; data?: T }
@@ -194,8 +230,7 @@ onMounted(async () => {
 .stat-num { font-size: 30px; font-weight: 700; color: var(--accent-cyan); }
 .stat-label { font-size: 13px; color: var(--text-secondary); }
 
-.cat-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
-.cat-chip {
+.cat-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }.cat-chip {
   background: var(--surface-card);
   border: 1px solid var(--surface-glass-border);
   border-radius: 999px;
@@ -211,6 +246,20 @@ onMounted(async () => {
   border-radius: 12px;
   padding: 20px;
 }
+
+.charts-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+.chart-card {
+  background: var(--surface-card);
+  border: 1px solid var(--surface-glass-border);
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+.chart-card h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; color: var(--text-secondary); }
 .user-panel h2 { margin: 0 0 14px; font-size: 18px; color: var(--text-on-card); }
 .user-panel h2 em { font-style: normal; font-size: 13px; font-weight: 400; color: var(--text-muted); margin-left: 8px; }
 .user-panel :deep(.el-pagination) { margin-top: 14px; justify-content: flex-end; }
@@ -218,6 +267,7 @@ onMounted(async () => {
 @media (max-width: 768px) {
   .admin-page { padding: 18px 16px 60px; padding-right: 64px; }
   .stat-cards { grid-template-columns: repeat(2, 1fr); }
+  .charts-row { grid-template-columns: 1fr; }
   .search-box { width: 160px; }
   .user-panel { overflow-x: auto; }
 }
