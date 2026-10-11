@@ -43,7 +43,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ChatDotRound, House, Setting, Menu, Close, Collection, DataBoard } from '@element-plus/icons-vue'
+import { ChatDotRound, House, Setting, Menu, Close, Collection, DataBoard, Notebook } from '@element-plus/icons-vue'
 
 interface NavItem {
   icon: typeof House
@@ -107,13 +107,14 @@ const handleLeave = () => {
 // 只列真实存在的路由（/discover /library /notifications 无路由，已移除）；管理后台仅 admin 可见
 const baseNavItems: NavItem[] = [
   { icon: House, label: '首页', path: '/home' },
+  { icon: Notebook, label: '灵感墙', path: '/inspiration' },
   { icon: ChatDotRound, label: 'RAG 助手', path: '/rag-assistant' },
   { icon: Collection, label: '广场', path: '/ideas' },
   { icon: Setting, label: '设置', path: '/settings' },
 ]
 const navItems = computed<NavItem[]>(() => {
   if (localStorage.getItem('role') === 'admin') {
-    return [...baseNavItems.slice(0, 3), { icon: DataBoard, label: '管理后台', path: '/admin' }, baseNavItems[3]!]
+    return [...baseNavItems.slice(0, 4), { icon: DataBoard, label: '管理后台', path: '/admin' }, baseNavItems[4]!]
   }
   return baseNavItems
 })
@@ -151,14 +152,18 @@ const handleNavClick = (idx: number) => {
   height: 100vh;
   width: 100px;
   z-index: 100;
+  /* 整条穿透：不拦截页面左侧 100px 的点击；hover 由 nav-trigger 接管（见下），
+     展开的面板单独恢复 pointer-events（与 FAB 模式 nav-wrapper 处理一致） */
+  pointer-events: none;
 }
 
 .nav-trigger {
   position: absolute;
   left: 0;
   top: 0;
-  width: 30px;
+  width: 16px; /* 30→16：唯一 hover 入口，收窄误触面（mouseenter 由子元素沿祖先链分发到 wrapper） */
   height: 100vh;
+  pointer-events: auto;
 }
 
 .floating-nav {
@@ -176,6 +181,9 @@ const handleNavClick = (idx: number) => {
   box-shadow: var(--shadow-card);
   transition: left var(--dur) var(--ease-out);
   transform: translateY(-50%);
+  /* wrapper 穿透后面板需单独恢复可点（收起态在屏幕外，hit test 不命中，无副作用）；
+     FAB 模式在其 media query 内自行覆写 none/auto，不受影响 */
+  pointer-events: auto;
 }
 
 .floating-nav.visible {
@@ -446,6 +454,14 @@ const handleNavClick = (idx: number) => {
 
   .floating-nav.visible .nav-item:nth-child(4) {
     transition-delay: 160ms;
+  }
+
+  .floating-nav.visible .nav-item:nth-child(5) {
+    transition-delay: 200ms;
+  }
+
+  .floating-nav.visible .nav-item:nth-child(6) {
+    transition-delay: 240ms;
   }
 
   .nav-item svg {
