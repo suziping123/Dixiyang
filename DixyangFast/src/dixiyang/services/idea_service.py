@@ -1,4 +1,5 @@
 """点子库核心业务：草稿/发布/帖子/附件/互动/评论/导入（Demo 版：计数与排序直读 DB，Redis 层预留）"""
+import base64
 import json
 import logging
 import math
@@ -68,6 +69,23 @@ def _limit_mark(scope: str, uid: int, seconds: float) -> None:
         _rate.pop(f"{scope}:{uid}", None)
         return
     _rate[f"{scope}:{uid}"] = time.monotonic()
+
+
+# ---------- 游标编解码（广场列表增量翻页） ----------
+
+def _enc_cursor(payload: dict) -> str:
+    """排序键 + id → URL 安全 base64（对前端不透明，格式可随时改）"""
+    return base64.urlsafe_b64encode(json.dumps(payload, ensure_ascii=False).encode()).decode().rstrip("=")
+
+
+def _dec_cursor(cursor: str) -> dict | None:
+    """解析游标；损坏/非 dict 返回 None（调用方按最后一页处理）"""
+    try:
+        raw = base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4))
+        obj = json.loads(raw)
+        return obj if isinstance(obj, dict) else None
+    except Exception:  # noqa: BLE001
+        return None
 
 
 class IdeaService:
@@ -412,8 +430,69 @@ class IdeaService:
         cand.sort(key=score, reverse=True)
         return cand[(page - 1) * page_size: page * page_size]
 
+    def _cursor_page(self, query, sort: str, page_size: int, cursor: str | None) -> tuple[list, bool, str | None]:
+        """游标翻页：返回 (rows, has_more, next_cursor)。
+        - cursor=None → 第一页（从头开始，游标链由此启动）
+        - 游标损坏 → ([], False, None)（当最后一页，前端下次触底自动停）
+        - new/like：DB 元组比较 (排序键, id) < (游标值, 游标id)，不重不漏
+        - hot：Redis ZSET 按名次翻；降级回 DB hot_score 元组比较
+        """
+        if cursor is not None:
+            cur = _dec_cursor(cursor)
+            if cur is None or "i" not in cur:
+                return [], False, None  # 损坏游标：终止翻页
+        else:
+            cur = None  # 第一页
+        last_id = int(cur["i"]) if cur else None
+        if sort == "new":
+            if cur:
+                t = datetime.fromisoformat(str(cur["t"]))
+                query = query.filter(
+                    or_(IdeaPost.create_time < t, and_(IdeaPost.create_time == t, IdeaPost.id < last_id))
+                )
+            rows = query.order_by(IdeaPost.create_time.desc(), IdeaPost.id.desc()).limit(page_size + 1).all()
+            key = lambda p: _enc_cursor({"t": self._dt(p.create_time), "i": p.id})  # noqa: E731
+        elif sort == "like":
+            if cur:
+                lc = int(cur.get("l", 0))
+                query = query.filter(
+                    or_(IdeaPost.like_count < lc, and_(IdeaPost.like_count == lc, IdeaPost.id < last_id))
+                )
+            rows = query.order_by(IdeaPost.like_count.desc(), IdeaPost.id.desc()).limit(page_size + 1).all()
+            key = lambda p: _enc_cursor({"l": p.like_count, "i": p.id})  # noqa: E731
+        else:  # hot
+            ranked = cache.hot_top(HOT_TOP_MAX)
+            if ranked is not None:
+                start = int(cur.get("r", -1)) + 1 if cur else 0
+                # 分区/搜索/标签会过滤掉榜内帖子：窗口凑不满时继续向后取，防提前误判"到底"
+                matched: list = []
+                ranks: dict[int, int] = {}
+                idx = start
+                while idx < len(ranked) and len(matched) <= page_size:
+                    chunk = ranked[idx: idx + page_size + 1]
+                    rank_of = {pid: idx + i for i, pid in enumerate(chunk)}
+                    rows_c = sorted(query.filter(IdeaPost.id.in_(chunk)).all(), key=lambda r: rank_of[r.id])
+                    for r in rows_c:
+                        ranks[r.id] = rank_of[r.id]
+                    matched.extend(rows_c)
+                    idx += len(chunk)
+                rows = matched
+                key = lambda p: _enc_cursor({"r": ranks[p.id], "i": p.id})  # noqa: E731
+            else:  # ZSET 降级：hot_score 元组比较
+                if cur:
+                    hs = float(cur.get("h", 0.0))
+                    query = query.filter(
+                        or_(IdeaPost.hot_score < hs, and_(IdeaPost.hot_score == hs, IdeaPost.id < last_id))
+                    )
+                rows = query.order_by(IdeaPost.hot_score.desc(), IdeaPost.id.desc()).limit(page_size + 1).all()
+                key = lambda p: _enc_cursor({"h": float(p.hot_score or 0.0), "i": p.id})  # noqa: E731
+        has_more = len(rows) > page_size
+        rows = rows[:page_size]
+        return rows, has_more, (key(rows[-1]) if has_more and rows else None)
+
     def list_posts(self, user_id: int | None, category: str | None, sort: str,
-                   q: str | None, tags: list[str] | None, page: int, page_size: int) -> dict:
+                   q: str | None, tags: list[str] | None, page: int, page_size: int,
+                   cursor: str | None = None) -> dict:
         query = self.db.query(IdeaPost).filter(IdeaPost.status == "published")
         if category in CATEGORIES:
             query = query.filter(IdeaPost.category == category)
@@ -424,6 +503,22 @@ class IdeaService:
             query = query.filter(exists().where(
                 and_(IdeaPostTag.post_id == IdeaPost.id, IdeaPostTag.tag == t)
             ))
+        # 游标模式（new/like/hot 恒走，cursor=None 即第一页）：翻页不再 COUNT 全表；
+        # recommend 是内存排序（时间衰减+个人兴趣，每请求变分），游标无意义，保留页码语义
+        if sort in ("new", "like", "hot"):
+            rows, has_more, next_cursor = self._cursor_page(query, sort, page_size, cursor)
+            ids = [p.id for p in rows]
+            tag_map, att_map = self._tags_of(ids), self._attachments_of(ids)
+            liked = self._liked_set(user_id, ids)
+            collected = self._collected_set(user_id, ids)
+            img_map = self._images_of(ids)
+            return Result.success("获取成功", {
+                # 首页（cursor=None）保留 total 向后兼容；翻页（带 cursor）不 COUNT
+                "total": query.count() if cursor is None else None,
+                "hasMore": has_more,
+                "nextCursor": next_cursor,
+                "list": [self._post_item(p, tag_map, att_map, liked, img_map=img_map, collected=collected) for p in rows],
+            })
         total = query.count()
         if sort == "recommend":
             rows = self._recommend_rows(query, user_id, page, page_size)
@@ -452,6 +547,7 @@ class IdeaService:
         img_map = self._images_of(ids)
         return Result.success("获取成功", {
             "total": total,
+            "hasMore": page * page_size < total,
             "list": [self._post_item(p, tag_map, att_map, liked, img_map=img_map, collected=collected) for p in rows],
         })
 

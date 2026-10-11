@@ -45,7 +45,7 @@
             type="button"
             class="chip"
             :class="{ on: category === c.key }"
-            @click="category = c.key; page = 1; loadFeed()"
+            @click="category = c.key; resetFeed()"
           >
             {{ c.label }}
           </button>
@@ -57,7 +57,7 @@
             type="button"
             class="chip"
             :class="{ on: sort === s.key }"
-            @click="sort = s.key; page = 1; loadFeed()"
+            @click="sort = s.key; resetFeed()"
           >
             {{ s.label }}
           </button>
@@ -78,11 +78,11 @@
         </button>
       </div>
 
-      <div v-loading="loading" class="post-grid feed-waterfall">
+      <div v-loading="loading" ref="feedEl" class="feed-wf">
         <article
           v-for="p in posts"
           :key="p.id"
-          class="post-card xhs-card"
+          class="post-card xhs-card wf-item"
           tabindex="0"
           @click="openPost(p.id)"
           @keyup.enter="openPost(p.id)"
@@ -132,15 +132,11 @@
         <el-empty v-if="!loading && !posts.length" description="这里还很安静，发第一篇吧" />
       </div>
 
-      <el-pagination
-        v-if="feedTotal > pageSize"
-        v-model:current-page="page"
-        class="pager"
-        layout="prev, pager, next"
-        :total="feedTotal"
-        :page-size="pageSize"
-        @current-change="loadFeed()"
-      />
+      <!-- 无限滚动哨兵：触底自动加载下一批（recommend 走页码，new/hot/like 走游标） -->
+      <div ref="sentinelEl" class="feed-sentinel">
+        <template v-if="loadingMore">加载中…</template>
+        <template v-else-if="!feedHasMore && posts.length">已经到底啦</template>
+      </div>
     </section>
 
     <!-- ========== 草稿箱 ========== -->
@@ -260,13 +256,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, EditPen } from '@element-plus/icons-vue'
 import {
   listPosts, listDrafts, deleteDraft, publishDraft,
   listMinePosts, listMineCollects, listTags, toggleLike, toggleCollect,
-  type IdeaPostItem, type IdeaDraftItem, type IdeaCategory, type IdeaSort,
+  type IdeaPostItem, type IdeaDraftItem, type IdeaCategory, type IdeaSort, type IdeaPostFeed,
 } from '@/api/ideaApi'
 import DraftEditorDialog from '@/components/idea/DraftEditorDialog.vue'
 import PostDetailDialog from '@/components/idea/PostDetailDialog.vue'
@@ -317,6 +313,9 @@ const pageSize = 12
 
 const posts = ref<IdeaPostItem[]>([])
 const feedTotal = ref(0)
+const feedCursor = ref<string | null>(null)
+const feedHasMore = ref(true)
+const loadingMore = ref(false)
 const drafts = ref<IdeaDraftItem[]>([])
 const draftTotal = ref(0)
 const hotTags = ref<{ tag: string; count: number }[]>([])
@@ -339,27 +338,69 @@ const unwrap = <T,>(res: unknown): T | null => {
 
 // ---------- 数据加载 ----------
 
-const loadFeed = async () => {
-  loading.value = true
+/**
+ * 广场流加载：
+ * - reset：清空重拉第一页（切分区/排序/标签/搜索）
+ * - more：触底追加下一批（new/hot/like 用 nextCursor 游标，recommend 用页码；深翻可能重复故按 id 去重）
+ */
+type FeedMode = 'reset' | 'more'
+
+const feedParams = () => ({
+  category: category.value || undefined,
+  sort: sort.value,
+  q: search.value || undefined,
+  tags: activeTag.value || undefined,
+  pageSize,
+})
+
+const loadFeed = async (mode: FeedMode = 'reset') => {
+  if (mode === 'reset') {
+    page.value = 1
+    feedCursor.value = null
+    feedHasMore.value = true
+  } else if (loading.value || loadingMore.value || !feedHasMore.value) {
+    return // 防并发触底连发
+  }
+  const more = mode === 'more'
+  if (more && sort.value !== 'recommend' && !feedCursor.value) {
+    feedHasMore.value = false // 游标丢失（异常兜底）：停更，防退化成页码模式反复拉第一页
+    return
+  }
+  const flag = more ? loadingMore : loading
+  flag.value = true
   try {
-    const data = unwrap<{ total: number; list: IdeaPostItem[] }>(
-      await listPosts({
-        category: category.value || undefined,
-        sort: sort.value,
-        q: search.value || undefined,
-        tags: activeTag.value || undefined,
-        page: page.value,
-        pageSize,
-      }),
-    )
+    const params = more
+      ? sort.value === 'recommend'
+        ? { ...feedParams(), page: page.value + 1 }
+        : { ...feedParams(), cursor: feedCursor.value ?? undefined }
+      : { ...feedParams(), page: 1 }
+    const data = unwrap<IdeaPostFeed>(await listPosts(params))
     if (data) {
-      posts.value = data.list
-      feedTotal.value = data.total
+      if (more && sort.value === 'recommend') page.value += 1
+      const seen = new Set(posts.value.map((p) => p.id))
+      const fresh = data.list.filter((p) => !seen.has(p.id))
+      posts.value = more ? [...posts.value, ...fresh] : fresh
+      feedCursor.value = data.nextCursor ?? null
+      feedHasMore.value = data.hasMore ?? data.list.length === pageSize
+      feedTotal.value = data.total ?? posts.value.length
     }
   } finally {
-    loading.value = false
+    flag.value = false
+    // 填满视口：首屏内容不足一屏时，sentinel 仍在视口内 → 继续追加直到填满或到底。
+    // （IO 初次 observe 时若已在视口内会因 loading=true 被挡，之后不再触发，故此处兜底）
+    if (sentinelVisible() && feedHasMore.value) await loadFeed('more')
   }
 }
+
+/** 哨兵是否进入视口（含 400px 预取余量） */
+const sentinelVisible = () => {
+  const el = sentinelEl.value
+  if (!el) return false
+  return el.getBoundingClientRect().top < window.innerHeight + 400
+}
+
+/** 筛选/排序/标签变化：清空重来 */
+const resetFeed = () => loadFeed('reset')
 
 const loadDrafts = async () => {
   loading.value = true
@@ -408,7 +449,7 @@ const loadTags = async () => {
 }
 
 const reload = () => {
-  if (tab.value === 'feed') loadFeed()
+  if (tab.value === 'feed') loadFeed('reset')
   else if (tab.value === 'drafts') loadDrafts()
   else if (tab.value === 'mine') loadMine()
   else loadCollects()
@@ -423,14 +464,16 @@ const switchTab = (key: TabKey) => {
 }
 
 const onSearch = () => {
-  page.value = 1
-  reload()
+  if (tab.value === 'feed') resetFeed()
+  else {
+    page.value = 1
+    reload()
+  }
 }
 
 const toggleTag = (tag: string) => {
   activeTag.value = activeTag.value === tag ? '' : tag
-  page.value = 1
-  loadFeed()
+  resetFeed()
 }
 
 const openEditor = (draftId: number | null) => {
@@ -448,9 +491,8 @@ const onDraftSaved = () => reload()
 const onPublished = () => {
   editorVisible.value = false
   tab.value = 'feed'
-  page.value = 1
   activeTag.value = ''
-  loadFeed()
+  loadFeed('reset') // 默认 reset 模式，内部会重置 page/cursor
   loadTags()
 }
 
@@ -532,9 +574,99 @@ const onCardCollect = async (p: IdeaPostItem) => {
   }
 }
 
+// ---------- 广场手写瀑布流（短列优先，无第三方依赖） ----------
+// 算法：容器列数 = floor((宽+gap)/(最小列宽+gap))；每张卡放进当前最矮列并下移；
+// 卡片绝对定位（transform），容器高度 = 最高列；封面卡 3:4 定高，无封面卡量实际高度。
+
+const feedEl = ref<HTMLElement | null>(null)
+const sentinelEl = ref<HTMLElement | null>(null)
+const WF_GAP = 14
+const WF_GAP_M = 10
+const WF_MIN_COL = 220
+const WF_MIN_COL_M = 140
+
+let wfRO: ResizeObserver | null = null
+let wfIO: IntersectionObserver | null = null
+let wfRaf = 0
+
+const relayout = () => {
+  const box = feedEl.value
+  if (!box) return
+  const cards = Array.from(box.querySelectorAll<HTMLElement>('.wf-item'))
+  if (!cards.length) {
+    box.style.height = 'auto' // 空态交给 el-empty 撑开
+    return
+  }
+  const isMobile = window.matchMedia('(max-width: 768px)').matches
+  const gap = isMobile ? WF_GAP_M : WF_GAP
+  const minCol = isMobile ? WF_MIN_COL_M : WF_MIN_COL
+  const w = box.clientWidth
+  if (!w) return
+  const cols = Math.max(1, Math.floor((w + gap) / (minCol + gap)))
+  const colW = (w - gap * (cols - 1)) / cols
+  const colY = new Array<number>(cols).fill(0)
+  cards.forEach((el) => {
+    el.style.width = `${colW}px` // 先统一定宽，量高才有意义（无封面卡文字不定高）
+    let col = 0
+    for (let j = 1; j < cols; j++) if (colY[j]! < colY[col]!) col = j
+    // left/top 定位（transform 留给 hover 动效，避免互相覆盖）
+    el.style.left = `${col * (colW + gap)}px`
+    el.style.top = `${colY[col]}px`
+    colY[col] = colY[col]! + el.offsetHeight + gap
+  })
+  box.style.height = `${Math.max(...colY) - gap}px`
+}
+
+/** rAF 节流：卡片高度变化（字体加载/图片）连发时合并为一帧 */
+const scheduleRelayout = () => {
+  cancelAnimationFrame(wfRaf)
+  wfRaf = requestAnimationFrame(relayout)
+}
+
+/** 监听卡片实际高度变化触发重排；width 同值写入不触发，transform 不影响尺寸测量 → 无循环 */
+const observeCards = () => {
+  if (!wfRO) return
+  wfRO.disconnect()
+  feedEl.value?.querySelectorAll<HTMLElement>('.wf-item').forEach((el) => wfRO!.observe(el))
+}
+
+const setupSentinel = () => {
+  wfIO?.disconnect()
+  if (!sentinelEl.value) return
+  wfIO = new IntersectionObserver(
+    (entries) => {
+      if (entries.some((e) => e.isIntersecting)) loadFeed('more')
+    },
+    { rootMargin: '600px 0px' }, // 提前 600px 预取，滚动不卡顿
+  )
+  wfIO.observe(sentinelEl.value)
+}
+
 onMounted(() => {
   loadFeed()
   loadTags()
+  wfRO = new ResizeObserver(scheduleRelayout)
+  setupSentinel()
+  window.addEventListener('resize', scheduleRelayout)
+})
+
+// 列表变化（触底追加/重置）→ 重排；Tab 切换 → 重建哨兵（sentinel 在 v-if 内会销毁重建）
+watch([posts, sentinelEl], async () => {
+  await nextTick()
+  observeCards()
+  scheduleRelayout()
+})
+watch(tab, async () => {
+  await nextTick()
+  setupSentinel()
+  if (tab.value === 'feed') scheduleRelayout()
+})
+
+onBeforeUnmount(() => {
+  wfRO?.disconnect()
+  wfIO?.disconnect()
+  cancelAnimationFrame(wfRaf)
+  window.removeEventListener('resize', scheduleRelayout)
 })
 </script>
 
@@ -704,28 +836,38 @@ onMounted(() => {
   min-height: 200px;
 }
 
-/* 广场小红书瀑布流：CSS multi-column，卡片 break-inside 避免截断，高度自然参差 */
-.feed-waterfall {
-  display: block;
-  column-width: 220px;
-  column-gap: 14px;
+/* 广场真瀑布流：手写短列优先布局（JS 定位 left/top，transform 留给 hover） */
+.feed-wf {
+  position: relative;
+  min-height: 200px;
 }
 
-.feed-waterfall .xhs-card {
-  display: inline-block;
+.feed-wf .wf-item {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
   width: 100%;
   box-sizing: border-box;
-  margin: 0 0 14px;
+  margin: 0;
   padding: 0;
   gap: 0;
   overflow: hidden;
-  break-inside: avoid;
-  vertical-align: top;
+  will-change: transform;
 }
 
-.feed-waterfall .xhs-card:hover,
-.feed-waterfall .xhs-card:focus-visible {
+.feed-wf .wf-item:hover,
+.feed-wf .wf-item:focus-visible {
   transform: translateY(-3px);
+}
+
+.feed-sentinel {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 .card-cover {
@@ -1159,19 +1301,10 @@ onMounted(() => {
     flex-shrink: 0;
   }
 
-  /* 卡片：双列（内容宽 297 = 375-14-64，列 (297-10)/2≈143.5 ≥ 140 ✓） */
+  /* 卡片：双列（内容宽 297 = 375-14-64，列 (297-10)/2≈143.5 ≥ 140 ✓）；广场瀑布流列数/间距由 JS 断点计算 */
   .post-grid {
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 10px;
-  }
-
-  .feed-waterfall {
-    column-width: 140px;
-    column-gap: 10px;
-  }
-
-  .feed-waterfall .xhs-card {
-    margin-bottom: 10px;
   }
 
   .post-card {

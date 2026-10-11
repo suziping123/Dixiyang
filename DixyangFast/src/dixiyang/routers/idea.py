@@ -51,10 +51,11 @@ async def list_posts(
     category: str | None = None, sort: str = "new", q: str | None = None,
     tags: str | None = None,
     page: int = 1, page_size: int = Query(10, alias="pageSize"),
+    cursor: str | None = Query(None, description="游标翻页（new/like/hot 用；recommend 忽略）"),
     user_id: int | None = Depends(get_optional_user_id),
     svc: IdeaService = Depends(),
 ):
-    return svc.list_posts(user_id, category, sort, q, tags.split(",") if tags else None, page, page_size)
+    return svc.list_posts(user_id, category, sort, q, tags.split(",") if tags else None, page, page_size, cursor=cursor)
 
 
 @router.get("/posts/{post_id}")

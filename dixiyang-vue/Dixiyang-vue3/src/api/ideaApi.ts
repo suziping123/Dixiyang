@@ -47,6 +47,14 @@ export interface IdeaPage<T> {
   list: T[];
 }
 
+/** 广场列表响应（游标模式无 total；页码模式 total/hasMore 齐全） */
+export interface IdeaPostFeed {
+  total?: number;
+  hasMore?: boolean;
+  nextCursor?: string | null;
+  list: IdeaPostItem[];
+}
+
 export interface IdeaComment {
   id: number;
   authorId: number;
@@ -106,6 +114,8 @@ export const listPosts = (params: {
   tags?: string;
   page?: number;
   pageSize?: number;
+  /** 游标翻页（new/like/hot）；recommend 排序后端忽略此参数走页码 */
+  cursor?: string;
 }) => http.get('/idea/posts', { params });
 
 export const getPost = (id: number) => http.get<IdeaPostItem>(`/idea/posts/${id}`);
