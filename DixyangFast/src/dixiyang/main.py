@@ -22,7 +22,8 @@ from dixiyang.models.chat_session import ChatSession
 from dixiyang.models.volume import Volume
 from dixiyang.models.chapter import Chapter
 from dixiyang.models import idea as idea_model  # noqa: F401  注册 idea_* 7 张表到 Base.metadata
-from dixiyang.routers import auth, novel, character, story_node, timeline, file, user, chat, user_config, chat_history, rag, volume, chapter, ai, idea, admin
+from dixiyang.models.sticky import StickyNote  # noqa: F401  注册 sticky_note 表
+from dixiyang.routers import auth, novel, character, story_node, timeline, file, user, chat, user_config, chat_history, rag, volume, chapter, ai, idea, admin, sticky
 from dixiyang.utils.database import Base, engine
 from dixiyang.config import UPLOAD_DIR
 from dixiyang.services.idea_cache import cache as idea_cache
@@ -38,6 +39,11 @@ async def lifespan(app: FastAPI):
     if "role" not in cols:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE app_user ADD COLUMN role VARCHAR(20) DEFAULT 'user'"))
+    # 既有表补列：sticky_note.done（同上，create_all 不会给旧表加列，缺失则增删改查全 500）
+    s_cols = {c["name"] for c in sa_inspect(engine).get_columns("sticky_note")}
+    if "done" not in s_cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE sticky_note ADD COLUMN done INT NOT NULL DEFAULT 0"))
     idea_cache.start_background()
     yield
     idea_cache.stop_background()
@@ -72,6 +78,7 @@ app.include_router(volume.router, prefix="/api")
 app.include_router(chapter.router, prefix="/api")
 app.include_router(ai.router, prefix="/api")
 app.include_router(idea.router, prefix="/api")
+app.include_router(sticky.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 
 

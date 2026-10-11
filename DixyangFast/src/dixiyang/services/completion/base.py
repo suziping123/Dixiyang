@@ -20,6 +20,8 @@ class CompletionContext:
     character_ids: list[int] = field(default_factory=list)  # 勾选的角色
     story_node_ids: list[int] = field(default_factory=list)  # 勾选的事件（故事节点）
     timeline_ids: list[int] = field(default_factory=list)  # 勾选的时间线
+    note_ids: list[int] = field(default_factory=list)  # 勾选的便利贴灵感（素材池）
+    user_id: int = 0  # 当前用户（灵感素材按用户过滤，防越权读他人便签）
     max_tokens: int = 80    # 严格限制补全长度（20~80 汉字）
     temperature: float = 0.7
 

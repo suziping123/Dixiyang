@@ -35,6 +35,8 @@ export interface CompletionContextIds {
   characterIds: number[]
   storyNodeIds: number[]
   timelineIds: number[]
+  /** 勾选的便利贴灵感（素材池，AI 吃下后注入补全 prompt） */
+  noteIds: number[]
 }
 
 export interface CompletionSource {

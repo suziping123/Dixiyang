@@ -49,6 +49,30 @@
       <slot name="ai-context" />
     </section>
 
+    <!-- 灵感素材池（来自 /inspiration 投喂） -->
+    <section class="panel">
+      <h3 class="panel-title">
+        <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M14 9h4"/><path d="M14 13h4"/></svg>
+        灵感素材
+        <span class="pool-badge" v-if="poolNotes.length">{{ poolNotes.length }}</span>
+      </h3>
+      <div v-if="!poolNotes.length" class="empty-pool-hint">
+        在 <router-link to="/inspiration">灵感墙</router-link> 把便签拖进素材池，<br />这里即可勾选注入 AI 补全
+      </div>
+      <div v-else class="pool-list">
+        <label
+          v-for="n in poolNotes"
+          :key="n.id"
+          class="pool-item"
+          :class="n.color"
+        >
+          <input type="checkbox" :value="n.id" v-model="selectedNoteIds" @change="emitSelection" />
+          <span class="pi-text">{{ n.content || '（空便签）' }}</span>
+          <span v-if="n.images.length" class="pi-img-count">{{ n.images.length }}</span>
+        </label>
+      </div>
+    </section>
+
     <!-- 章节信息 -->
     <section class="panel" v-if="chapter">
       <h3 class="panel-title">章节信息</h3>
@@ -73,8 +97,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import type { Chapter } from '@/api/types'
+import { useStickyStore } from '@/stores/stickyStore'
 
 export type SyncState = 'local-clean' | 'local-dirty' | 'uploading' | 'uploaded' | 'conflict' | 'upload-failed'
 export type AIState = 'ready' | 'thinking' | 'error' | 'disconnected'
@@ -88,10 +114,30 @@ const props = defineProps<{
   aiState: AIState
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   'save-cloud': []
   'ai-trigger': []
+  'selection-change': [noteIds: number[]]
 }>()
+
+const router = useRouter()
+const route = useRoute()
+const stickyStore = useStickyStore()
+
+const selectedNoteIds = ref<number[]>([])
+
+/** 素材池便签（灵感墙投喂的） */
+const poolNotes = computed(() => stickyStore.pool)
+
+function emitSelection() {
+  emit('selection-change', selectedNoteIds.value)
+}
+
+// 监听外部传入的选择（如果有）
+watch(() => props.chapter, () => {
+  // 章节切换时可选择性清空
+  // selectedNoteIds.value = []
+})
 
 const SYNC_LABELS: Record<SyncState, string> = {
   'local-clean': '已保存到本地 · 与云端一致',
@@ -313,5 +359,103 @@ function formatSize(size: number): string {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* ============ 灵感素材面板 ============ */
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+  margin: 0 0 10px;
+}
+.panel-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.pool-badge {
+  margin-left: auto;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-primary);
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.empty-pool-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.6;
+  color: var(--text-disabled);
+}
+.empty-pool-hint a {
+  color: var(--accent-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.empty-pool-hint a:hover {
+  color: var(--accent-cyan);
+}
+
+.pool-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pool-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--surface-glass-border);
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease-out);
+}
+
+.pool-item:hover {
+  border-color: var(--accent-primary);
+  background: var(--accent-soft);
+}
+
+.pool-item input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  accent-color: var(--accent-primary);
+  cursor: pointer;
+}
+
+.pi-text {
+  flex: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.pi-img-count {
+  flex-shrink: 0;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-primary);
+  font-size: 0.62rem;
+  font-weight: 700;
 }
 </style>

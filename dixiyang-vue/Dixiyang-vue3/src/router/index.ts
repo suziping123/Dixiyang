@@ -17,6 +17,7 @@ import CharacterManagerView from '../views/CharacterManagerView.vue'
 import RagAssistantView from '../views/RagAssistantView.vue'
 import RagKnowledgeView from '../views/RagKnowledgeView.vue'
 import IdeaLibraryView from '../views/IdeaLibraryView.vue'
+import InspirationWallView from '../views/InspirationWallView.vue'
 import { isTokenValid, clearAuth } from '@/utils/auth'
 
 const router = createRouter({
@@ -76,6 +77,12 @@ const router = createRouter({
       name: 'idea-library',
       component: IdeaLibraryView,
       meta: { requiresAuth: true, title: '广场 · DIXIYANG' }
+    },
+    {
+      path: '/inspiration',
+      name: 'inspiration-wall',
+      component: InspirationWallView,
+      meta: { requiresAuth: true, title: '灵感墙 · DIXIYANG' }
     },
     {
       path: '/admin',

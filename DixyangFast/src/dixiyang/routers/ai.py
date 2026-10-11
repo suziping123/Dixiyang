@@ -20,6 +20,7 @@ class CompletionReq(BaseModel):
     characterIds: list[int] = Field(default_factory=list, description="勾选的角色 ID")
     storyNodeIds: list[int] = Field(default_factory=list, description="勾选的事件（故事节点）ID")
     timelineIds: list[int] = Field(default_factory=list, description="勾选的时间线 ID")
+    noteIds: list[int] = Field(default_factory=list, description="勾选的便利贴灵感 ID（素材池）")
     maxTokens: int = 80
 
     class Config:
@@ -54,6 +55,8 @@ async def completion(req: CompletionReq, user_id: int = Depends(get_current_user
         character_ids=req.characterIds[:50],
         story_node_ids=req.storyNodeIds[:50],
         timeline_ids=req.timelineIds[:50],
+        note_ids=req.noteIds[:20],
+        user_id=user_id,
         max_tokens=max(20, min(req.maxTokens, 80)),
     )
     result = await request_completion(ctx)

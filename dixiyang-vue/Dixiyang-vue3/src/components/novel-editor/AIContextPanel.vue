@@ -73,8 +73,29 @@
           >{{ n.eventDate ? `${n.eventDate} ` : '' }}{{ n.title }}</button>
         </div>
       </div>
-      <p v-if="!characters.length && !timelines.length && !nodes.length" class="ctx-note">
-        本小说暂无角色/时间线/事件。
+      <!-- 便利贴灵感（素材池：灵感墙拖入的便签） -->
+      <div class="ctx-group" v-if="notes.length">
+        <div class="ctx-group-head">
+          <span class="ctx-group-name">灵感 · {{ selected.notes.size }}/{{ notes.length }}</span>
+          <span class="ctx-group-ops">
+            <a @click="selectAll('notes', notes)">全选</a>
+            <a @click="clearGroup('notes')">清空</a>
+          </span>
+        </div>
+        <div class="ctx-chips">
+          <button
+            v-for="n in notes"
+            :key="n.id"
+            class="ctx-chip"
+            :class="{ active: selected.notes.has(n.id) }"
+            :title="n.content"
+            @click="toggle('notes', n.id)"
+          >{{ noteLabel(n.content) }}</button>
+        </div>
+      </div>
+      <p v-if="!characters.length && !timelines.length && !nodes.length && !notes.length" class="ctx-note">
+        本小说暂无角色/时间线/事件。<br />
+        灵感：把便签拖进「灵感墙 → 📮 素材池」即可在此勾选。
       </p>
     </template>
   </section>
@@ -84,6 +105,8 @@
 import { computed, ref, watch } from 'vue'
 import type { Character, Timeline, TimelineNode } from '@/api/types'
 import type { CompletionContextIds } from '@/composables/useAICompletion'
+import { listPool } from '@/api/stickyApi'
+import type { StickyNoteItem } from '@/api/stickyApi'
 
 const props = defineProps<{
   novelId: number
@@ -97,11 +120,36 @@ const selected = ref({
   characters: new Set<number>(),
   timelines: new Set<number>(),
   nodes: new Set<number>(),
+  notes: new Set<number>(),
 })
 
-type GroupKey = 'characters' | 'timelines' | 'nodes'
+/** 素材池便签（灵感墙投喂的），enabled 时才拉取 */
+const notes = ref<StickyNoteItem[]>([])
+
+type GroupKey = 'characters' | 'timelines' | 'nodes' | 'notes'
 const STORE_KEY = (novelId: number) => `aiCtxSel_${novelId}`
 const ENABLED_KEY = (novelId: number) => `aiCtxEnabled_${novelId}`
+
+/** 灵感 chip 文案：内容首 10 字 */
+function noteLabel(content: string): string {
+  const t = content.replace(/\s+/g, ' ').trim()
+  return t.length > 10 ? `${t.slice(0, 10)}…` : t || '（空）'
+}
+
+async function loadNotes(): Promise<void> {
+  try {
+    const res = await listPool()
+    notes.value = ((res as { data?: StickyNoteItem[] }).data ?? []).filter(
+      // 只显示非空内容的灵感（空便签注入 prompt 无意义）
+      (n) => n.content.trim().length > 0,
+    )
+    // 清掉已不存在的勾选
+    const ids = new Set(notes.value.map((n) => n.id))
+    selected.value.notes = new Set([...selected.value.notes].filter((id) => ids.has(id)))
+  } catch {
+    notes.value = []
+  }
+}
 
 /** 事件按时间升序（"当时的时间线"更直观） */
 const sortedNodes = computed(() =>
@@ -131,6 +179,7 @@ function persist(): void {
       characters: [...s.characters],
       timelines: [...s.timelines],
       nodes: [...s.nodes],
+      notes: [...s.notes],
     }),
   )
 }
@@ -138,7 +187,7 @@ function persist(): void {
 /** 供 useAICompletion 在请求时同步读取；未启用=不带任何设定 */
 function getSelection(): CompletionContextIds {
   if (!enabled.value) {
-    return { novelId: props.novelId, characterIds: [], storyNodeIds: [], timelineIds: [] }
+    return { novelId: props.novelId, characterIds: [], storyNodeIds: [], timelineIds: [], noteIds: [] }
   }
   const s = selected.value
   return {
@@ -146,6 +195,7 @@ function getSelection(): CompletionContextIds {
     characterIds: [...s.characters],
     storyNodeIds: [...s.nodes],
     timelineIds: [...s.timelines],
+    noteIds: [...s.notes],
   }
 }
 
@@ -154,18 +204,26 @@ try {
   enabled.value = localStorage.getItem(ENABLED_KEY(props.novelId)) === '1'
   const raw = localStorage.getItem(STORE_KEY(props.novelId))
   if (raw) {
-    const saved = JSON.parse(raw) as { characters?: number[]; timelines?: number[]; nodes?: number[] }
+    const saved = JSON.parse(raw) as { characters?: number[]; timelines?: number[]; nodes?: number[]; notes?: number[] }
     selected.value = {
       characters: new Set(saved.characters ?? []),
       timelines: new Set(saved.timelines ?? []),
       nodes: new Set(saved.nodes ?? []),
+      notes: new Set(saved.notes ?? []),
     }
   }
 } catch {
   /* 记忆损坏则用默认值 */
 }
 
-watch(enabled, (v) => localStorage.setItem(ENABLED_KEY(props.novelId), v ? '1' : '0'))
+watch(
+  enabled,
+  (v) => {
+    localStorage.setItem(ENABLED_KEY(props.novelId), v ? '1' : '0')
+    if (v && !notes.value.length) void loadNotes()
+  },
+  { immediate: true },
+)
 
 defineExpose({ getSelection })
 </script>

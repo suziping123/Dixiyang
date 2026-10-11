@@ -71,6 +71,7 @@
           :ai-state="aiState"
           @save-cloud="saveToCloud"
           @ai-trigger="triggerAI"
+          @selection-change="onNoteSelectionChange"
         >
           <template #ai-context>
             <AIContextPanel
@@ -164,6 +165,11 @@ const characters = ref<Character[]>([])
 const timelines = ref<Timeline[]>([])
 const storyNodes = ref<TimelineNode[]>([])
 const ctxPanelRef = ref<InstanceType<typeof AIContextPanel> | null>(null)
+  const selectedNoteIds = ref<number[]>([])
+
+  function onNoteSelectionChange(ids: number[]) {
+    selectedNoteIds.value = ids
+  }
 
 /** 拉取设定数据（失败不阻塞编辑） */
 async function loadContextData() {
@@ -543,6 +549,7 @@ onMounted(async () => {
         characterIds: [],
         storyNodeIds: [],
         timelineIds: [],
+        noteIds: selectedNoteIds.value,
       },
   })
   const first = chapters.value[0]

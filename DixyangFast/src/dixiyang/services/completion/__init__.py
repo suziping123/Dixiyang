@@ -86,10 +86,11 @@ class OpenAICompatibleProvider(CompletionProvider):
 
 
 def _build_setting_context(ctx: CompletionContext) -> str:
-    """按勾选 IDs 组装设定上下文（角色卡 + 事件 + 时间线），总截断 1500 字符。
+    """按勾选 IDs 组装设定上下文（角色卡 + 事件 + 时间线 + 灵感），总截断 1500 字符。
 
     复用 chat_service.build_fixed_context 查角色（含背景/性格/外貌）与事件；
-    时间线单独查表拼 [时间线] 条目。查询量小（各 ≤50 条），同步执行开销可忽略。
+    时间线单独查表拼 [时间线] 条目；灵感读便签文件（按 user_id 过滤防越权）。
+    查询量小（各 ≤50 条），同步执行开销可忽略。
     """
     parts: list[str] = []
     try:
@@ -108,6 +109,21 @@ def _build_setting_context(ctx: CompletionContext) -> str:
                 if t.description:
                     line += f"：{t.description[:100]}"
                 parts.append(line)
+        if ctx.note_ids and ctx.user_id:
+            from ...models.sticky import StickyNote
+            from ...utils.database import SessionLocal
+            from ..storage_service import load_json
+            with SessionLocal() as db:
+                rows = (
+                    db.query(StickyNote)
+                    .filter(StickyNote.id.in_(ctx.note_ids), StickyNote.user_id == ctx.user_id)
+                    .all()
+                )
+            for n in rows:
+                data = load_json(f"sticky/{n.user_id}", n.id, n.content_path)
+                content = data.get("content", "").strip() if isinstance(data, dict) else ""
+                if content:
+                    parts.append(f"[灵感] {content[:300]}")
     except Exception as e:
         # 设定上下文组装失败不阻塞补全，只记错误类型
         log.warning("设定上下文组装失败: %s", type(e).__name__)
