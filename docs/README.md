@@ -774,6 +774,9 @@
 
 ## 版本变更记录
 
+### v1.54 (2026-10-12)
+- **重写**: 根目录 [README.md](../README.md) 全面重写（新人克隆即可跑）— 修正三大致命缺口：① 新增「克隆后必做」：Git Hooks（`scripts/setup-hooks.ps1`，防 pull 删除本地技能文件）+ `.env` 创建（`cp .env.example .env`，4 项必填：DB_PASSWORD/DATABASE_URL/JWT_SECRET_KEY/DEEPSEEK_API_KEY）；② 架构勘误：**当前主后端是 Python FastAPI（DixyangFast/src/dixiyang/main.py，8084，`start_backend.bat` 一键，启动自动 create_all 建表）**，旧版 README 误写 Java 为主后端——dixiyang-engine 降级为"备用、与 Python 同端口二选一、不读 .env 只认系统环境变量"；③ 环境要求修正：Node 从 18+ 改为 package.json engines 实际要求（^20.19||≥22.12）；新增 Redis 可选章节（广场推荐缓存，未起自动降级）、前端打包已知问题（`npm run build` 含 type-check 存量错误 → 用 `build-only`）、FAQ 更新（8084 冲突/hooks/build 报错/Redis 降级）、文档导航改为真实存在链接（删除失效的 项目总体情况总结/向量库可视化指南）
+
 ### v1.53 (2026-10-10)
 - **更新**: [移动端浮动导航防遮挡](../dixiyang-vue/docs/移动端浮动导航防遮挡.md) v1.2 — 宽屏桌面 FloatingNav「范围太大」修复：`.nav-wrapper` 100px×全高热区 `pointer-events:none` 穿透（不再挡页面左侧点击），`.nav-trigger` 接管 hover 且 30→16px 收窄误触，展开面板单独恢复可点（FAB 模式覆写不受影响）；CDP 冒烟 18/18 PASS、type-check 9 / eslint 0 基线不破；**新发现**：FloatingNav 双实例挂载（本次灵感墙改动在 `App.vue` 加全局挂载未删 8 个 view 旧挂载，渲染 2 套空转），待用户决定清理
 
@@ -953,6 +956,6 @@
 
 ---
 
-*文档版本: v1.25*
-*最后更新: 2026-10-06*
+*文档版本: v1.54*
+*最后更新: 2026-10-12*
 *维护者: Dixiyang Team*

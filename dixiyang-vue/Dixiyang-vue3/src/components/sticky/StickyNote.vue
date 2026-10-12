@@ -10,13 +10,20 @@
     <!-- 悬浮工具栏：hover/长按显现，含拖拽手柄/编辑/钉住/删除 -->
     <div class="toolbar" ref="toolbar" @pointerdown.stop>
       <button
-        class="tool-btn drag-handle"
+        class="tool-btn"
         type="button"
-        title="拖动移动"
-        aria-label="拖动移动"
-        @pointerdown.stop="onDragHandleDown"
+        :class="{ active: note.inPool }"
+        :title="note.inPool ? '已投喂 AI 素材池 · 点击取消投喂' : '投喂到 AI 素材池'"
+        :aria-label="note.inPool ? '取消投喂' : '投喂到 AI 素材池'"
+        @click.stop="toggleFeed"
       >
-        <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="18"/></svg>
+        <svg v-if="!note.inPool" class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+          <polyline points="22,6 12,13 2,6"/>
+        </svg>
+        <svg v-else class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
       </button>
       <button
         class="tool-btn"
@@ -93,7 +100,7 @@
           <img v-for="img in note.images.slice(0, 3)" :key="img" :src="img" alt="" loading="lazy" />
         </div>
       </template>
-      <span v-if="note.inPool" class="fed-stamp" aria-label="已投喂素材池">已投喂</span>
+
     </div>
     <input ref="file" type="file" accept="image/*" hidden @change="onFile" />
   </div>
@@ -193,17 +200,14 @@ function hideToolbar(delay = 300) {
 }
 
 /** 拖拽手柄专用 pointerdown：只启动拖动，不显示工具栏 */
-function onDragHandleDown(e: PointerEvent) {
-  if (e.button !== 0) return;
-  if (pinned.value || editing.value) return;
-  const rect = el.value!.getBoundingClientRect();
-  offX = e.clientX - rect.left;
-  offY = e.clientY - rect.top;
-  dragging.value = true;
-  document.body.classList.add('sticky-dragging');
-  window.addEventListener('pointermove', onPointerMove);
-  window.addEventListener('pointerup', onPointerUp, { once: true });
-  window.addEventListener('pointercancel', onPointerUp, { once: true });
+function toggleFeed() {
+  const next = !props.note.inPool;
+  store.patch(props.note.id, { inPool: next });
+  if (next) {
+    ElMessage.success('灵感已投喂 AI 素材池');
+  } else {
+    ElMessage.info('已取消投喂');
+  }
 }
 
 /** 通用 pointerdown：非手柄区域，显示工具栏 + 可拖动（未钉住时） */
@@ -244,8 +248,15 @@ function onPointerUp() {
   document.body.classList.remove('sticky-dragging');
   hideToolbar();
   if (!moved) return;
-  const rect = el.value!.getBoundingClientRect();
-  const target = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)?.closest('[data-pool-drop]');
+  const node = el.value!;
+  const rect = node.getBoundingClientRect();
+  // 关键：拖拽中的便签自己悬浮在光标下（pointer-events:auto），
+  // 不临时屏蔽的话 elementFromPoint 永远命中便签自己 → 拖放投喂永不生效
+  const prevPe = node.style.pointerEvents;
+  node.style.pointerEvents = 'none';
+  const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+  node.style.pointerEvents = prevPe;
+  const target = hit?.closest('[data-pool-drop]');
   if (target) {
     emit('fed', props.note.id);
     return;
@@ -353,7 +364,11 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   transform: rotate(var(--rot, 0deg));
-  transition: filter var(--dur-fast) var(--ease-out);
+  transition:
+    transform var(--dur) var(--ease-out),
+    filter var(--dur) var(--ease-out),
+    opacity var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out);
   touch-action: none;
   user-select: none;
   pointer-events: auto;
@@ -364,6 +379,14 @@ onBeforeUnmount(() => {
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--surface-glass-border);
   box-shadow: var(--shadow-card);
+  will-change: transform, left, top, opacity, filter;
+}
+
+.sticky.in-pool {
+  transform: rotate(var(--rot, 0deg)) scale(0.96) translateY(3px);
+  opacity: 0.92;
+  filter: saturate(0.6) contrast(0.94) brightness(0.98);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 
 .sticky.dim {
@@ -372,11 +395,16 @@ onBeforeUnmount(() => {
 }
 
 .sticky.dragging {
-  transform: rotate(0deg) scale(1.05);
-  filter: drop-shadow(0 16px 24px rgba(0, 0, 0, 0.45));
+  transform: rotate(0deg) scale(1.15);
+  filter: drop-shadow(0 28px 56px rgba(0, 0, 0, 0.7));
   cursor: grabbing;
   transition: none;
-  z-index: 999;
+  z-index: 2000000000;
+  will-change: transform, left, top;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  pointer-events: auto;
+  transform-style: preserve-3d;
 }
 
 /* 纸面：纸纹（横格）+ 顶光 + 投影 + 右下卷角 */
@@ -534,29 +562,9 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
-.drag-handle {
-  cursor: grab;
-}
-.drag-handle:active {
-  cursor: grabbing;
-}
 
-/* ============ 已投喂印章 ============ */
-.fed-stamp {
-  position: absolute;
-  left: 6px;
-  bottom: 6px;
-  padding: 1px 5px;
-  border: 1.5px solid var(--danger);
-  border-radius: 3px;
-  color: var(--danger);
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 1px;
-  transform: rotate(-8deg);
-  background: rgba(255, 255, 255, 0.35);
-  pointer-events: none;
-}
+
+
 
 /* ============ 编辑态 ============ */
 .sticky.editing {
@@ -592,17 +600,22 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  border: 1px solid rgba(0, 0, 0, 0.25);
-  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(0, 0, 0, 0.38);
+  background: rgba(255, 255, 255, 0.92);
+  color: #3a3126; /* 必须显式深色字：否则继承暗色主题浅色字 → 白底白字看不清 */
   border-radius: var(--radius-sm);
   font-size: 0.68rem;
+  font-weight: 600;
   padding: 2px 7px;
   cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
   transition: all var(--dur-fast) var(--ease-out);
 }
 
 .eb:hover {
   background: #fff;
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
 }
 
 .eb.ok {
@@ -613,6 +626,7 @@ onBeforeUnmount(() => {
 
 .eb.ok:hover {
   filter: brightness(1.1);
+  color: #fff;
 }
 
 .eb-icon {
