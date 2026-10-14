@@ -690,7 +690,8 @@
 - 公网地址：https://suziping123.github.io/Dixiyang/ （落地页即 SPA 首页；`404.html` 兜底深链）
 - GitHub Actions 自动部署：push `main` → `vite build --base=/Dixiyang/`（仅 CI 注入）→ `deploy-pages`；Pages Source 已设 GitHub Actions
 - 排障：CI build 失败根因 = 登录页背景视频 `卡比.mp4` 被 `.gitignore` `*.mp4` 忽略未提交，`git add -f` 修复；worktree 干净复现法定位
-- 已知问题：og 绝对 URL 待补、单 chunk 9.4 MB 待分包、线上仅免登录静态前端
+- **演示模式（批 1-4）**：11 个登录后页面全量可逛——构建隔离（仅 CI `--mode gh-pages` 注入 `VITE_DEMO=1`）、axios adapter 短路 + SSE fetch 打桩 + 守卫放行 + 假 JWT；实测真实构建产物无 demo 代码泄漏（摇树生效），本地 dev/生产零影响
+- 已知问题：og 绝对 URL 待补、单 chunk 9.4 MB 待分包、mock 需与真实接口同步演进
 
 **适用人群**: 运维、前端开发者
 
@@ -786,6 +787,9 @@
 ---
 
 ## 版本变更记录
+
+### v1.60 (2026-10-14)
+- **新增**: [静态主页部署](静态主页部署.md) §演示模式 批 1-4 — GitHub Pages 静态站 11 个登录后页面全量可逛（登录/编辑器/角色/时间线/RAG 助手+知识库/点子库/灵感墙/设置/管理后台）：`src/utils/demo/`（adapter 短路 + SSE fetch 打桩 + 假 JWT + 守卫放行），**构建隔离**——仅 CI `--mode gh-pages` 注入 `VITE_DEMO=1`，实测真实构建产物无 demo 代码泄漏、本地 dev/生产行为零影响；每批 type-check 0 错 + build ✓ 后自动发布
 
 ### v1.59 (2026-10-14)
 - **部署**: [静态主页部署](静态主页部署.md) — 落地页公网上线 GitHub Pages：**https://suziping123.github.io/Dixiyang/**。新增 `.github/workflows/deploy-pages.yml`（push main 自动 build `--base=/Dixiyang/` + `404.html` SPA 兜底 + deploy-pages 发布）；排障 CI build 失败 = `卡比.mp4`（32.4MB）被 `.gitignore` `*.mp4` 忽略未入库，`git add -f` 修复（用户拍板入库）；验证公网 200 三连（首页/资产/深链 fallback）+ workflow build/deploy 全绿
