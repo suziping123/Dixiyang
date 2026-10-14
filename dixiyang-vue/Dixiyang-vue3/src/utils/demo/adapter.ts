@@ -15,6 +15,9 @@ import {
   DEMO_VOLUMES,
 } from './mockNovel'
 
+import { DEMO_SESSIONS, DEMO_SESSION_MESSAGES } from './mockSocial'
+import { installChatStreamStub } from './fetchStub'
+
 type Body = { code: number; msg: string; data: unknown }
 
 const ok = (data: unknown, msg = 'ok'): Body => ({ code: 200, msg, data })
@@ -90,6 +93,13 @@ const routes: Array<[RegExp, (config: AxiosRequestConfig) => Body | Promise<Body
   [/^\/rag\/stats$/, () => ok(DEMO_RAG_STATS)],
   [/^\/rag\/documents$/, () => ok(DEMO_RAG_DOCUMENTS)],
   [/^\/rag\/search$/, () => ok({ query: '江末', results: DEMO_RAG_DOCUMENTS.ids.map((id, i) => ({ id, content: DEMO_RAG_DOCUMENTS.documents[i], metadata: DEMO_RAG_DOCUMENTS.metadatas[i], score: 0.92 - i * 0.07 })), total: 4 })],
+  // ── RAG 助手：会话历史（流式对话本身由 fetchStub 处理）──
+  [/^\/chatHistory\/sessions$/, () => ok(DEMO_SESSIONS)],
+  [/^\/chatHistory\/session\/[^/]+$/, (c) => (isPost(c) ? ok(null) : ok(DEMO_SESSION_MESSAGES['demo-s1']))],
+  [/^\/chatHistory\/message\/[^/]+$/, () => ok(null, '演示模式：已保存（假）')],
+  [/^\/chatHistory\/version\/[^/]+$/, () => ok(null, '演示模式：已删除（假）')],
+  [/^\/chatHistory\/delete-current\/[^/]+$/, () => ok({ content: '（演示模式）已回退到上一版本（假）' })],
+  [/^\/chatHistory\/generate-title\/[^/]+$/, () => ok('关于废土聚落的讨论（假标题）')],
   // ── 上传（假 URL，页面显示占位）──
   [/^\/upload\//, () => ok('', '演示模式：上传完成（假）')],
 ]
@@ -108,4 +118,5 @@ export function installDemoAdapter(http: AxiosInstance): void {
     return { data: ok(null, '演示模式'), status: 200, statusText: 'OK', headers: {}, config }
   }
   console.info('%c[demo] 演示模式已激活：API 请求走本地 mock，不发真实请求', 'color:#d64545')
+  installChatStreamStub()
 }
