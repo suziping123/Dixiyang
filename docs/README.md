@@ -683,6 +683,19 @@
 
 ---
 
+### 20. [静态主页部署](./静态主页部署.md) ✨ 新增
+**位置**: `docs/静态主页部署.md`
+
+**内容**:
+- 公网地址：https://suziping123.github.io/Dixiyang/ （落地页即 SPA 首页；`404.html` 兜底深链）
+- GitHub Actions 自动部署：push `main` → `vite build --base=/Dixiyang/`（仅 CI 注入）→ `deploy-pages`；Pages Source 已设 GitHub Actions
+- 排障：CI build 失败根因 = 登录页背景视频 `卡比.mp4` 被 `.gitignore` `*.mp4` 忽略未提交，`git add -f` 修复；worktree 干净复现法定位
+- 已知问题：og 绝对 URL 待补、单 chunk 9.4 MB 待分包、线上仅免登录静态前端
+
+**适用人群**: 运维、前端开发者
+
+---
+
 ## 文档使用指南
 
 ### 对于新加入的开发者
@@ -773,6 +786,21 @@
 ---
 
 ## 版本变更记录
+
+### v1.59 (2026-10-14)
+- **部署**: [静态主页部署](静态主页部署.md) — 落地页公网上线 GitHub Pages：**https://suziping123.github.io/Dixiyang/**。新增 `.github/workflows/deploy-pages.yml`（push main 自动 build `--base=/Dixiyang/` + `404.html` SPA 兜底 + deploy-pages 发布）；排障 CI build 失败 = `卡比.mp4`（32.4MB）被 `.gitignore` `*.mp4` 忽略未入库，`git add -f` 修复（用户拍板入库）；验证公网 200 三连（首页/资产/深链 fallback）+ workflow build/deploy 全绿
+
+### v1.58 (2026-10-13)
+- **调查+修复**: [灵感墙便利贴实施记录](灵感墙便利贴实施记录.md) §10 — ① 调查"便签没保存/显示/查询"：功能与数据实测**全通**（DB 2 行 ↔ 磁盘 2 文件 0 缺失），真因 = 10/11 `done` 缺列历史 500 + `stickyStore` 失败 `catch{}` 静默 + 看错目录（实为 `uploads/storage/sticky/`）；② 补上**确实缺失的定期清理**：新增 `sticky_cleanup.py`（每日+启动即跑，删孤儿 json 与空用户目录，DB 失败只做空目录防误删），`main.py` lifespan 注册，实跑清掉 10 个空目录 0 误删；③ 完成态交互：点正文=划掉 → 纸面右上**勾选圆钮（灰空心圈→黑底白勾）**，正文改回选中/置顶，空便签点勾给提示。验证：后端 import OK + sweep PASS + type-check 0 错
+
+### v1.57 (2026-10-13)
+- **新增**: [RAG聊天导出菜单](RAG聊天导出菜单.md) — RAG 助手消息「总结为设定」单按钮扩展为**导出▾下拉菜单**（手绘 SVG 图标）：复制文本 / 存为便签（`stickyStore.create` 直落库）/ 总结为设定（原流程不变）/ **转发到广场**（新组件 `ForwardToPlazaDialog`：AI 生成候选标题+标签一键应用、分区默认 setting、存草稿 / 立即发布双按钮）。后端新增 `POST /idea/aiSuggest`（`call_llm` + JSON 清理，照抄 extractSettings 套路）。验证：type-check 0 错 + ESLint 三文件 0 错 + build EXIT=0 + 后端 ast 语法 OK
+
+### v1.56 (2026-10-12)
+- **修复**: [前端type-check存量错误清零](前端type-check存量错误清零.md) — `npm run build` 恢复绿灯（EXIT=0），type-check **9 错 → 0 错**。9 处均为类型层告警（`noUncheckedIndexedAccess` 索引 undefined / DeepReadonly 数组赋 mutable prop），运行时均有保护：`localImages` `??` 收敛、`storyMappings` 去 `Record` 标注改字面量推断、`ChatMessage` 数组 prop 放宽 `readonly T[]`（组件内只读）、`TimelineView` `[0]?.id ?? null`。README 删除「用 build-only 绕过」说明与对应 FAQ。验证：type-check 0 错 + build EXIT=0 + ESLint 与 HEAD 基线对比零引入
+
+### v1.55 (2026-10-12)
+- **修复+整理**: [灵感墙便利贴实施记录](灵感墙便利贴实施记录.md) §9 四轮审查 — 修 3 Bug（① 拖拽松手补发 `click` 误触发 `toggleDone` 划掉内容 → `suppressClick` 抑制；② `moved` 不重置致单击误走拖拽保存逻辑、便签悬池口单击误投喂 → `onPointerDown` 重置；③ 编辑态 `z-index:1000 !important` 压掉 `bringToFront` 置顶 → 删规则）；死代码清理（`toolbarVisible` 类补绑激活、删 `Plus` import、删拖拽手柄残留注释、`will-change` 无效 left/top 收敛、拖拽 z-index 20 亿魔数改 210000）；`PoolWindow` 120ms body class 轮询改 `stickyStore.dragging` 状态直连；取回文案区分钉住态。验证：type-check 9 错基线不破 + vite build ✓ + eslint 0 错
 
 ### v1.54 (2026-10-12)
 - **重写**: 根目录 [README.md](../README.md) 全面重写（新人克隆即可跑）— 修正三大致命缺口：① 新增「克隆后必做」：Git Hooks（`scripts/setup-hooks.ps1`，防 pull 删除本地技能文件）+ `.env` 创建（`cp .env.example .env`，4 项必填：DB_PASSWORD/DATABASE_URL/JWT_SECRET_KEY/DEEPSEEK_API_KEY）；② 架构勘误：**当前主后端是 Python FastAPI（DixyangFast/src/dixiyang/main.py，8084，`start_backend.bat` 一键，启动自动 create_all 建表）**，旧版 README 误写 Java 为主后端——dixiyang-engine 降级为"备用、与 Python 同端口二选一、不读 .env 只认系统环境变量"；③ 环境要求修正：Node 从 18+ 改为 package.json engines 实际要求（^20.19||≥22.12）；新增 Redis 可选章节（广场推荐缓存，未起自动降级）、前端打包已知问题（`npm run build` 含 type-check 存量错误 → 用 `build-only`）、FAQ 更新（8084 冲突/hooks/build 报错/Redis 降级）、文档导航改为真实存在链接（删除失效的 项目总体情况总结/向量库可视化指南）
@@ -956,6 +984,6 @@
 
 ---
 
-*文档版本: v1.54*
+*文档版本: v1.57*
 *最后更新: 2026-10-12*
 *维护者: Dixiyang Team*
