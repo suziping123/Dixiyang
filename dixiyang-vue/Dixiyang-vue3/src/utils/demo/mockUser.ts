@@ -1,5 +1,4 @@
 // 演示 mock —— 用户域与广场/便签：user/info、userConfig、管理后台、点子库、便签
-import type { Novel } from '@/api/types'
 
 export const DEMO_USER_INFO = { nickname: '演示用户', email: 'demo@example.com' }
 
@@ -137,8 +136,3 @@ export const DEMO_STICKY_NOTES = [
 
 /** 用户背景/外观配置（demo 下返回空配置 = 默认外观） */
 export const DEMO_USER_CONFIG: Record<string, unknown> = { backgroundId: null, customBgs: '' }
-
-/** 演示模式下小说创建/点子草稿等引用的小说下拉（与 mockData 同源） */
-export function demoNovelOptions(): Novel[] {
-  return []
-}

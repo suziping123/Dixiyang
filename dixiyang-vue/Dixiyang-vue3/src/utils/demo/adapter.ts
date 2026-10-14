@@ -17,6 +17,17 @@ import {
 
 import { DEMO_SESSIONS, DEMO_SESSION_MESSAGES } from './mockSocial'
 import { installChatStreamStub } from './fetchStub'
+import {
+  DEMO_ADMIN_STATS,
+  DEMO_ADMIN_USERS,
+  DEMO_DRAFTS,
+  DEMO_IDEA_COMMENTS,
+  DEMO_IDEA_POSTS,
+  DEMO_IDEA_TAGS,
+  DEMO_STICKY_NOTES,
+  DEMO_USER_CONFIG,
+  DEMO_USER_INFO,
+} from './mockUser'
 
 type Body = { code: number; msg: string; data: unknown }
 
@@ -100,6 +111,38 @@ const routes: Array<[RegExp, (config: AxiosRequestConfig) => Body | Promise<Body
   [/^\/chatHistory\/version\/[^/]+$/, () => ok(null, '演示模式：已删除（假）')],
   [/^\/chatHistory\/delete-current\/[^/]+$/, () => ok({ content: '（演示模式）已回退到上一版本（假）' })],
   [/^\/chatHistory\/generate-title\/[^/]+$/, () => ok('关于废土聚落的讨论（假标题）')],
+  // ── 用户信息与配置 ──
+  [/^\/user\/info$/, () => ok(DEMO_USER_INFO)],
+  [/^\/user\/update$/, () => ok(null, '演示模式：已保存（假）')],
+  [/^\/user\/password$/, () => ok(null, '演示模式：密码已更新（假）')],
+  [/^\/userConfig\/background$/, (c) => (isPost(c) ? ok(null, '演示模式：已保存（假）') : ok(DEMO_USER_CONFIG))],
+  [/^\/userConfig\/fontColors$/, (c) => (isPost(c) ? ok(null, '演示模式：已保存（假）') : ok({}))],
+  // ── 管理后台 ──
+  [/^\/admin\/stats$/, () => ok(DEMO_ADMIN_STATS)],
+  [/^\/admin\/users\/\d+\/role$/, () => ok(null, '演示模式：角色已更新（假）')],
+  [/^\/admin\/users$/, () => ok(DEMO_ADMIN_USERS)],
+  // ── 点子库（广场/草稿/互动/评论）──
+  [/^\/idea\/posts$/, (c) => (isPost(c) ? ok({ id: 702 }, '演示模式：已创建（假）') : ok({ list: DEMO_IDEA_POSTS, total: DEMO_IDEA_POSTS.length, hasMore: false, nextCursor: null }))],
+  [/^\/idea\/tags$/, () => ok(DEMO_IDEA_TAGS)],
+  [/^\/idea\/drafts$/, (c) => (isPost(c) ? ok({ id: 702 }, '演示模式：草稿已保存（假）') : ok(DEMO_DRAFTS))],
+  [/^\/idea\/drafts\/\d+\/publish$/, () => ok(null, '演示模式：发布成功（假）')],
+  [/^\/idea\/drafts\/\d+$/, (c) => (isPost(c) || (c.method ?? '').toUpperCase() === 'PUT' ? ok({ id: 701 }, '演示模式：已保存（假）') : c.method?.toUpperCase() === 'DELETE' ? ok(null, '演示模式：已删除（假）') : ok(DEMO_DRAFTS.list[0]))],
+  [/^\/idea\/mine\/posts$/, () => ok({ total: 2, list: DEMO_IDEA_POSTS.slice(0, 2) })],
+  [/^\/idea\/mine\/collects$/, () => ok({ total: 1, list: DEMO_IDEA_POSTS.slice(2, 3) })],
+  [/^\/idea\/posts\/\d+\/like$/, () => ok({ liked: true, likeCount: 232 })],
+  [/^\/idea\/posts\/\d+\/collect$/, () => ok({ collected: true, collectCount: 88 })],
+  [/^\/idea\/posts\/\d+\/attachment$/, () => ok({ type: 'chat', data: null })],
+  [/^\/idea\/posts\/\d+\/import$/, () => ok({ characters: [] }, '演示模式：导入完成（假）')],
+  [/^\/idea\/posts\/\d+\/remove$/, () => ok(null, '演示模式：已下架（假）')],
+  [/^\/idea\/posts\/\d+\/restore$/, () => ok(null, '演示模式：已恢复（假）')],
+  [/^\/idea\/posts\/\d+\/comments$/, (c) => (isPost(c) ? ok({ id: 9003, authorId: 1, authorName: '演示用户', content: '（演示）评论成功', createTime: '刚刚' }) : ok(DEMO_IDEA_COMMENTS))],
+  [/^\/idea\/posts\/\d+$/, (c) => (isPost(c) || (c.method ?? '').toUpperCase() === 'PUT' ? ok(null, '演示模式：已保存（假）') : ok(DEMO_IDEA_POSTS[0]))],
+  [/^\/idea\/comments\/\d+$/, () => ok(null, '演示模式：已删除（假）')],
+  [/^\/idea\/aiSuggest$/, () => ok({ title: '如果记忆是魔药的货币（演示）', tags: ['魔药', '记忆', '设定脑洞'] })],
+  // ── 便签（灵感墙 + 全局便签层）──
+  [/^\/sticky\/notes\/\d+$/, () => ok(DEMO_STICKY_NOTES[0], '演示模式：已保存（假）')],
+  [/^\/sticky\/notes$/, (c) => (isPost(c) ? ok({ ...DEMO_STICKY_NOTES[0], id: 804, content: '（演示）新便签' }, '演示模式：已创建（假）') : ok(DEMO_STICKY_NOTES))],
+  [/^\/sticky\/pool$/, () => ok([])],
   // ── 上传（假 URL，页面显示占位）──
   [/^\/upload\//, () => ok('', '演示模式：上传完成（假）')],
 ]
