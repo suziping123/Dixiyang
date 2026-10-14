@@ -19,6 +19,7 @@ import RagKnowledgeView from '../views/RagKnowledgeView.vue'
 import IdeaLibraryView from '../views/IdeaLibraryView.vue'
 import InspirationWallView from '../views/InspirationWallView.vue'
 import { isTokenValid, clearAuth } from '@/utils/auth'
+import { IS_DEMO } from '@/utils/demo'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -111,7 +112,8 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('token')
   // 校验 token 存在且未过期（本地解 JWT exp），无效则清理
-  const valid = isTokenValid(token)
+  // IS_DEMO：GitHub Pages 演示构建恒 true（放行所有页面）；真实构建恒 false，行为不变
+  const valid = IS_DEMO || isTokenValid(token)
   if (!valid && token) clearAuth()
 
   // 标题跟随路由

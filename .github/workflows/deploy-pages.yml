@@ -35,8 +35,9 @@ jobs:
         run: npm ci
 
       # build-only（跳过 type-check，部署不阻塞于类型告警）；base 仅 CI 注入，不影响本地开发
+      # --mode gh-pages 加载 .env.gh-pages（VITE_DEMO=1）→ 演示模式 mock；真实构建不读该文件
       - name: Build
-        run: npm run build-only -- --base=/Dixiyang/
+        run: npm run build-only -- --base=/Dixiyang/ --mode gh-pages
 
       # GitHub Pages 无 SPA rewrite：404.html 复用 index.html，由 Vue Router catch-all 接管
       - name: SPA fallback (404.html)
