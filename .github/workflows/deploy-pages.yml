@@ -1,0 +1,57 @@
+name: Deploy to GitHub Pages
+
+# push main 自动构建静态站并发布到 GitHub Pages
+# 需一次性手动设置：Settings → Pages → Source = "GitHub Actions"
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dixiyang-vue/Dixiyang-vue3
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dixiyang-vue/Dixiyang-vue3/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # build-only（跳过 type-check，部署不阻塞于类型告警）；base 仅 CI 注入，不影响本地开发
+      - name: Build
+        run: npm run build-only -- --base=/Dixiyang/
+
+      # GitHub Pages 无 SPA rewrite：404.html 复用 index.html，由 Vue Router catch-all 接管
+      - name: SPA fallback (404.html)
+        run: cp dist/index.html dist/404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dixiyang-vue/Dixiyang-vue3/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
