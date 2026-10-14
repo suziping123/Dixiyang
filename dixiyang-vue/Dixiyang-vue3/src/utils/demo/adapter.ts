@@ -3,11 +3,23 @@
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import { makeDemoToken } from './index'
 import { DEMO_NOVELS, DEMO_USER } from './mockData'
+import {
+  DEMO_AI_COMPLETION,
+  DEMO_CHAPTERS,
+  DEMO_CHAPTER_CONTENT,
+  DEMO_CHARACTERS,
+  DEMO_NODES,
+  DEMO_RAG_DOCUMENTS,
+  DEMO_RAG_STATS,
+  DEMO_TIMELINES,
+  DEMO_VOLUMES,
+} from './mockNovel'
 
 type Body = { code: number; msg: string; data: unknown }
 
 const ok = (data: unknown, msg = 'ok'): Body => ({ code: 200, msg, data })
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+const isPost = (config: AxiosRequestConfig) => (config.method ?? 'get').toUpperCase() === 'POST'
 
 /** 从 adapter 配置中取 JSON 请求体（axios 已序列化为字符串） */
 function jsonBody(config: AxiosRequestConfig): Record<string, unknown> {
@@ -43,6 +55,41 @@ const routes: Array<[RegExp, (config: AxiosRequestConfig) => Body | Promise<Body
   [/^\/novel\/create$/, () => ok({ ...DEMO_NOVELS[0], id: Date.now() % 100000 }, '演示模式：创建成功（假）')],
   [/^\/novel\/delete\/\d+$/, () => ok(null, '演示模式：删除成功（假）')],
   [/^\/novel\/\d+$/, () => ok(DEMO_NOVELS[0])],
+  // ── 卷 ──
+  [/^\/volumes\/novel\/\d+$/, (c) => (isPost(c) ? ok({ id: 9, novel_id: 101, title: '新卷（假）', sort_order: 9 }, '演示模式：创建成功（假）') : ok(DEMO_VOLUMES))],
+  [/^\/volumes\/\d+$/, () => ok(null, '演示模式：删除成功（假）')],
+  // ── 章节（含正文读写与 AI 补全）──
+  [/^\/chapters\/novel\/\d+$/, (c) => (isPost(c) ? ok({ id: 99, novel_id: 101, title: '新章节（假）', sort_order: 99, version: 1, local_version: 1, word_count: 0 }, '演示模式：创建成功（假）') : ok(DEMO_CHAPTERS))],
+  [
+    /^\/chapters\/\d+\/content$/,
+    (c) =>
+      isPost(c)
+        ? ok({ chapterId: 11, version: 4, contentHash: 'h-demo', hasConflict: false }, '演示模式：已保存（假，不落盘）')
+        : ok(DEMO_CHAPTER_CONTENT),
+  ],
+  [/^\/chapters\/\d+$/, () => ok(DEMO_CHAPTERS[0])],
+  [/^\/ai\/completion$/, () => ok(DEMO_AI_COMPLETION)],
+  // ── 角色 ──
+  [/^\/novelCharacter\/all\/\d+$/, () => ok(DEMO_CHARACTERS)],
+  [/^\/novelCharacter\/list\/\d+$/, () => ok({ records: DEMO_CHARACTERS, total: DEMO_CHARACTERS.length, size: 100, current: 1, pages: 1 })],
+  [/^\/novelCharacter\/create$/, () => ok(DEMO_CHARACTERS[0], '演示模式：创建成功（假）')],
+  [/^\/novelCharacter\/update\/\d+$/, () => ok(DEMO_CHARACTERS[0], '演示模式：已保存（假）')],
+  [/^\/novelCharacter\/delete\/\d+$/, () => ok(null, '演示模式：删除成功（假）')],
+  // ── 时间线 ──
+  [/^\/timeline\/all\/\d+$/, () => ok(DEMO_TIMELINES)],
+  [/^\/timeline\/create$/, () => ok({ id: 309, novelId: 101, name: '新时间线（假）' }, '演示模式：创建成功（假）')],
+  [/^\/timeline\/update\/\d+$/, () => ok(DEMO_TIMELINES[0], '演示模式：已保存（假）')],
+  [/^\/timeline\/delete\/\d+$/, () => ok(null, '演示模式：删除成功（假）')],
+  // ── 故事节点 ──
+  [/^\/storyNode\/all\/\d+$/, () => ok(DEMO_NODES)],
+  [/^\/storyNode\/timeline\/\d+$/, () => ok(DEMO_NODES)],
+  [/^\/storyNode\/create$/, () => ok(DEMO_NODES[0], '演示模式：创建成功（假）')],
+  [/^\/storyNode\/update\/\d+$/, () => ok(DEMO_NODES[0], '演示模式：已保存（假）')],
+  [/^\/storyNode\/delete\/\d+$/, () => ok(null, '演示模式：删除成功（假）')],
+  // ── RAG 知识库 ──
+  [/^\/rag\/stats$/, () => ok(DEMO_RAG_STATS)],
+  [/^\/rag\/documents$/, () => ok(DEMO_RAG_DOCUMENTS)],
+  [/^\/rag\/search$/, () => ok({ query: '江末', results: DEMO_RAG_DOCUMENTS.ids.map((id, i) => ({ id, content: DEMO_RAG_DOCUMENTS.documents[i], metadata: DEMO_RAG_DOCUMENTS.metadatas[i], score: 0.92 - i * 0.07 })), total: 4 })],
   // ── 上传（假 URL，页面显示占位）──
   [/^\/upload\//, () => ok('', '演示模式：上传完成（假）')],
 ]
