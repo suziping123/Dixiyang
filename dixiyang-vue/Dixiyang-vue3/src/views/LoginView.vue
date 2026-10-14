@@ -9,6 +9,11 @@
       <p class="loginFooter">沉浸式内容创作 · 智能分发引擎</p>
     </header>
 
+    <!-- 仅演示构建（GitHub Pages）显示：告诉访客怎么进入 -->
+    <p v-if="IS_DEMO" class="demo-notice">
+      演示站点 · 任意用户名与密码（至少 6 位）即可登录 · 站内均为演示数据，操作不会真实保存
+    </p>
+
     <main class="auth-box" :class="{ 'right-panel-active': isSignUp }">
       <!-- 注册面板 -->
       <section class="form-container sign-up-container">
@@ -126,6 +131,7 @@ import { gsap } from 'gsap'
 import { onMounted } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import { enterSubmit } from '../utils/enterSubmit'
+import { IS_DEMO } from '@/utils/demo'
 import FieldError from '@/components/ui/FieldError.vue'
 
 const {
@@ -181,6 +187,33 @@ onMounted(() => {
 }
 
 .loginFooter { color: #ccc; letter-spacing: 2px; }
+
+/* 演示站点说明条（仅 IS_DEMO 构建渲染，真实部署不显示） */
+.demo-notice {
+  position: relative;
+  z-index: 10;
+  margin: 0 0 16px;
+  padding: 8px 20px;
+  max-width: min(90vw, 560px);
+  border-radius: 999px;
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: #f5e9c9;
+  background: rgba(18, 20, 28, 0.62);
+  border: 1px solid rgba(245, 233, 201, 0.28);
+  backdrop-filter: blur(6px);
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .demo-notice {
+    font-size: 12px;
+    border-radius: 12px;
+    padding: 7px 14px;
+    margin-bottom: 12px;
+    letter-spacing: 0.5px;
+  }
+}
 
 .auth-box {
   position: relative;
