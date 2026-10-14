@@ -120,7 +120,8 @@ router.beforeEach((to, from, next) => {
   if (to.meta.title) document.title = String(to.meta.title)
 
   if (to.path === '/login') {
-    if (valid) return next('/home')
+    // demo 构建：登录页本身是展示的一部分（访客动线：落地页→登录页→假登录进演示），不重定向
+    if (!IS_DEMO && valid) return next('/home')
     return next()
   }
 

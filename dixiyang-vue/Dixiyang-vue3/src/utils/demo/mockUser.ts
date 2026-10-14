@@ -134,5 +134,8 @@ export const DEMO_STICKY_NOTES = [
   { id: 803, content: '读完《故事》第三章：冲突的升级要换维度，不是加量', color: '#ffd6e0', x: 150, y: 320, pinnedRoute: '/inspiration', inPool: false, rotation: -1, zIndex: 3, images: [], done: true, createTime: '2026-10-13 21:40:00', updateTime: '2026-10-14 08:00:00' },
 ]
 
-/** 用户背景/外观配置（demo 下返回空配置 = 默认外观） */
-export const DEMO_USER_CONFIG: Record<string, unknown> = { backgroundId: null, customBgs: '' }
+/** 用户背景/外观配置（demo 下默认壁纸 = 五角星图，id 为文件名去扩展名） */
+export const DEMO_USER_CONFIG: Record<string, unknown> = {
+  backgroundId: '【哲风壁纸】五角星-国徽-庄严',
+  customBgs: '',
+}
