@@ -390,7 +390,8 @@ const doDeleteTimeline = async () => {
   try {
     await deleteTimelineApi(selectedTimelineId.value)
     timelines.value = timelines.value.filter(t => t.id !== selectedTimelineId.value)
-    selectedTimelineId.value = timelines.value.length ? timelines.value[0].id : null
+    // noUncheckedIndexedAccess：[0] 为 T|undefined，?. + ?? null 收敛为 number|null
+    selectedTimelineId.value = timelines.value[0]?.id ?? null
     showDeleteTimelineDialog.value = false
     await onTimelineChange()
     ElMessage.success('删除成功')
@@ -407,7 +408,8 @@ onMounted(async () => {
     const tlRes = await getAllTimelines(novelId)
     timelines.value = (tlRes as any).data || []
     if (timelines.value.length) {
-      selectedTimelineId.value = timelines.value[0].id
+      // noUncheckedIndexedAccess：?. + ?? null 收敛为 number|null
+      selectedTimelineId.value = timelines.value[0]?.id ?? null
       await refreshNodes()
     }
   } catch (e) { console.error(e) }

@@ -203,5 +203,30 @@ const handleDeleteCustom = async (id: string) => {
   padding: 14px !important;
   background: var(--surface-page) !important;
   border: 1px solid var(--surface-glass-border) !important;
+  /* 限高 + 内滚（桌面/移动共治）：
+     修复前浮层高度 = 卡片数 × 行高，无上限且锚在 sticky 顶栏上，超屏部分永远看不到，
+     手指在其上滑动会被"漏"给底层页面滚动。见 docs/Home背景浮层移动端滚动修复.md */
+  display: flex;
+  flex-direction: column;
+  max-height: min(68vh, 640px);
+  max-width: calc(100vw - 24px); /* 极窄屏（<354px）不横向溢出 */
+}
+
+.bg-compact-popper .compact-panel {
+  min-height: 0; /* flex 子项必须可收缩，否则内部 overflow 不生效 */
+  overflow-y: auto;
+  overscroll-behavior: contain; /* 滑到边界不把滚动"传染"给底层页面 */
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-glass-border) transparent;
+}
+
+@media (max-width: 768px) {
+  .bg-compact-popper {
+    /* 按手机真实可视高度限高：dvh 随地址栏收缩，给上方留 190px（顶栏 116 + 间距），
+       避免浮层被顶出屏幕或触发上翻后顶部不可达 */
+    max-height: min(70vh, calc(100vh - 190px));
+    max-height: min(70dvh, calc(100dvh - 190px));
+  }
 }
 </style>

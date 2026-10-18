@@ -1,19 +1,28 @@
 <template>
   <div class="bg-image-grid">
     <div
-      v-for="img in list"
+      v-for="img in sortedList"
       :key="img.id"
       class="bg-image-card"
       :class="{ active: activeId === img.id }"
       role="button"
       tabindex="0"
       :aria-pressed="activeId === img.id"
+      :title="fitTip(img.id)"
       @click="toggle(img.id)"
       @keydown.enter="toggle(img.id)"
       @keydown.space.prevent="toggle(img.id)"
     >
-      <img v-if="loaded[img.id]" :src="loaded[img.id]" :alt="img.label" class="bg-image-thumb" />
+      <img
+        v-if="loaded[img.id]"
+        :src="loaded[img.id]"
+        :alt="img.label"
+        class="bg-image-thumb"
+        @load="onThumbLoad(img.id, $event)"
+      />
       <div v-else class="bg-image-placeholder">加载中</div>
+      <!-- 端适配角标（左上；右上被自定义背景的删除按钮占用） -->
+      <span v-if="fitBadge(img.id)" class="bg-fit-badge">{{ fitBadge(img.id) }}</span>
       <span class="bg-image-label">{{ img.label }}</span>
       <button
         v-if="img.isCustom"
@@ -55,8 +64,10 @@
 </template>
 
 <script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Close, Plus } from '@element-plus/icons-vue'
 import type { BgImageItem } from '@/composables/useBackgroundConfig'
+import { bgFitBadge, bgFitRank, bgFitTip, classifyBgFit, type BgFit } from '@/utils/bgFit'
 
 interface Props {
   list: BgImageItem[]
@@ -76,6 +87,49 @@ const emit = defineEmits<{
 const toggle = (id: string) => {
   emit('select', props.activeId === id ? undefined : id)
 }
+
+/* ============ 端适配：当前端判定 + 分类排序 + 角标 ============ */
+
+/** 当前端按「视口长宽比」判定（竖屏 = 手机口径）：比 768 断点更贴合"图会被怎么裁" */
+const portrait = ref(false)
+const syncPortrait = () => {
+  portrait.value = window.innerHeight > window.innerWidth
+}
+syncPortrait()
+
+/** 原始尺寸：从已渲染的缩略图 `@load` 读取（不额外请求图片） */
+const sizes = ref<Record<string, { w: number; h: number }>>({})
+const onThumbLoad = (id: string, e: Event) => {
+  const el = e.target as HTMLImageElement
+  if (el?.naturalWidth > 0) sizes.value[id] = { w: el.naturalWidth, h: el.naturalHeight }
+}
+
+const fitOf = (id: string): BgFit | null => {
+  const size = sizes.value[id]
+  return size ? classifyBgFit(size.w, size.h) : null
+}
+
+const fitBadge = (id: string) => bgFitBadge(fitOf(id))
+const fitTip = (id: string) => bgFitTip(fitOf(id))
+
+/** 排序：当前端对应组置顶 → 通用 → 另一端；组内保持原顺序（尺寸未知按通用） */
+const sortedList = computed(() => {
+  const current: BgFit = portrait.value ? 'mobile' : 'desktop'
+  return props.list
+    .map((img, index) => ({ img, index, rank: bgFitRank(fitOf(img.id), current) }))
+    .sort((a, b) => a.rank - b.rank || a.index - b.index)
+    .map((item) => item.img)
+})
+
+onMounted(() => {
+  window.addEventListener('resize', syncPortrait)
+  window.addEventListener('orientationchange', syncPortrait)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', syncPortrait)
+  window.removeEventListener('orientationchange', syncPortrait)
+})
 </script>
 
 <style scoped>
@@ -140,6 +194,24 @@ const toggle = (id: string) => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 端适配角标：左上角小胶囊，只标「电脑 / 手机」（通用不打标，减少噪音） */
+.bg-fit-badge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 1;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-size: 0.625rem;
+  line-height: 1.6;
+  color: var(--text-on-glass);
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--surface-glass-border);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  pointer-events: none;
 }
 
 /* 无背景 / 上传 */

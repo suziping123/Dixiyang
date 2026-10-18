@@ -193,6 +193,9 @@
                 @userEditSave="handleUserEditSave"
                 @userEditCancel="cancelUserEdit"
                 @extractSettings="handleExtractSettings(index)"
+                @copyText="handleCopyText(index)"
+                @saveNote="handleSaveNote(index)"
+                @forwardPlaza="handleForwardPlaza(index)"
                 @deleteVersion="handleDeleteVersion(index, $event)"
                 @deleteCurrent="handleDeleteCurrent(index)"
                 class="message-item-wrapper"
@@ -263,6 +266,7 @@
     :conversation="settingsConversation"
     :novel-id="selectedNovel?.id"
   />
+  <ForwardToPlazaDialog v-model="showPlazaDialog" :content="plazaContent" />
 </template>
 
 <script setup lang="ts">
@@ -274,6 +278,9 @@ import FloatingNav from '@/components/FloatingNav.vue'
 import ChatMessage from '@/components/chat/ChatMessage.vue'
 import EditMessageModal from '@/components/chat/EditMessageModal.vue'
 import CharacterSettingsDialog from '@/components/CharacterSettingsDialog.vue'
+import ForwardToPlazaDialog from '@/components/idea/ForwardToPlazaDialog.vue'
+import { useStickyStore } from '@/stores/stickyStore'
+import type { StickyColor } from '@/api/stickyApi'
 import http from '@/utils/http'
 import { confirmDelete } from '@/utils/confirm'
 import { eventTypeLabel, genderLabel, genderStyle } from '@/utils/storyMappings'
@@ -661,6 +668,67 @@ const handleExtractSettings = (index: number) => {
   }))
   settingsConversation.value = context
   showSettingsDialog.value = true
+}
+
+// ===== 导出菜单：复制 / 存便签 / 转发广场 =====
+
+const showPlazaDialog = ref(false)
+const plazaContent = ref('')
+
+/** 导出用的消息文本：优先当前浏览中的版本，否则当前内容 */
+const exportTextOf = (index: number): string => {
+  const m = messages.value[index]
+  if (!m) return ''
+  const bIdx = browseIndexOf(index)
+  if (bIdx !== null) {
+    const list = browseSourceOf(index) === 'paired' ? m.paired : m.versions
+    return list?.[bIdx] ?? m.content
+  }
+  return m.content
+}
+
+const handleCopyText = async (index: number) => {
+  const text = exportTextOf(index)
+  if (!text) {
+    ElMessage.warning('该消息没有可复制的内容')
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(text)
+    ElMessage.success('已复制到剪贴板')
+  } catch {
+    ElMessage.error('复制失败，请手动选择文本')
+  }
+}
+
+const stickyStore = useStickyStore()
+const NOTE_COLORS: StickyColor[] = ['yellow', 'pink', 'blue', 'green', 'purple']
+
+const handleSaveNote = async (index: number) => {
+  const text = exportTextOf(index).trim()
+  if (!text) {
+    ElMessage.warning('该消息没有可保存的内容')
+    return
+  }
+  await stickyStore.fetch() // 未加载过则先拉取，避免 create 后 visibleOn 缺上下文
+  await stickyStore.create({
+    content: text.slice(0, 5000), // 便签 maxLength 上限
+    color: NOTE_COLORS[Math.floor(Math.random() * NOTE_COLORS.length)]!,
+    // 随机落在视口中下部区域（归一化 0~1，避免叠在右下素材池上）
+    x: 0.15 + Math.random() * 0.45,
+    y: 0.35 + Math.random() * 0.4,
+  })
+  ElMessage.success('已存入灵感墙便签（右下角素材池可见/全站悬浮）')
+}
+
+const handleForwardPlaza = (index: number) => {
+  const text = exportTextOf(index)
+  if (!text) {
+    ElMessage.warning('该消息没有可转发的内容')
+    return
+  }
+  plazaContent.value = text
+  showPlazaDialog.value = true
 }
 
 const handleDeleteSession = async (sessionId: string) => {

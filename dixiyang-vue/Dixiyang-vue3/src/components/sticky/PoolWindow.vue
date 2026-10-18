@@ -59,7 +59,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, computed, nextTick } from 'vue';
+import { ref, computed, nextTick } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useStickyStore } from '@/stores/stickyStore';
 import { confirmDelete } from '@/utils/confirm';
@@ -73,8 +73,11 @@ const hoverStack = ref(false);
 const poolBody = ref<HTMLElement | null>(null);
 const stack = ref<HTMLElement | null>(null);
 
-/** 拖动便签时 body 加类 → 池口高亮提示可投喂 */
-const dragging = ref(false);
+/**
+ * 拖动便签时池口高亮提示可投喂。
+ * 直连 store.dragging（便签 pointerdown/up 置位），替代旧的 body class + setInterval 120ms 轮询。
+ */
+const dragging = computed(() => store.dragging);
 
 /**
  * 池列表必须用 computed 包一层！
@@ -125,11 +128,11 @@ function stackCardStyle(idx: number, id: number) {
   };
 }
 
-
-
 function takeBack(id: number) {
+  const note = store.notes.find((n) => n.id === id);
   store.patch(id, { inPool: false });
-  ElMessage.success('已取回墙上（现在是浮动便签）');
+  // 钉住态取回后仍钉在原路由，不能一律说"浮动便签"
+  ElMessage.success(note?.pinnedRoute ? '已取回（仍钉在原页面）' : '已取回墙上（现在是浮动便签）');
 }
 
 async function removeNote(id: number) {
@@ -138,19 +141,6 @@ async function removeNote(id: number) {
     store.remove(id);
   }
 }
-
-// 拖动状态跟随
-let timer: ReturnType<typeof setInterval> | null = null;
-function syncDrag() {
-  dragging.value = document.body.classList.contains('sticky-dragging');
-}
-onMounted(() => {
-  timer = setInterval(syncDrag, 120);
-});
-onBeforeUnmount(() => {
-  if (timer) clearInterval(timer);
-  document.body.classList.remove('sticky-dragging');
-});
 
 // 打开时滚动到顶部
 function onBeforeEnter() {
@@ -242,8 +232,6 @@ function onAfterLeave() {
   flex: 1;
   color: var(--text-primary);
 }
-
-
 
 .pool-fold {
   font-size: 0.9rem;

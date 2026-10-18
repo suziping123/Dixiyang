@@ -22,7 +22,12 @@
       </span>
     </button>
 
-    <nav class="floating-nav" :class="{ visible: navVisible }" aria-label="全局导航">
+    <nav
+      class="floating-nav"
+      :class="{ visible: navVisible }"
+      :style="{ '--nav-count': navItems.length }"
+      aria-label="全局导航"
+    >
       <button
         v-for="(item, idx) in navItems"
         :key="item.path"
@@ -385,6 +390,10 @@ const handleNavClick = (idx: number) => {
   }
 
   .floating-nav {
+    /* 条目宽度自适应：--nav-count（模板注入条目数）+ 视口宽 → 保证末尾项不挤出胶囊
+       （admin 多一个「管理后台」= 6 项时，固定 44px 会把「设置」挤出右缘压在悬浮球上） */
+    --nav-gap: 8px;
+    --nav-pad: 10px;
     position: fixed;
     /* 右侧中间：与球同一水平线（球中心在 50%），向左展开 */
     top: 50%;
@@ -394,8 +403,8 @@ const handleNavClick = (idx: number) => {
     max-width: calc(100vw - 82px - env(safe-area-inset-right, 0px));
     z-index: 2;
     flex-direction: row;
-    padding: 8px 10px;
-    gap: 8px;
+    padding: 8px var(--nav-pad);
+    gap: var(--nav-gap);
     border-radius: 999px;
     /* 与球同款质感：分层阴影 + 顶部内高光 */
     box-shadow:
@@ -420,8 +429,17 @@ const handleNavClick = (idx: number) => {
   }
 
   .nav-item {
-    /* 44×44：满足 iOS 触控目标下限 */
-    width: 44px;
+    /* 44×44：满足 iOS 触控目标下限；宽度按条目数与视口自适应收缩（下限 32px 保图标可读） */
+    width: clamp(
+      32px,
+      calc(
+        (
+            100vw - 82px - env(safe-area-inset-right, 0px) - 2 * var(--nav-pad) - (var(--nav-count, 5) - 1) * var(--nav-gap)
+          ) /
+          var(--nav-count, 5)
+      ),
+      44px
+    );
     height: 44px;
     flex-shrink: 0;
     transition:
@@ -432,6 +450,16 @@ const handleNavClick = (idx: number) => {
     opacity: 0;
     /* 从球的方向（右）向左依次弹入 */
     transform: translateX(8px) scale(0.85);
+  }
+
+  /* 极窄屏（≤344px，如 320 宽旧机型）：单行放不下 → 换行成 3 列纵向矩形面板，保 44px 触控目标 */
+  @media (max-width: 344px) {
+    .floating-nav {
+      flex-wrap: wrap;
+      justify-content: center;
+      width: min(calc(100vw - 82px - env(safe-area-inset-right, 0px)), 156px);
+      border-radius: 20px;
+    }
   }
 
   /* 展开：条目依次弹入；收起由外层容器整体淡出（delay 归零不拖沓） */

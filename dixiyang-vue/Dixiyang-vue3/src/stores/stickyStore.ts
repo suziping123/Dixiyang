@@ -12,6 +12,8 @@ export const useStickyStore = defineStore('sticky', () => {
   const loaded = ref(false);
   /** 灵感墙搜索词（非匹配便签降透明度，不隐藏——避免"钉住的便签不见了"困惑） */
   const query = ref('');
+  /** 任意便签拖拽中（PoolWindow 据此高亮可投喂；替代旧的 body class + 120ms 轮询） */
+  const dragging = ref(false);
   /** 顶部 zIndex 递增（点选置顶用，仅内存，落库时机随拖动/更新） */
   let topZ = 0;
 
@@ -95,7 +97,8 @@ export const useStickyStore = defineStore('sticky', () => {
     loaded.value = false;
     topZ = 0;
     query.value = '';
+    dragging.value = false;
   }
 
-  return { notes, loaded, query, pool, visibleOn, fetch, create, patch, bringToFront, remove, reset };
+  return { notes, loaded, query, dragging, pool, visibleOn, fetch, create, patch, bringToFront, remove, reset };
 });

@@ -138,3 +138,26 @@ _CHARACTER_EXTRACT_TEMPLATE = """你是一个角色设定提取器。分析以�
 
 def build_character_extract_prompt(conversation: str) -> str:
     return _CHARACTER_EXTRACT_TEMPLATE.format(conversation=conversation)
+
+
+# ==================== 广场帖子元数据（标题+标签候选） ====================
+
+_IDEA_META_TEMPLATE = """你是一个小说创作社区的帖子编辑。根据以下 AI 回答内容，生成一个帖子标题和标签候选。
+
+回答内容：
+{content}
+
+请返回 JSON（不要 markdown 包裹）：
+{{
+  "title": "吸引小说创作者的标题，8-20字，不带引号和书名号",
+  "tags": ["标签1", "标签2", "标签3"]
+}}
+
+规则：
+1. 标题概括内容核心（设定/世界观/写作技巧/灵感等），不要出现"AI"、"回答"、"总结"字样
+2. 标签 3-5 个，每个 2-6 字，中文优先，可含体裁/题材/技法类词（如 世界观/角色塑造/伏笔/玄幻）
+3. 只返回 JSON，不要任何解释"""
+
+
+def build_idea_meta_prompt(content: str) -> str:
+    return _IDEA_META_TEMPLATE.format(content=content)

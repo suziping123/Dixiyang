@@ -60,9 +60,32 @@
           <button class="action-btn pencil-btn" @click="handleEdit" title="编辑回答">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
           </button>
-          <button class="action-btn extract-btn" @click="$emit('extractSettings', index ?? 0)" title="总结为设定">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM6 20V4h5v7h7v9H6z"/><path d="M8 15h8v2H8zm0-4h8v2H8z"/></svg>
-          </button>
+          <!-- 导出下拉：复制 / 存便签 / 总结为设定 / 转发广场 -->
+          <div class="export-wrap" ref="exportWrap">
+            <button class="action-btn export-btn" @click.stop="exportOpen = !exportOpen" :class="{ active: exportOpen }" title="导出这条消息">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 4l-5 5h3v6h4V9h3l-5-5zM5 18h14v2H5z"/></svg>
+            </button>
+            <transition name="export-pop">
+              <div v-if="exportOpen" class="export-menu">
+                <button class="export-item" type="button" @click="pickExport('copy')">
+                  <svg class="ei-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                  <span>复制文本</span>
+                </button>
+                <button class="export-item" type="button" @click="pickExport('note')">
+                  <svg class="ei-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16v10l-6 6H4V4zm2 2v12h8v-4h4V6H6z"/><path d="M8 9h8v2H8z"/></svg>
+                  <span>存为便签</span>
+                </button>
+                <button class="export-item" type="button" @click="pickExport('setting')">
+                  <svg class="ei-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM6 20V4h5v7h7v9H6z"/><path d="M8 15h8v2H8zm0-4h8v2H8z"/></svg>
+                  <span>总结为设定</span>
+                </button>
+                <button class="export-item" type="button" @click="pickExport('plaza')">
+                  <svg class="ei-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/></svg>
+                  <span>转发到广场</span>
+                </button>
+              </div>
+            </transition>
+          </div>
         </div>
         <div v-if="message.role === 'user' && !isEditing" class="message-actions">
           <button class="action-btn user-edit-btn" @click="$emit('userEdit', message.content)" title="编辑消息">
@@ -83,21 +106,23 @@ import { renderMarkdown } from '@/utils/markdown'
 import { Collection, UserFilled, MagicStick } from '@element-plus/icons-vue'
 
 interface Props {
+  // 数组字段一律 readonly：父组件 messages/currentReferences 经 readonly() 包装，
+  // DeepReadonly 会把数组变 readonly T[]，窄为 mutable T[] 会在父组件传参处报 TS2322
   message: {
     role: 'user' | 'assistant'
     content: string
     thinking?: string
-    references?: { source: string; title: string; content: string; score: number }[]
+    references?: readonly { source: string; title: string; content: string; score: number }[]
     timestamp: Date
     edited?: boolean
     version?: number
-    versions?: string[]
-    paired?: string[]
+    versions?: readonly string[]
+    paired?: readonly string[]
   }
   index?: number
   streamingContent?: string
   streamingThinking?: string
-  streamingReferences?: { source: string; title: string; content: string; score: number }[]
+  streamingReferences?: readonly { source: string; title: string; content: string; score: number }[]
   isStreaming?: boolean
   isEditing?: boolean
   onEdit?: (index: number) => void
@@ -109,7 +134,7 @@ interface Props {
   pairBrowseActive?: boolean
 }
 
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted, onBeforeUnmount } from 'vue'
 import { confirmDelete } from '@/utils/confirm'
 
 const props = defineProps<Props>()
@@ -120,6 +145,10 @@ const emit = defineEmits<{
   userEditSave: [content: string]
   userEditCancel: []
   extractSettings: [index: number]
+  /** 导出菜单：复制文本 / 存为便签 / 转发到广场（父组件按 index 取消息内容处理） */
+  copyText: [index: number]
+  saveNote: [index: number]
+  forwardPlaza: [index: number]
   // 单参数：内联模板 $event 只取第一个 emit 参数，index 由父组件 v-for 提供
   deleteVersion: [versionIndex: number]
   // 最新格删除：删当前版本回退上一版（无 versionIndex，由父组件按消息处理）
@@ -129,6 +158,26 @@ const emit = defineEmits<{
 
 const editDraft = ref('')
 
+// ===== 导出下拉菜单 =====
+const exportOpen = ref(false)
+const exportWrap = ref<HTMLElement | null>(null)
+
+function pickExport(kind: 'copy' | 'note' | 'setting' | 'plaza') {
+  exportOpen.value = false
+  const idx = props.index ?? 0
+  if (kind === 'copy') emit('copyText', idx)
+  else if (kind === 'note') emit('saveNote', idx)
+  else if (kind === 'setting') emit('extractSettings', idx)
+  else emit('forwardPlaza', idx)
+}
+
+function onDocClick(e: MouseEvent) {
+  // 点菜单外任意处收起（菜单项自身已 @click.stop）
+  if (exportWrap.value && !exportWrap.value.contains(e.target as Node)) exportOpen.value = false
+}
+onMounted(() => document.addEventListener('click', onDocClick, true))
+onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
+
 // 版本浏览（受控）：null=查看当前内容，否则查看 versionList[i]
 const browseIndex = computed<number | null>({
   get: () => props.browseIndex ?? null,
@@ -136,9 +185,9 @@ const browseIndex = computed<number | null>({
 })
 
 // 版本条导航数据：始终是本消息自己的 versions（user=提问历史 / assistant=铅笔历史）
-const barList = computed<string[]>(() => props.message.versions ?? [])
+const barList = computed<readonly string[]>(() => props.message.versions ?? [])
 // 气泡显示数据：按浏览源取（成对浏览=paired，否则 versions）
-const displayList = computed<string[]>(() => {
+const displayList = computed<readonly string[]>(() => {
   if (props.browseSource === 'paired') return props.message.paired ?? []
   return props.message.versions ?? []
 })
@@ -532,7 +581,37 @@ details[open] > .thinking-toggle::before { transform: rotate(90deg); }
   100% { width: 25px; opacity: 1; }
 }
 
-.extract-btn:hover svg { animation: none; color: var(--neon-cyan, #28c4d4); }
+/* ===== 导出下拉菜单 ===== */
+.export-wrap { position: relative; display: flex; }
+.export-btn.active { opacity: 1 !important; background: rgba(255,255,255,0.12); color: var(--neon-cyan, #28c4d4); }
+.export-btn.active svg { transform: rotate(180deg); }
+
+.export-menu {
+  position: absolute; bottom: calc(100% + 6px); right: 0; z-index: 30;
+  min-width: 148px; padding: 4px;
+  background: var(--surface-panel-strong, rgba(28, 31, 42, 0.96));
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--surface-glass-border, rgba(255,255,255,0.1));
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.45);
+  display: flex; flex-direction: column;
+}
+.export-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border: none; border-radius: 7px;
+  background: transparent; color: var(--text-secondary, #b6bccb);
+  font-size: 13px; cursor: pointer; text-align: left; white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.export-item:hover { background: rgba(255,255,255,0.08); color: var(--text-primary, #eceef3); }
+.export-item .ei-icon { width: 15px; height: 15px; flex-shrink: 0; }
+
+.export-pop-enter-active, .export-pop-leave-active { transition: opacity 0.16s ease, transform 0.16s ease; }
+.export-pop-enter-from, .export-pop-leave-to { opacity: 0; transform: translateY(4px) scale(0.97); }
+
+@media (max-width: 768px) {
+  .export-item { padding: 11px 12px; font-size: 14px; } /* 触控目标放大 */
+}
 
 /* 版本切换条：编辑过（versions≥1）的气泡底部常显 */
 .version-bar {

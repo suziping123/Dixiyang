@@ -27,6 +27,7 @@ from dixiyang.routers import auth, novel, character, story_node, timeline, file,
 from dixiyang.utils.database import Base, engine
 from dixiyang.config import UPLOAD_DIR
 from dixiyang.services.idea_cache import cache as idea_cache
+from dixiyang.services import sticky_cleanup
 
 
 @asynccontextmanager
@@ -45,7 +46,9 @@ async def lifespan(app: FastAPI):
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE sticky_note ADD COLUMN done INT NOT NULL DEFAULT 0"))
     idea_cache.start_background()
+    sticky_cleanup.start_background()  # 每日清理 sticky/ 孤儿文件 + 空用户目录
     yield
+    sticky_cleanup.stop_background()
     idea_cache.stop_background()
 
 

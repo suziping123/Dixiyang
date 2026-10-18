@@ -157,8 +157,7 @@ npm run dev
 
 > 前端已配置代理：`/api` 自动转发到 `localhost:8084`（主后端）。
 
-> **打包注意**：`npm run build` 会同时跑 `type-check`，当前存在少量**存量**类型错误会中断；
-> 只打产物用 `npm run build-only`（= `vite build`）。
+> **打包**：`npm run build` = `type-check` + `build-only`，当前 **type-check 0 错误**，直接可用。
 
 ---
 
@@ -337,10 +336,6 @@ MySQL 没起或 `.env` 没配好：`docker start mysql-hmdp`；检查 `.env` 的
 
 ### Q: 8084 端口被占用
 Python 主后端与 Java 备用后端**同端口**，只能跑一个。确认没有 `mvn spring-boot:run` 残留进程。
-
-### Q: `npm run build` 报一堆 TS 类型错误
-已知存量问题（localImages/storyMappings/RagAssistantView/TimelineView 等文件，与日常开发无关）。
-打产物用 `npm run build-only`；日常开发用 `npm run dev` 不受影响。
 
 ### Q: 广场"综合推荐"很慢 / 日志刷 Redis 连接失败
 Redis 没启动，已自动降级走 DB 直查（功能可用，仅变慢）。要加速见「5.（可选）Redis」。

@@ -44,7 +44,8 @@ const PRESET_COVERS: PresetCover[] = Object.keys(presetModules).map(path => {
   return {
     id,
     label,
-    thumb: presetModules[path]
+    // noUncheckedIndexedAccess：glob 键来自 Object.keys，此处必存在，?? 兜底仅满足类型
+    thumb: presetModules[path] ?? ''
   }
 })
 

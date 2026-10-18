@@ -20,7 +20,9 @@ export function eventTypeConfig(t?: string): EventType {
   return EVENT_TYPES.find(e => e.value === t) || { value: '', label: '未知', color: '#6b7280', icon: '?' }
 }
 
-export const GENDER_COLORS: Record<string, { label: string; color: string; bg: string }> = {
+/** 键为字面量 male/female（非动态查表）：不用 Record<string,...> 标注，
+ *  否则 noUncheckedIndexedAccess 下索引访问恒为 |undefined → genderStyle 两处报错 */
+export const GENDER_COLORS = {
   male: { label: '男', color: '#3b82f6', bg: 'rgba(59,130,246,0.15)' },
   female: { label: '女', color: '#ec4899', bg: 'rgba(236,72,153,0.15)' },
 }

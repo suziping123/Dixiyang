@@ -554,6 +554,91 @@
 
 ---
 
+### 8.32 [JobInterviews 前端面试知识索引](./JobInterviews/README.md) ✨ 新增
+**位置**: `docs/JobInterviews/`（目录，19 个 MD，分 7 区）
+
+**内容**:
+- **Practical/**（原 8 类项目实战档案）：工程化 / Vue3 架构 / CSS 视觉 / 响应式 / 前后端协作 / 交互表单 / 性能稳定 / 排错方法论——每条 = 说明 + 真实代码引用（标注来源文件）+ 分析 + 面试话术 + 文档佐证
+- **五领域面试常问**（前端 / Java 后端 / Python 后端 / 运维 / 实施），每领域两篇：
+  - `01 项目已用`：问题 + 项目真实代码 + 定位/答法（JWT 过滤器单点登录、SseEmitter 流式状态机、FastAPI yield 依赖、启动自愈补列、乐观更新、短列瀑布流等）
+  - `02 通用高频`：项目未直接涉及的必考题，配可背代码——前端 JS 语言基础（原型链三关系与手写 new/四种继承演进、this 四规则与手写 bind、深拷贝循环引用、事件委托、回流重绘读写分离、事件循环输出、防抖节流、Promise.all/竞态、Proxy 响应式、diff 与 key、CORS、浏览器缓存）+ Java（ConcurrentHashMap、线程池 7 参数、@Transactional 失效、B+树、Redis 三击、OOM）+ Python（GIL 三选型、装饰器、滑动窗口限流）+ 运维（Nginx SSE 三配、CI 流水线、现场排查）+ 实施（数据迁移对账 SQL、UAT/回滚预案模板）
+- `JobInterviews/README.md` 总目录：分区导航 + 必读前置 + 面试使用建议；**238 条相对链接全量校验 0 死链**
+- **问答对齐审查**（2026-10-15）：14 篇 Q&A 逐题审查"答法是否正面回应题眼"——重写 Frontend/01 Q2（乐观更新失败处理：原答案误以成功路径实现细节开篇，现改为失败兜底三策略（回滚/重试/自愈）+ 项目"故意不回滚"的真实取舍与源码佐证 + 强一致边界）；修正 Implementation/02 Q4 交叉引用文字；复验 238 链接 0 死链
+- **事实核对审查**（2026-10-15，第二轮）：01 篇每处代码引用逐一对照真实源码、02 篇抽查技术论断，修正 12 处失实/瑕疵——① Frontend/01：Q1 handleUnauthorized 忠实化（/login 判断+置位顺序）、Q3 "三信号"改"双信号"（真实仅 moved+suppressClick）、Q6 补 current 焦点归一定义、Q8 unwrap 改真实行为（code===200+toast+返 null，6 处复制定义治理债）、Q9 改真实 draftDB API（putDraft/isDirty/clearDirtyByChapter，删虚构 syncQueue）；② Frontend/02 Q1 事件循环输出勘误（3 4 7 → **3 7 4**，then 链第二节入队晚于 await 恢复点）；③ Java/01：Q4 selectPage 标注改诚实（项目现为 Wrapper 全量查询）、Q5 response.py 路径修正、Q6 改项目真实 Spring Security `encode/matches`（原误用 jBCrypt API）、Q3 标注 AGENTS 方案收紧点；④ Python/01：Q5 schema 对齐真实（color 为 str+白名单、Literal 作演进讲法、Pydantic 默认值自动拷贝）、Q7 Result 默认值逐字对齐；复验 238 链接 0 死链
+- **讲解风格修订："从基础讲起"取代"深挖"**（2026-10-15，用户反馈）：原"📐 原理深挖"被反馈"讲的不清楚、没有从基础讲起、覆盖不广"——讲解统一改为**先讲清楚基础（概念从零讲起）→ 关键机制拆解 → 延伸追问（同一知识面）**，不堆术语。完成范围：**Frontend/01 全部 9 题（整篇重写）＋ 五领域 02 篇共 42 题全部补"先讲清楚基础 + 延伸追问"**（Frontend 14 + Java 7 + Python 7 + 运维 7 + 实施 7；全库 51 处延伸追问，每题一处）；"深挖"字样全站清零（板块与链接标签均改为"延伸阅读/延伸追问"），239 链接 0 死链；附带修复 Frontend/01 Q1 两行 Tab 缩进、axios 拦截器执行顺序经 1.13.6 本地实测勘定（请求拦截器后注册先执行、响应拦截器先注册先执行）
+- 适用人群: 求职者（前端/全栈/后端/运维/实施）、需要对外介绍项目的同学
+
+---
+
+### 8.33 [Home背景浮层移动端滚动修复](../dixiyang-vue/docs/Home背景浮层移动端滚动修复.md) 🐛 修复
+**位置**: `dixiyang-vue/docs/Home背景浮层移动端滚动修复.md`
+
+**内容**:
+- **现象**：`/home` 顶栏「背景」浮层（`BackgroundControl mode="compact"`，小说页头共用）在手机上**滑不动**——手指在浮层上滑动反而**滚动底层页面**，下半部分背景（含「不使用背景/上传背景」）永远选不到
+- **根因（CDP 实证）**：浮层高度 = 卡片数 × 行高**无上限**（21 张卡实测 `h=1161px`，超视口 504px）且 `overflow-y: visible` **自身不是滚动容器** → 浏览器把滚动交给最近可滚动祖先（文档）；又因 EP `teleported=false` + 挂在 `position: sticky` 的 `.topbar` 内，浮层**锚死在吸顶栏**（采样 `top` 恒 114.5），滚页面也不露出来
+- **修复**：`.bg-compact-popper` 增 `display:flex/max-height:min(68vh,640px)/max-width:calc(100vw-24px)` + 内层 `.compact-panel` `overflow-y:auto` + `overscroll-behavior:contain` + `-webkit-overflow-scrolling:touch`；移动端限高改 `min(70dvh, calc(100dvh - 190px))`（dvh 随地址栏收缩，防顶出屏幕/上翻）；**不用 `overflow:hidden` 裁 popper**（会裁掉箭头的定位盒外部分）
+- **验证**：CDP 真实触摸（`Input.dispatchTouchEvent`）移动端 **8/8** 十桌面 **3/3** PASS——浮层 1161→568px 收回视口、浮层内上滑 `panel 0→385` 且 `window.scrollY` 恒 0（修复前 0→**186**）、滚到底不穿透页面、滚动后仍可点选背景、桌面 1440 双列未变、控制台 0 错误 + 双端截图肉眼复核
+- **副作用声明**：首轮探针在 dev 浏览器注入过假 token/假自定义背景缓存；**已用测试账号 `admin123/123456` 真实登录复验收尾**——服务器数据刷新本地缓存、改动的背景已复原（服务端 `backgroundId=梁俊杰2309021115` 已核对）、探针标签全部关闭；首轮假接口响应未写入后端
+- **真实账号复验**：375×667 小屏 `panel 0→90` 且 `window.scrollY` 恒 0、滚到底不穿透、尾部「上传背景」完整可见、滚后仍可点选（选中/取消语义正确）、375×812 + 桌面 1440 不超屏、控制台 0 错误
+
+**适用人群**: 前端开发者、测试
+
+---
+
+### 8.34 [开发环境与测试账号](../docs/开发环境与测试账号.md) 📌 规范
+**位置**: `docs/开发环境与测试账号.md`
+
+**内容**:
+- **本地验证统一登录入口**：测试账号 `admin123 / 123456`（dev 库 `userId=4`）——CDP 探针 / UI 验收 / 接口回归**一律真实登录**取 token（`POST /api/auth/login` → 写 `token/username/userId/nickname/email/role` 六键，复刻 `UserStore.setLoginInfo`）
+- **禁止伪造 token**（如 `demo.<base64>.demo`）：守卫能骗过，但一次 401 就被拦截器 `clearAuth()` 踢下线，并把假数据写进 localStorage 缓存污染后续验收（本项目踩过）
+- 风控与顶号注意：10 分钟内第 3 次密码登录起强制邮箱验证码（探针应一次登录多次复用 token，7 天有效）；单点登录会顶号，**别拿他人在用账号做自动化登录**
+- 同步登记进 `AGENTS.md` 第 12 条与 `docs/JobInterviews/Practical/08-排错方法论.md`（探针前置步骤）
+
+**适用人群**: 前端/后端开发者、测试、AI Agent
+
+---
+
+### 8.35 [背景图端适配分类](../dixiyang-vue/docs/背景图端适配分类.md) 🔍 分析 + ✅ 功能落地
+**位置**: `dixiyang-vue/docs/背景图端适配分类.md`
+
+**内容**:
+- **判定依据是裁剪数学**：背景 `center/cover` 全视口（桌面 ≈1.78 / 手机 ≈0.46）→ 桌面竖幅图只剩中间 `A/1.78`、手机横幅图只剩中间 `0.46/A`
+- **22 张逐张结论**：上传背景 11（桌面优先 5 / 通用 2 / 移动优先 4）、上传封面 4（3 张方图可作 2:3 封面、1 张 16:9 横图建议改作背景）、内置背景 7（桌面优先 5 / 通用 1 / 移动优先 1）
+- **两个易踩坑**：①「手机上够清 ≠ 桌面上够清」（手机只需 750px 长边、桌面要 1920px）；② 主体靠边的图不能跨端用（横图给手机只留中间 1/4）
+- **v1.1 功能落地（§9）**：选择器**按当前端排序 + 「电脑/手机」角标**——新增纯函数 `src/utils/bgFit.ts`（4 个门槛常量可调）、`BgImageGrid` 缩略图 `@load` 读尺寸 → 排序/角标（零额外请求）、单测 10 例；CDP 实测 375 竖屏「手机优先」置顶、1440 横屏顺序反转、功能卡仍钉末尾、点选不受影响
+- 附选图规则表（两端通用 3:2~16:10 主体居中 / 手机 9:16~9:20 竖图 / 桌面 16:9 起）、"形状分类 vs 系统口径（含清晰度门槛）"差异说明、未做项（手动改分类 / 双端两套背景 / 上传提示）
+
+**适用人群**: 前端开发者、设计/内容维护
+
+---
+
+### 8.36 [FloatingNav手机端溢出修复](../dixiyang-vue/docs/FloatingNav手机端溢出修复.md) 🐛 修复
+**位置**: `dixiyang-vue/docs/FloatingNav手机端溢出修复.md`
+
+**内容**:
+- **现象**：手机端 FAB 悬浮球展开后，末尾「设置」按钮**挤出胶囊右缘、压在悬浮球上**
+- **根因（CDP 实测）**：横条条目是 `flex-shrink: 0` 的固定 44px，容器只有 `max-width: calc(100vw - 82px)`（只限容器不限内容）→ **admin 多一个「管理后台」= 6 项时 `scrollW 314 > clientW 289`，右溢出 +34px**（360 时 +49px；320 下即使用户 5 项也 +37px）
+- **修复**：`<nav>` 注入 `--nav-count`（条目数）→ `.nav-item` 宽度改 `clamp(32px, 可用宽/条目数, 44px)`（高度仍 44px 保触控目标）；≤344px 极窄屏换行成 3×2 圆角面板（条目回到 44×44）
+- **验证**：375/360/320 × 6 项 **14/14 PASS**——`overflow=0`、末条目落在胶囊内、不压球（间隙 8px）、页面无横向滚动、320 自动换行（`rows=2`）；375 5 项与 1440 桌面形态均未误伤；双端截图肉眼复核、控制台 0 错误
+
+**适用人群**: 前端开发者、测试
+
+---
+
+### 8.36 [opencode 模型上下文覆盖](./opencode模型上下文覆盖.md) ⚙️ 环境
+**位置**: `docs/opencode模型上下文覆盖.md`
+
+**内容**:
+- **需求**：免费模型 `opencode/deepseek-v4.1-flash-free` 上下文抬到 **1M**（对齐付费/Go 版 `deepseek-v4.1-flash` 的 1,000,000）
+- **改法**：全局配置 `~/.config/opencode/opencode.json` 顶层加 V2 原生 `providers.opencode.models."deepseek-v4.1-flash-free".limit = { context: 1000000, output: 32000 }`（旧 V1 `provider` 块不动，两键可共存）
+- **两个坑**：① `limit` 是**整体替换**不是深合并，`output` 必须一起写；② 改完要 `POST /api/location/reload` 才即时生效
+- **验证**：`opencode api get /api/model` 复查 → `1000000/32000`（改前 200000/32000）✅
+- **风险**：只改客户端预算，免费档网关若仍按 200K 截断则超限直接报错；回滚 = 删 `providers` 块或恢复 `opencode.json.bak.20261016-142755`
+
+**适用人群**: AI Agent、使用免费模型的开发者
+
+---
+
 ## 现有文档（已存在）
 
 ### 9. [后端开发技术文档](./后端开发技术文档.md)
@@ -788,6 +873,20 @@
 
 ## 版本变更记录
 
+### v1.63 (2026-10-16)
+- **新增**: [背景图端适配分类](../dixiyang-vue/docs/背景图端适配分类.md) v1.1 — 用户要求「把分类做成页面功能」，两问定形后落地（**选择器按当前端排序 + 「电脑/手机」角标**，单网格不撑高）：新增纯函数 `src/utils/bgFit.ts`（宽高比 + 清晰度门槛，4 个常量可调：竖图 A≤0.8 且长边≥750 → 手机；横图 A≥1.6 且长边≥1920 → 电脑，不够 1920 降级通用）、`BgImageGrid` 缩略图 `@load` 读原始尺寸 → 当前端组置顶 + 左上角标 + `title` 解释（**零额外请求**，功能卡仍钉末尾）、单测 `bgFit.spec.ts` 10 例；CDP 实测真实账号 375 竖屏「手机优先」置顶 / 1440 横屏顺序反转 / 角标 5+1 / 点选不受影响 / 浮层不超屏，`vue-tsc` 0 错 + eslint 0 错
+- **修复**: [FloatingNav手机端溢出修复](../dixiyang-vue/docs/FloatingNav手机端溢出修复.md) — 用户报「手机端 settings 按钮溢出」：CDP 实测根因 = FAB 横条条目 `flex-shrink:0` 固定 44px + 容器只有 `max-width`（只限容器不限内容）→ **admin 6 项时 `scrollW 314 > clientW 289`、右溢出 34px 压在悬浮球上**（360 时 +49px、320 下 5 项即 +37px）；修复 = `<nav>` 注入 `--nav-count` + 条目宽 `clamp(32px, 可用宽/条目数, 44px)`（高度仍 44px）+ ≤344px 换行 3×2 面板；375/360/320 × 6 项 **14/14 PASS**（`overflow=0`、不压球、无横向滚动、320 自动换行）、375 5 项与 1440 桌面未误伤、双端截图复核
+
+### v1.63 (2026-10-16)
+- **新增**: [opencode 模型上下文覆盖](opencode模型上下文覆盖.md) — 用户要求「把免费的 DeepSeek V4.1 Flash Free 上下文弄成 Go 一样，1M」：全局配置 `~/.config/opencode/opencode.json` 顶层新增 V2 原生 `providers.opencode.models."deepseek-v4.1-flash-free".limit = { context: 1000000, output: 32000 }`（目录原值 200000/32000，付费版 1000000/384000）；两个坑记录在案（`limit` 整体替换非深合并 → `output` 必须一起写；改完需 `POST /api/location/reload`）；验证 `opencode api get /api/model` → **1000000/32000** ✅；风险：只改客户端预算/自动压缩触发点，免费档网关若仍按 200K 截断则超限直接报错（免费端点对非 opencode 客户端返回 `403 FreeTierError`，无法脚本探针），回滚 = 删 `providers` 块或恢复 `opencode.json.bak.20261016-142755`
+
+### v1.62 (2026-10-16)
+- **新增**: [开发环境与测试账号](开发环境与测试账号.md) — 用户拍板「以后用账号登录」：本地验证统一用测试账号 `admin123/123456` 真实登录（`POST /api/auth/login` → 六键写 localStorage），**禁止伪造 token**；同步写入 `AGENTS.md` 第 12 条（全局规则）与 [JobInterviews/Practical/08-排错方法论.md](JobInterviews/Practical/08-排错方法论.md) 探针前置步骤；按新规范用真实账号复验 [Home背景浮层移动端滚动修复](../dixiyang-vue/docs/Home背景浮层移动端滚动修复.md)（§5.1：375×667 `panel 0→90` 且 `window.scrollY` 恒 0、尾部卡可达、滚后可选、812/1440 不超屏、0 控制台错误），探针改动的背景已复原并核对服务端一致、探针标签已关闭
+- **新增**: [背景图端适配分类](../dixiyang-vue/docs/背景图端适配分类.md) — 22 张图（上传背景 11 / 上传封面 4 / 内置背景 7）按 `center/cover` 裁剪数学逐张判定端适配：桌面优先 10、通用 3、移动优先 5、封面另判 4；给出选图规则（两端通用 3:2~16:10 主体居中、手机 9:16~9:20、桌面 16:9 起、封面 2:3）与三个可选功能方案（`fit` 标签 / 双端两套背景 / 上传提示）
+
+### v1.61 (2026-10-16)
+- **修复**: [Home背景浮层移动端滚动修复](../dixiyang-vue/docs/Home背景浮层移动端滚动修复.md) — 用户报「手机选背景的小页面滑不动、只能滑底层」：CDP 取证根因 = 浮层高度随卡片数**无上限**（21 张实测 1161px，超视口 504px）+ `overflow-y:visible` 本身不可滚 + EP `teleported=false` 把它锚在 **sticky 顶栏**内（滚页面不露出来）→ 手势被浏览器交给文档滚动；修复 = `.bg-compact-popper` 限高（桌面 `min(68vh,640px)`、移动 `min(70dvh, calc(100dvh - 190px))`）+ `.compact-panel` 内滚 + `overscroll-behavior:contain`（边界不传染底层）+ `max-width:calc(100vw-24px)`；仅 CSS、不动模板；CDP 真实触摸移动端 **8/8** + 桌面 **3/3** PASS（浮层内上滑 `panel 0→385`、`window.scrollY` 恒 0，修复前 0→186）、控制台 0 错误、双端截图复核
+
 ### v1.60 (2026-10-14)
 - **新增**: [静态主页部署](静态主页部署.md) §演示模式 批 1-4 — GitHub Pages 静态站 11 个登录后页面全量可逛（登录/编辑器/角色/时间线/RAG 助手+知识库/点子库/灵感墙/设置/管理后台）：`src/utils/demo/`（adapter 短路 + SSE fetch 打桩 + 假 JWT + 守卫放行），**构建隔离**——仅 CI `--mode gh-pages` 注入 `VITE_DEMO=1`，实测真实构建产物无 demo 代码泄漏、本地 dev/生产行为零影响；每批 type-check 0 错 + build ✓ 后自动发布
 
@@ -988,6 +1087,6 @@
 
 ---
 
-*文档版本: v1.57*
-*最后更新: 2026-10-12*
+*文档版本: v1.63*
+*最后更新: 2026-10-16*
 *维护者: Dixiyang Team*

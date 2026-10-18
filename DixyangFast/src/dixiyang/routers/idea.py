@@ -1,11 +1,53 @@
 """点子库与创意社区路由 /api/idea/*"""
+import json
+
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, Field
 
 from ..schemas.idea import CommentCreate, DraftCreate, DraftUpdate, ImportRequest, PostUpdate, PublishRequest
 from ..services.idea_service import IdeaService
 from ..utils.auth_deps import get_current_user_id, get_optional_user_id
+from ..utils.response import Result
 
 router = APIRouter(prefix="/idea", tags=["点子库与创意社区"])
+
+
+# ---------- AI 元数据 ----------
+
+class AiSuggestReq(BaseModel):
+    content: str = Field(..., description="帖子正文（AI 回答原文），超长后端截断")
+
+
+@router.post("/aiSuggest")
+async def ai_suggest(req: AiSuggestReq, user_id: int = Depends(get_current_user_id)):
+    """
+    AI 生成帖子标题+标签候选（RAG 聊天"转发到广场"用）。
+    返回 { "title": "...", "tags": [...] }，前端展示候选、用户一键应用，不自动落库。
+    """
+    content = req.content.strip()
+    if not content:
+        return Result.error("内容不能为空")
+    from ..services.chat_service import call_llm
+    from ..services.prompt_templates import build_idea_meta_prompt
+
+    try:
+        raw = call_llm(
+            [{"role": "user", "content": build_idea_meta_prompt(content[:4000])}],
+            temperature=0.4,
+            max_tokens=200,
+        ).strip()
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+        data = json.loads(raw)
+        title = str(data.get("title", "")).strip()
+        tags = [str(t).strip() for t in data.get("tags", []) if str(t).strip()][:5]
+        if not title:
+            return Result.error("AI 未生成有效标题")
+        return Result.success("生成成功", {"title": title, "tags": tags})
+    except json.JSONDecodeError:
+        return Result.error("AI 返回的不是有效 JSON")
+    except Exception as e:
+        return Result.error(f"生成失败: {e}")
 
 
 # ---------- 草稿 ----------

@@ -2,12 +2,17 @@
   <div
     ref="el"
     class="sticky"
-    :class="[note.color, { pinned, dragging, editing, 'in-pool': note.inPool, dim, done: note.done }]"
+    :class="[
+      note.color,
+      { pinned, dragging, editing, 'in-pool': note.inPool, dim, done: note.done, toolbarVisible },
+    ]"
     :style="wrapStyle"
     @pointerdown="onPointerDown"
     @dblclick="startEdit"
+    @mouseenter="onStickyEnter"
+    @mouseleave="onStickyLeave"
   >
-    <!-- 悬浮工具栏：hover/长按显现，含拖拽手柄/编辑/钉住/删除 -->
+    <!-- 悬浮工具栏：hover/按下显现，含投喂/编辑/钉住/删除 -->
     <div class="toolbar" ref="toolbar" @pointerdown.stop>
       <button
         class="tool-btn"
@@ -88,19 +93,27 @@
         </div>
       </template>
       <template v-else>
-        <div
-          class="content"
-          :class="{ empty: !note.content, done: note.done }"
+        <!-- 完成勾选：灰空心圈 → 黑底白勾（由灰变黑）；替代旧的"点正文=划掉" -->
+        <button
+          class="done-mark"
+          type="button"
+          :class="{ on: note.done }"
+          :title="note.done ? '标记为未完成' : '标记为完成'"
+          :aria-label="note.done ? '标记为未完成' : '标记为完成'"
+          :aria-pressed="note.done"
           @click.stop="toggleDone"
-          style="cursor: pointer;"
         >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </button>
+        <div class="content" :class="{ empty: !note.content, done: note.done }">
           {{ note.content || '（空便签，双击编辑）' }}
         </div>
         <div v-if="note.images.length" class="imgs">
           <img v-for="img in note.images.slice(0, 3)" :key="img" :src="img" alt="" loading="lazy" />
         </div>
       </template>
-
     </div>
     <input ref="file" type="file" accept="image/*" hidden @change="onFile" />
   </div>
@@ -114,13 +127,13 @@ import { uploadNoteImage } from '@/api/stickyApi';
 import type { StickyNoteItem } from '@/api/stickyApi';
 import { useStickyStore } from '@/stores/stickyStore';
 import { confirmDelete } from '@/utils/confirm';
-import { Edit, Delete, Picture, Check, Close, Plus } from '@element-plus/icons-vue';
+import { Edit, Delete, Picture, Check, Close } from '@element-plus/icons-vue';
 
 const props = defineProps<{
   note: StickyNoteItem;
   vw: number;
   vh: number;
-  /** 便签边长（与 Layer 同步：桌面 180 / 移动 144） */
+  /** 便签边长（与 Layer 同步：桌面 220 / 移动 160） */
   size: number;
 }>();
 
@@ -199,7 +212,7 @@ function hideToolbar(delay = 300) {
   }, delay);
 }
 
-/** 拖拽手柄专用 pointerdown：只启动拖动，不显示工具栏 */
+/** 投喂按钮：切换素材池状态（与拖放投喂等效，二选一均可） */
 function toggleFeed() {
   const next = !props.note.inPool;
   store.patch(props.note.id, { inPool: next });
@@ -210,17 +223,18 @@ function toggleFeed() {
   }
 }
 
-/** 通用 pointerdown：非手柄区域，显示工具栏 + 可拖动（未钉住时） */
+/** 通用 pointerdown：显示工具栏 + 可拖动（未钉住时） */
 function onPointerDown(e: PointerEvent) {
   if (e.button !== 0) return;
   if (pinned.value || editing.value) return;
   if ((e.target as HTMLElement).closest('button, textarea, input, a, .edit-bar')) return;
   showToolbar();
+  moved = false; // 每次按下重置：否则拖过一次后单击也会走拖拽保存逻辑（误 PUT + 可能误投喂）
   const rect = el.value!.getBoundingClientRect();
   offX = e.clientX - rect.left;
   offY = e.clientY - rect.top;
   dragging.value = true;
-  document.body.classList.add('sticky-dragging');
+  store.dragging = true; // 供素材池高亮"可投喂"（替代旧 body class 轮询）
   window.addEventListener('pointermove', onPointerMove);
   window.addEventListener('pointerup', onPointerUp, { once: true });
   window.addEventListener('pointercancel', onPointerUp, { once: true });
@@ -241,13 +255,23 @@ function onPointerMove(e: PointerEvent) {
 let offX = 0;
 let offY = 0;
 let moved = false;
+/** 拖拽刚结束：抑制浏览器补发的 click（下一次 click 消费后复位） */
+let suppressClick = false;
 
 function onPointerUp() {
   window.removeEventListener('pointermove', onPointerMove);
   dragging.value = false;
-  document.body.classList.remove('sticky-dragging');
+  store.dragging = false;
   hideToolbar();
   if (!moved) return;
+  // 拖拽结束后浏览器仍会补发 click（down/up 都落在便签上）→ 必须抑制，
+  // 否则松手瞬间会误触发 toggleDone 划掉内容 / bringFront 置顶
+  suppressClick = true;
+  // 兜底：若补发的 click 落在别处（如按钮 @click.stop 吞掉）则本标记无处消费，
+  // 0ms 后自动复位，避免吞掉下一次合法点击（click 在当前任务派发，timeout 后跑）
+  setTimeout(() => {
+    suppressClick = false;
+  }, 0);
   const node = el.value!;
   const rect = node.getBoundingClientRect();
   // 关键：拖拽中的便签自己悬浮在光标下（pointer-events:auto），
@@ -279,13 +303,25 @@ function togglePin() {
   }
 }
 
-/** 切换完成态（划掉/恢复） */
+/** 切换完成态（右上角勾选圆钮：灰空心圈 → 黑底白勾） */
 function toggleDone() {
-  if (editing.value || !props.note.content.trim()) return;
+  if (suppressClick) {
+    suppressClick = false;
+    return;
+  }
+  if (editing.value) return;
+  if (!props.note.content.trim()) {
+    ElMessage.info('空便签，先写点内容再标记完成');
+    return;
+  }
   store.patch(props.note.id, { done: !props.note.done });
 }
 
 function bringFront() {
+  if (suppressClick) {
+    suppressClick = false;
+    return;
+  }
   if (dragging.value || editing.value) return;
   store.bringToFront(props.note.id);
 }
@@ -347,12 +383,12 @@ function onStickyLeave() {
   hideToolbar();
 }
 
-// 卸载兜底
+// 卸载兜底（拖拽中断时复位拖拽态，防素材池高亮卡住）
 onBeforeUnmount(() => {
   window.removeEventListener('pointermove', onPointerMove);
   window.removeEventListener('pointerup', onPointerUp);
   window.removeEventListener('pointercancel', onPointerUp);
-  document.body.classList.remove('sticky-dragging');
+  if (dragging.value) store.dragging = false;
   if (toolbarHideTimer) clearTimeout(toolbarHideTimer);
 });
 </script>
@@ -379,7 +415,8 @@ onBeforeUnmount(() => {
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--surface-glass-border);
   box-shadow: var(--shadow-card);
-  will-change: transform, left, top, opacity, filter;
+  /* 只提升合成有效的属性（left/top 不是可提升项，写了无效） */
+  will-change: transform, opacity, filter;
 }
 
 .sticky.in-pool {
@@ -399,12 +436,12 @@ onBeforeUnmount(() => {
   filter: drop-shadow(0 28px 56px rgba(0, 0, 0, 0.7));
   cursor: grabbing;
   transition: none;
-  z-index: 2000000000;
-  will-change: transform, left, top;
+  /* 盖过池窗口（200000），拖拽时便签须悬浮在池口之上；不写 20 亿这种魔数 */
+  z-index: 210000;
+  will-change: transform;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   pointer-events: auto;
-  transform-style: preserve-3d;
 }
 
 /* 纸面：纸纹（横格）+ 顶光 + 投影 + 右下卷角 */
@@ -465,7 +502,63 @@ onBeforeUnmount(() => {
   -webkit-line-clamp: 7;
   -webkit-box-orient: vertical;
   user-select: text;
+  cursor: text; /* 正文只用于阅读/选中；完成切换走右上角勾选钮 */
+  padding-right: 26px; /* 给勾选圆钮让位，避免首行文字被盖 */
   transition: color var(--dur-fast) var(--ease-out), text-decoration var(--dur-fast) var(--ease-out);
+}
+
+/* 完成勾选圆钮：未完成=灰空心圈（hover 浅显勾）→ 完成=黑底白勾（由灰变黑） */
+.done-mark {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 2px solid rgba(58, 49, 38, 0.35);
+  background: rgba(255, 255, 255, 0.4);
+  color: rgba(58, 49, 38, 0.75);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.done-mark svg {
+  width: 13px;
+  height: 13px;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+
+.done-mark:hover {
+  border-color: rgba(58, 49, 38, 0.8);
+}
+
+.done-mark:hover svg {
+  opacity: 0.35; /* 未完成 hover：浅灰勾提示可点 */
+  transform: scale(1);
+}
+
+.done-mark.on {
+  background: #17171c;
+  border-color: #17171c;
+  color: #fff;
+}
+
+.done-mark.on svg {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.done-mark:active {
+  transform: scale(0.88);
 }
 
 .content.done {
@@ -562,14 +655,11 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
-
-
-
-
 /* ============ 编辑态 ============ */
+/* 不再强制 z-index:1000 !important —— startEdit 已调 bringToFront() 置顶，
+   内联 zIndex（topZ 递增）才是真置顶；旧写法会把置顶结果压回 1000 导致被盖 */
 .sticky.editing {
   transform: rotate(0deg) scale(1.14);
-  z-index: 1000 !important;
 }
 
 .edit-ta {
@@ -702,10 +792,6 @@ onBeforeUnmount(() => {
 
 /* ============ 移动端适配（≤768） ============ */
 @media (max-width: 768px) {
-  .sticky {
-    /* 移动端便签稍小，工具栏始终可见（无 hover） */
-  }
-
   .toolbar {
     opacity: 1;
     pointer-events: auto;
