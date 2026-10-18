@@ -24,3 +24,5 @@ class AppUser(Base):
     require_code: Mapped[bool] = mapped_column(Boolean, default=False)
     # 角色：user / admin（管理后台鉴权）
     role: Mapped[str] = mapped_column(String(20), default="user", server_default="user")
+    # 管理后台独立会话号：与用户端 session_id 完全隔离（登后台不顶用户端，反之亦然）
+    admin_session_id: Mapped[str | None] = mapped_column(String(64))

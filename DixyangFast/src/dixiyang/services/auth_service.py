@@ -88,6 +88,37 @@ class AuthService:
         }
         return Result.success("操作成功", data)
 
+    def admin_login(self, req: AuthDTO) -> dict:
+        """管理后台登录（独立入口专用）：
+        - 仅 role=admin 放行（普通账号在后台登录页直接被拒）；
+        - 独立会话号 admin_session_id，不覆盖用户端 session_id，登后台不顶用户端；
+        - 风控与用户端共用窗口（避免后台成为绕过频率限制的口子）。"""
+        user = self.db.query(AppUser).filter(AppUser.username == req.username).first()
+        if not user:
+            return Result.error("用户名不存在")
+        if not _verify_pw(req.password, user.password):
+            return Result.error("用户名或密码错误")
+        if getattr(user, "role", "user") != "admin":
+            return Result.error("需要管理员权限")
+        if user.require_code:
+            return Result.error("登录过于频繁，请先在用户端用邮箱验证码登录一次后再试")
+        admin_sid = _new_session_id()
+        user.admin_session_id = admin_sid
+        _record_login(user)
+        self.db.commit()
+        token = create_access_token(user.id, admin_sid, scope="admin")
+        data = {
+            "token": token,
+            "user": {
+                "userId": user.id,
+                "username": user.username,
+                "nickname": user.nickname or user.username,
+                "email": user.email or "",
+                "role": "admin",
+            },
+        }
+        return Result.success("操作成功", data)
+
     def register(self, req: RegisterDTO) -> dict:
         # 如果带了验证码，走验证码注册逻辑
         if req.code and req.email:

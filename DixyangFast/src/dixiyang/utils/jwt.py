@@ -5,12 +5,14 @@ from jose import JWTError, jwt
 from ..config import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEY
 
 
-def create_access_token(user_id: int, session_id: str) -> str:
-    """签发 JWT；session_id 为单点登录会话号，服务端比对 app_user.session_id 决定是否踢出"""
+def create_access_token(user_id: int, session_id: str, scope: str = "user") -> str:
+    """签发 JWT；session_id 为单点登录会话号，服务端比对 app_user.session_id 决定是否踢出。
+    scope：user=用户端会话（比对 session_id）；admin=管理后台会话（比对 admin_session_id）——两套互不通兑"""
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {
         "sub": str(user_id),
         "sid": session_id,
+        "scope": scope,
         "exp": expire,
         "iat": datetime.now(timezone.utc),
     }

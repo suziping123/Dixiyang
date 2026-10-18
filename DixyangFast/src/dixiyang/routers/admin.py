@@ -1,4 +1,4 @@
-"""管理后台 API：仪表盘统计 / 用户管理（M1）。全部走 require_admin 鉴权"""
+"""管理后台 API：登录（独立会话）/ 仪表盘统计 / 用户管理。管理端点全部走 require_admin 鉴权"""
 from fastapi import APIRouter, Depends
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -6,12 +6,24 @@ from sqlalchemy.orm import Session
 from ..models.chat_session import ChatSession
 from ..models.novel import Novels
 from ..models.user import AppUser
+from ..schemas.auth import AuthDTO
+from ..services.auth_service import AuthService
 from ..utils.auth_deps import require_admin
 from ..utils.database import get_db
 from ..utils.response import Result
 from ..models import idea as idea_model
 
+# 后台登录端点：不能带 require_admin（否则死锁），单独挂载 → POST /api/admin/auth/login
+auth_router = APIRouter(prefix="/admin/auth", tags=["admin"])
+
+# 管理端点：全部走 require_admin——仅后台会话 token 可过，用户端 token 一律拒绝
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
+
+
+@auth_router.post("/login")
+async def admin_login(req: AuthDTO, svc: AuthService = Depends()):
+    """管理后台登录：仅 role=admin 放行；独立会话号，不影响用户端登录态"""
+    return svc.admin_login(req)
 
 
 @router.get("/stats")

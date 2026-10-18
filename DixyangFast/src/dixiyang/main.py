@@ -40,6 +40,10 @@ async def lifespan(app: FastAPI):
     if "role" not in cols:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE app_user ADD COLUMN role VARCHAR(20) DEFAULT 'user'"))
+    # 既有表补列：app_user.admin_session_id（管理后台独立会话号，与用户端 session_id 隔离）
+    if "admin_session_id" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE app_user ADD COLUMN admin_session_id VARCHAR(64)"))
     # 既有表补列：sticky_note.done（同上，create_all 不会给旧表加列，缺失则增删改查全 500）
     s_cols = {c["name"] for c in sa_inspect(engine).get_columns("sticky_note")}
     if "done" not in s_cols:
@@ -82,6 +86,7 @@ app.include_router(chapter.router, prefix="/api")
 app.include_router(ai.router, prefix="/api")
 app.include_router(idea.router, prefix="/api")
 app.include_router(sticky.router, prefix="/api")
+app.include_router(admin.auth_router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 
 
