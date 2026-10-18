@@ -68,11 +68,6 @@ http.interceptors.response.use(
   },
 )
 
-// 演示模式（GitHub Pages）：复用用户端同一套 mock 适配器，请求不出网
-if (import.meta.env.VITE_DEMO === '1') {
-  import('@/utils/demo/adapter')
-    .then((m) => m.installDemoAdapter(http))
-    .catch(() => {})
-}
+// 演示模式适配器不在此处安装：由 src/admin/main.ts 在挂载前安装（防请求竞态）
 
 export default http

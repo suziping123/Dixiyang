@@ -29,4 +29,22 @@ const app = createApp(App)
 app.use(ElementPlus)
 app.use(createPinia())
 app.use(router)
-app.mount('#app')
+
+// 演示构建（GitHub Pages）：挂载前先装 mock 适配器——
+// 否则"带旧 token 直达页面"时，首个数据请求会赶在动态 import 前发出，泄漏到真实网络
+async function bootstrap() {
+  if (import.meta.env.VITE_DEMO === '1') {
+    try {
+      const [{ installDemoAdapter }, { default: http }] = await Promise.all([
+        import('./utils/demo/adapter'),
+        import('./utils/http'),
+      ])
+      installDemoAdapter(http)
+    } catch {
+      // 适配器加载失败：静默降级，页面照常渲染
+    }
+  }
+  app.mount('#app')
+}
+
+bootstrap()

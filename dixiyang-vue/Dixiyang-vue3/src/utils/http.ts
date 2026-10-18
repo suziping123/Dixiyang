@@ -81,13 +81,7 @@ export function assertApiResponse<T>(response: unknown): ApiResponse<T> {
   return response as ApiResponse<T>
 }
 
-// ── 演示模式（GitHub Pages 静态站）──
-// 仅当构建注入 VITE_DEMO=1（--mode gh-pages）时动态加载 mock 适配器；真实 dev/生产构建此块被消除，零影响
-if (import.meta.env.VITE_DEMO === '1') {
-  import('./demo/adapter')
-    .then((m) => m.installDemoAdapter(http))
-    .catch(() => {})
-}
+// 演示模式适配器不在此处安装：由 src/main.ts 在挂载前安装（防请求竞态）
 
 // 类型断言辅助函数 - 用于字符串响应（聊天接口）
 export function assertStringResponse(response: unknown): string {
