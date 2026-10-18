@@ -10,8 +10,6 @@
   <div class="character-manager-container">
     <div class="bg-gradient-animation"></div>
 
-    <FloatingNav />
-
     <main class="main-stage">
       <NovelPageHeader page-title="角色管理" />
 
@@ -180,7 +178,6 @@ import { ref, onMounted, reactive, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Delete } from '@element-plus/icons-vue'
-import FloatingNav from '@/components/FloatingNav.vue'
 import NovelPageHeader from '@/components/NovelPageHeader.vue'
 import { useBackgroundConfig } from '@/composables/useBackgroundConfig'
 import { useTextColorCustomizer } from '@/composables/useTextColorCustomizer'

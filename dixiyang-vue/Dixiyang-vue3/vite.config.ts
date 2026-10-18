@@ -51,6 +51,15 @@ export default defineConfig({
     autoAdbReverse(),
     // vueDevTools(), // 注释掉，解决 ERR_ABORTED 问题
   ],
+  build: {
+    // 多入口：用户端 index.html + 管理控制台 admin.html（独立登录页/独立壳，物理分离）
+    rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        admin: fileURLToPath(new URL('./admin.html', import.meta.url)),
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))

@@ -19,6 +19,7 @@ import { DEMO_SESSIONS, DEMO_SESSION_MESSAGES } from './mockSocial'
 import { installChatStreamStub } from './fetchStub'
 import {
   DEMO_ADMIN_STATS,
+  DEMO_ADMIN_USER,
   DEMO_ADMIN_USERS,
   DEMO_DRAFTS,
   DEMO_IDEA_COMMENTS,
@@ -117,7 +118,8 @@ const routes: Array<[RegExp, (config: AxiosRequestConfig) => Body | Promise<Body
   [/^\/user\/password$/, () => ok(null, '演示模式：密码已更新（假）')],
   [/^\/userConfig\/background$/, (c) => (isPost(c) ? ok(null, '演示模式：已保存（假）') : ok(DEMO_USER_CONFIG))],
   [/^\/userConfig\/fontColors$/, (c) => (isPost(c) ? ok(null, '演示模式：已保存（假）') : ok({}))],
-  // ── 管理后台 ──
+  // ── 管理后台（console 独立入口：admin.html；登录同样走 mock）──
+  [/^\/admin\/auth\/login$/, () => ok({ token: makeDemoToken(), user: DEMO_ADMIN_USER })],
   [/^\/admin\/stats$/, () => ok(DEMO_ADMIN_STATS)],
   [/^\/admin\/users\/\d+\/role$/, () => ok(null, '演示模式：角色已更新（假）')],
   [/^\/admin\/users$/, () => ok(DEMO_ADMIN_USERS)],

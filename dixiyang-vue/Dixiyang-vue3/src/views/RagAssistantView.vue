@@ -2,8 +2,6 @@
   <div class="rag-page">
     <div class="bg-gradient-animation"></div>
 
-    <FloatingNav />
-
     <div class="rag-container">
       <!-- 最左侧：历史会话 -->
       <aside class="session-panel" :class="{ 'drawer-open': showSessions }">
@@ -274,7 +272,6 @@ import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useChatStream } from '@/composables/useChatStream'
 import { useUserStore } from '@/stores/UserStore'
-import FloatingNav from '@/components/FloatingNav.vue'
 import ChatMessage from '@/components/chat/ChatMessage.vue'
 import EditMessageModal from '@/components/chat/EditMessageModal.vue'
 import CharacterSettingsDialog from '@/components/CharacterSettingsDialog.vue'

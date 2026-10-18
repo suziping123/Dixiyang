@@ -1,7 +1,6 @@
 <template>
   <div class="rag-page">
     <div class="bg-gradient-animation"></div>
-    <FloatingNav />
     <header class="page-header">
       <div class="header-content">
         <h1 class="page-title">RAG 知识库</h1>
@@ -133,7 +132,6 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import FloatingNav from '@/components/FloatingNav.vue'
 import EChart from '@/components/EChart.vue'
 import { getRagStats, getRagDocuments, searchRag } from '@/api/ragApi'
 import type { RagStats, RagDocPage, RagSearchResult } from '@/api/ragApi'

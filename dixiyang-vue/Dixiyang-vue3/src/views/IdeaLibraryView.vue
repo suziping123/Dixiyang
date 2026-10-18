@@ -1,6 +1,5 @@
 <template>
   <div class="idea-page">
-    <FloatingNav />
     <header class="page-head">
       <div class="head-title">
         <h1>广场</h1>
@@ -268,7 +267,6 @@ import DraftEditorDialog from '@/components/idea/DraftEditorDialog.vue'
 import PostDetailDialog from '@/components/idea/PostDetailDialog.vue'
 import PostEditDialog from '@/components/idea/PostEditDialog.vue'
 import IdeaIcon from '@/components/idea/IdeaIcon.vue'
-import FloatingNav from '@/components/FloatingNav.vue'
 import { confirmDelete } from '@/utils/confirm'
 import { enterSubmit } from '@/utils/enterSubmit'
 

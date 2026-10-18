@@ -1,12 +1,18 @@
-/*
- * @Author: suziping123 yunzhiming123@gmail.com
- * @Date: 2026-10-09 21:18:55
- * @LastEditors: suziping123 yunzhiming123@gmail.com
- * @LastEditTime: 2026-10-18 21:25:06
- * @FilePath: \Dixiyang\dixiyang-vue\Dixiyang-vue3\src\api\adminApi.ts
- * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
- */
-import http from '@/utils/http'
+// 管理后台 API（仅后台 token 可用；用户端 token 一律被后端拒绝）
+import http from './http'
+
+export interface AdminLoginUser {
+  userId: number
+  username: string
+  nickname: string
+  email: string
+  role: string
+}
+
+export interface AdminSession {
+  token: string
+  user: AdminLoginUser
+}
 
 export interface AdminTotals {
   users: number
@@ -29,6 +35,10 @@ export interface AdminUserItem {
   role: 'user' | 'admin'
   createTime: string
 }
+
+/** 后台登录（独立端点：仅 role=admin 放行，独立会话不顶用户端） */
+export const adminLogin = (username: string, password: string) =>
+  http.post('/admin/auth/login', { username, password })
 
 export const getAdminStats = () => http.get('/admin/stats')
 

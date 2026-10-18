@@ -34,19 +34,19 @@ const router = createRouter({
       path: '/home',
       name: 'home',
       component: HomeView,
-      meta: { requiresAuth: true, title: '我的创作宇宙 · DIXIYANG' } // 需要认证
+      meta: { requiresAuth: true, showNav: true, title: '我的创作宇宙 · DIXIYANG' } // 需要认证；showNav=渲染全局导航（仅 5 个主页）
     },
     {
       path: '/login',
       name: 'login',
       component: LoginView,
-      meta: { hideNav: true } // 标记：隐藏导航
+      // 无 meta.showNav：不渲染全局导航
     },
     {
       path: '/settings',
       name: 'settings',
       component: SettingsView,
-      meta: { requiresAuth: true } // 需要认证
+      meta: { requiresAuth: true, showNav: true } // 需要认证
     },
 
     {
@@ -65,7 +65,7 @@ const router = createRouter({
       path: '/rag-assistant',
       name: 'rag-assistant',
       component: RagAssistantView,
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true, showNav: true }
     },
     {
       path: '/rag-knowledge',
@@ -77,19 +77,13 @@ const router = createRouter({
       path: '/ideas',
       name: 'idea-library',
       component: IdeaLibraryView,
-      meta: { requiresAuth: true, title: '广场 · DIXIYANG' }
+      meta: { requiresAuth: true, showNav: true, title: '广场 · DIXIYANG' }
     },
     {
       path: '/inspiration',
       name: 'inspiration-wall',
       component: InspirationWallView,
-      meta: { requiresAuth: true, title: '灵感墙 · DIXIYANG' }
-    },
-    {
-      path: '/admin',
-      name: 'admin',
-      component: () => import('../views/AdminView.vue'),
-      meta: { requiresAuth: true, title: '管理后台 · DIXIYANG' }
+      meta: { requiresAuth: true, showNav: true, title: '灵感墙 · DIXIYANG' }
     },
     {
       path: '/novel/:novelId/timeline',
@@ -102,7 +96,7 @@ const router = createRouter({
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: NotFoundView,
-      meta: { hideNav: true, title: '页面未找到 · DIXIYANG', public: true }
+      meta: { title: '页面未找到 · DIXIYANG', public: true }
     },
   ],
 })
@@ -133,11 +127,6 @@ router.beforeEach((to, from, next) => {
   // 未登录或 token 无效/过期 → 跳登录页（拦截器行为保持不变）
   if (!valid) {
     return next('/login')
-  }
-
-  // 管理后台：非 admin 直接拦截在门外（不进入页面）
-  if (to.name === 'admin' && localStorage.getItem('role') !== 'admin') {
-    return next('/home')
   }
 
   next()

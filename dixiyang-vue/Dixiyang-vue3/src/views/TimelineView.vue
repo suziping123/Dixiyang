@@ -1,7 +1,5 @@
 <template>
   <div class="engine-container">
-    <FloatingNav />
-
     <main class="main-stage">
       <NovelPageHeader page-title="时间线管理" />
 
@@ -193,7 +191,6 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import FloatingNav from '@/components/FloatingNav.vue'
 import NovelPageHeader from '@/components/NovelPageHeader.vue'
 import { useNovelStore } from '@/stores/novelStore'
 import {

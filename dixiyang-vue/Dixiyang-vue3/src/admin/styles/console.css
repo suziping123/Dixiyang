@@ -1,0 +1,40 @@
+/* 管理控制台独立样式：自包含（不引用户端 main.css 与落地页样式）；
+   Element Plus 暗色走官方 dark css-vars（admin.html 上 html.dark） */
+
+:root {
+  --c-bg: #0d0d0f;
+  --c-panel: #12141b;
+  --c-card: rgba(255, 255, 255, 0.04);
+  --c-border: rgba(255, 255, 255, 0.1);
+  --c-text: #eeeeee;
+  --c-text-2: rgba(238, 238, 238, 0.7);
+  --c-text-3: rgba(238, 238, 238, 0.5);
+  --c-accent: #4b8bf5;
+  --c-cyan: #28c4d4;
+  --c-purple: #a855f7;
+  --c-danger: #ef4444;
+  --c-warn: #e6a23c;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+}
+
+* { box-sizing: border-box; }
+
+html,
+body { margin: 0; min-height: 100%; }
+
+body {
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: 'Inter', -apple-system, 'Segoe UI', 'Helvetica Neue', sans-serif;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app { min-height: 100vh; }
+
+/* 输入字号 ≥16：避免 iOS Safari 聚焦放大整页（与用户端同规） */
+@media (max-width: 768px) {
+  .el-input__inner,
+  .el-textarea__inner { font-size: 16px; }
+}

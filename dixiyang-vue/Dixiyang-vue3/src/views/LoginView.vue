@@ -12,6 +12,7 @@
     <!-- 仅演示构建（GitHub Pages）显示：告诉访客怎么进入 -->
     <p v-if="IS_DEMO" class="demo-notice">
       演示站点 · 任意用户名与密码（至少 6 位）即可登录 · 站内均为演示数据，操作不会真实保存
+      <a class="demo-admin-link" href="admin.html">管理后台演示 →</a>
     </p>
 
     <main class="auth-box" :class="{ 'right-panel-active': isSignUp }">
@@ -203,6 +204,19 @@ onMounted(() => {
   border: 1px solid rgba(245, 233, 201, 0.28);
   backdrop-filter: blur(6px);
   text-align: center;
+}
+
+/* 演示站专用：管理后台（独立入口）链接，仅 IS_DEMO 渲染 */
+.demo-admin-link {
+  margin-left: 8px;
+  color: #9fd8e6;
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(159, 216, 230, 0.5);
+  white-space: nowrap;
+}
+.demo-admin-link:hover {
+  color: #cdeef7;
+  border-bottom-color: rgba(205, 238, 247, 0.85);
 }
 
 @media (max-width: 768px) {

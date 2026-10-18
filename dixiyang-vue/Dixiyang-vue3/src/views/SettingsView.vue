@@ -1,7 +1,5 @@
 <template>
   <div class="settings-container">
-    <FloatingNav />
-
     <div class="settings-wrapper">
       <!-- 侧边栏分类 -->
       <aside class="settings-sidebar">
@@ -51,7 +49,6 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, DataLine, InfoFilled, Picture, Setting, User } from '@element-plus/icons-vue'
-import FloatingNav from '@/components/FloatingNav.vue'
 import AccountSection from '@/components/settings/AccountSection.vue'
 import AppearanceSection from '@/components/settings/AppearanceSection.vue'
 import DataSection from '@/components/settings/DataSection.vue'

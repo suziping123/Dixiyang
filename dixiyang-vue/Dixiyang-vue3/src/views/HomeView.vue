@@ -1,7 +1,5 @@
 <template>
   <div class="engine-container">
-    <FloatingNav />
-
     <main class="main-stage" :class="{ 'blur-bg': showRag }">
       <div class="topbar" :class="{ stuck: topbarStuck }">
         <div class="brand">
@@ -192,7 +190,6 @@ import { gsap } from 'gsap'
 // 组件导入
 import BackgroundControl from '@/components/BackgroundControl.vue'
 import CreateCard from '@/components/CreateCard.vue'
-import FloatingNav from '@/components/FloatingNav.vue'
 // 工具/状态导入
 import { useUserStore } from '@/stores/UserStore'
 import { useTextColorCustomizer } from '@/composables/useTextColorCustomizer'

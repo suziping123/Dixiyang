@@ -30,6 +30,15 @@ export const DEMO_ADMIN_USERS = {
   ],
 }
 
+/** 后台演示登录（console 独立入口）返回的管理员身份 */
+export const DEMO_ADMIN_USER = {
+  userId: 1,
+  username: 'demo-admin',
+  nickname: '演示管理员',
+  email: 'demo@example.com',
+  role: 'admin',
+}
+
 /** 点子库帖子（广场/我发布的/收藏共用） */
 const post = (over: Partial<Record<string, unknown>>): Record<string, unknown> => ({
   id: 501,
