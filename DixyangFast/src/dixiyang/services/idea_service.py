@@ -648,6 +648,9 @@ class IdeaService:
         p = self._own_post(user_id, post_id)
         if p is None:
             return Result.error("帖子不存在")
+        if getattr(p, "admin_removed", 0):
+            # 平台下架不可由作者自行恢复（防"下架后作者一键重新上架"绕过）
+            return Result.error("该内容已被平台下架，如有疑问请联系管理员")
         p.status = "published"
         self.db.commit()
         return Result.success("已重新上架")

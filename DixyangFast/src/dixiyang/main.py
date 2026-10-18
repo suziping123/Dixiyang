@@ -44,6 +44,11 @@ async def lifespan(app: FastAPI):
     if "admin_session_id" not in cols:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE app_user ADD COLUMN admin_session_id VARCHAR(64)"))
+    # 既有表补列：idea_post.admin_removed（平台下架标记，作者不可自行恢复）
+    ip_cols = {c["name"] for c in sa_inspect(engine).get_columns("idea_post")}
+    if "admin_removed" not in ip_cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE idea_post ADD COLUMN admin_removed INT NOT NULL DEFAULT 0"))
     # 既有表补列：sticky_note.done（同上，create_all 不会给旧表加列，缺失则增删改查全 500）
     s_cols = {c["name"] for c in sa_inspect(engine).get_columns("sticky_note")}
     if "done" not in s_cols:

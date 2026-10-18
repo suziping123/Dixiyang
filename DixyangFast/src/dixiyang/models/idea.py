@@ -23,6 +23,8 @@ class IdeaPost(Base):
     comment_count: Mapped[int] = mapped_column(Integer, default=0)
     collect_count: Mapped[int] = mapped_column(Integer, default=0)
     hot_score: Mapped[int] = mapped_column(BigInteger, default=0)
+    # 平台下架标记（管理端下架置 1，作者不可自行恢复；管理端恢复清 0）
+    admin_removed: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     create_time: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     update_time: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
