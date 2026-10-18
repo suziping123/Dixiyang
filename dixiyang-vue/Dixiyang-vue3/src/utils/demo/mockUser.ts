@@ -39,6 +39,57 @@ export const DEMO_ADMIN_USER = {
   role: 'admin',
 }
 
+/** 管理后台·内容管理演示数据（与控制台接口形状一致） */
+export const DEMO_ADMIN_POSTS = {
+  total: 5,
+  list: [
+    { id: 501, category: 'setting', title: '如果魔药成本是「记忆」', summary: '设定脑洞：炼金术的硬通货不是金币而是记忆……', authorId: 2, authorName: '林间写手', status: 'published', adminRemoved: false, viewCount: 233, likeCount: 232, commentCount: 2, collectCount: 88, createTime: '2026-10-12 19:12:00' },
+    { id: 502, category: 'character', title: '双面侦探：白天警探 / 夜晚纵火者', summary: '角色脑洞：同一具身体两个灵魂轮值……', authorId: 3, authorName: '夜航船', status: 'published', adminRemoved: false, viewCount: 512, likeCount: 178, commentCount: 5, collectCount: 64, createTime: '2026-10-11 21:40:00' },
+    { id: 503, category: 'idea', title: '把「后悔药」设计成期货', summary: '点子脑洞：后悔药按小时定价，越靠近事发时刻越贵……', authorId: 4, authorName: '海风章节', status: 'removed', adminRemoved: false, viewCount: 96, likeCount: 34, commentCount: 1, collectCount: 12, createTime: '2026-10-10 10:05:00' },
+    { id: 504, category: 'tech', title: '用状态机重写对话流（踩坑记录）', summary: '技术分享：把分支对话改写成显式状态机后……', authorId: 2, authorName: '林间写手', status: 'published', adminRemoved: false, viewCount: 87, likeCount: 41, commentCount: 0, collectCount: 19, createTime: '2026-10-09 15:22:00' },
+    { id: 505, category: 'setting', title: '（平台下架示例）夸大营销测试帖', summary: '违规示例：正文含夸大营销话术……', authorId: 3, authorName: '夜航船', status: 'removed', adminRemoved: true, viewCount: 45, likeCount: 3, commentCount: 4, collectCount: 0, createTime: '2026-10-08 09:00:00' },
+  ],
+}
+
+export const DEMO_ADMIN_POST_DETAIL = {
+  id: 501,
+  category: 'setting',
+  title: '如果魔药成本是「记忆」',
+  summary: '设定脑洞：炼金术的硬通货不是金币而是记忆……',
+  authorId: 2,
+  authorName: '林间写手',
+  status: 'published',
+  adminRemoved: false,
+  viewCount: 233,
+  likeCount: 232,
+  commentCount: 2,
+  collectCount: 88,
+  createTime: '2026-10-12 19:12:00',
+  content:
+    '设定脑洞：炼金术的硬通货不是金币而是记忆。\n\n喝下治疗药水，要交出一段快乐的童年；晋升药剂，要交出一个人的名字。\n\n推演方向：\n① 谁垄断了记忆的储存与销毁；\n② 忘记爱人的人还在不在爱；\n③ 记忆商人的道德困境。',
+  images: [],
+  tags: ['魔药', '代价设定', '硬奇幻'],
+  attachment: { type: 'chat_snapshot', meta: '6 轮对话快照' },
+  updateTime: '2026-10-12 19:30:00',
+}
+
+export const DEMO_ADMIN_COMMENTS = {
+  total: 2,
+  list: [
+    { id: 9001, postId: 501, authorId: 3, authorName: '夜航船', content: '第②条直接戳中我，已加入书单细读。', createTime: '2026-10-12 16:10:00' },
+    { id: 9002, postId: 501, authorId: 4, authorName: '海风章节', content: '记忆商人这个职业太有戏了，求展开！', createTime: '2026-10-12 18:44:00' },
+  ],
+}
+
+export const DEMO_ADMIN_STICKY = {
+  total: 3,
+  list: [
+    { id: 801, userId: 1, userName: '演示用户', color: 'yellow', done: false, inPool: false, content: '「灯塔聚落的灯，不是给活人看的，是给还没回来的人看的。」', images: [], createTime: '2026-10-10 09:12:00', updateTime: '2026-10-11 08:20:00' },
+    { id: 802, userId: 1, userName: '演示用户', color: 'blue', done: true, inPool: true, content: '场景点子：雨夜、末班渡船、两个都不肯先开口的人。', images: [], createTime: '2026-10-09 22:40:00', updateTime: '2026-10-10 07:05:00' },
+    { id: 803, userId: 2, userName: '林间写手', color: 'pink', done: false, inPool: false, content: '关键词：锈、潮汐、旧收音机。', images: [], createTime: '2026-10-08 18:33:00', updateTime: '2026-10-08 18:33:00' },
+  ],
+}
+
 /** 点子库帖子（广场/我发布的/收藏共用） */
 const post = (over: Partial<Record<string, unknown>>): Record<string, unknown> => ({
   id: 501,

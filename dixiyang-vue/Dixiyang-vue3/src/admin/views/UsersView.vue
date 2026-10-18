@@ -1,7 +1,10 @@
 <template>
   <div class="users-page">
     <header class="page-head">
-      <h1>用户管理</h1>
+      <div>
+        <h1 class="page-title">用户管理</h1>
+        <p class="page-sub">账号角色调整 · 搜索用户名 / 昵称</p>
+      </div>
       <el-input
         v-model="keyword"
         class="search-box"
@@ -13,8 +16,13 @@
       />
     </header>
 
-    <section class="user-panel">
-      <h2>用户列表 <em>共 {{ userTotal }} 人</em></h2>
+    <div class="section-rule">
+      <strong>用户列表</strong>
+      <span class="sr-line"></span>
+      <i class="sr-count">共 {{ userTotal }} 人</i>
+    </div>
+
+    <section class="c-card table-card rise-in">
       <el-table :data="users" v-loading="usersLoading" size="large">
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column prop="username" label="用户名" min-width="120" />
@@ -23,9 +31,9 @@
         <el-table-column label="注册时间" min-width="150">
           <template #default="{ row }">{{ (row.createTime || '').slice(0, 16) }}</template>
         </el-table-column>
-        <el-table-column label="角色" width="120">
+        <el-table-column label="角色" width="110">
           <template #default="{ row }">
-            <el-tag :type="row.role === 'admin' ? 'warning' : 'info'" size="large">
+            <el-tag :type="row.role === 'admin' ? 'warning' : 'info'" size="large" effect="plain">
               {{ row.role === 'admin' ? '管理员' : '普通用户' }}
             </el-tag>
           </template>
@@ -42,14 +50,16 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-pagination
-        v-model:current-page="page"
-        :page-size="pageSize"
-        :total="userTotal"
-        layout="prev, pager, next"
-        background
-        @current-change="loadUsers"
-      />
+      <div class="pager-row">
+        <el-pagination
+          v-model:current-page="page"
+          :page-size="pageSize"
+          :total="userTotal"
+          layout="prev, pager, next"
+          background
+          @current-change="loadUsers"
+        />
+      </div>
     </section>
   </div>
 </template>
@@ -61,6 +71,8 @@ import { Search } from '@element-plus/icons-vue'
 import { getAdminUsers, updateUserRole } from '../api/admin'
 import type { AdminUserItem } from '../api/admin'
 import { unwrap } from '../api/util'
+
+defineOptions({ name: 'AdminUsers' })
 
 const users = ref<AdminUserItem[]>([])
 const usersLoading = ref(false)
@@ -108,28 +120,8 @@ onMounted(loadUsers)
 </script>
 
 <style scoped>
-.page-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 22px;
-}
-.page-head h1 { font-size: 24px; color: var(--c-text); margin: 0; }
 .search-box { width: 260px; }
-
-.user-panel {
-  background: var(--c-card);
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius-md);
-  padding: 20px;
-}
-.user-panel h2 { margin: 0 0 14px; font-size: 18px; color: var(--c-text); }
-.user-panel h2 em { font-style: normal; font-size: 13px; font-weight: 400; color: var(--c-text-3); margin-left: 8px; }
-.user-panel :deep(.el-pagination) { margin-top: 14px; justify-content: flex-end; }
-
 @media (max-width: 768px) {
-  .search-box { width: 160px; }
-  .user-panel { overflow-x: auto; }
+  .search-box { width: 100%; }
 }
 </style>

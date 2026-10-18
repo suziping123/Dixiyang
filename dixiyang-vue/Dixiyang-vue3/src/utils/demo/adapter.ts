@@ -18,7 +18,11 @@ import {
 import { DEMO_SESSIONS, DEMO_SESSION_MESSAGES } from './mockSocial'
 import { installChatStreamStub } from './fetchStub'
 import {
+  DEMO_ADMIN_COMMENTS,
+  DEMO_ADMIN_POST_DETAIL,
+  DEMO_ADMIN_POSTS,
   DEMO_ADMIN_STATS,
+  DEMO_ADMIN_STICKY,
   DEMO_ADMIN_USER,
   DEMO_ADMIN_USERS,
   DEMO_DRAFTS,
@@ -121,6 +125,23 @@ const routes: Array<[RegExp, (config: AxiosRequestConfig) => Body | Promise<Body
   // ── 管理后台（console 独立入口：admin.html；登录同样走 mock）──
   [/^\/admin\/auth\/login$/, () => ok({ token: makeDemoToken(), user: DEMO_ADMIN_USER })],
   [/^\/admin\/stats$/, () => ok(DEMO_ADMIN_STATS)],
+  [/^\/admin\/users\/\d+\/role$/, () => ok(null, '演示模式：角色已更新（假）')],
+  [/^\/admin\/users$/, () => ok(DEMO_ADMIN_USERS)],
+  // 内容管理·广场（顺序：status/comments 先于裸 \d+）
+  [/^\/admin\/posts\/\d+\/status$/, () => ok({ id: 501, status: 'removed', adminRemoved: true }, '演示模式：已更新（假）')],
+  [/^\/admin\/posts\/\d+\/comments$/, () => ok(DEMO_ADMIN_COMMENTS)],
+  [
+    /^\/admin\/posts\/\d+$/,
+    (c) =>
+      (c.method ?? 'get').toUpperCase() === 'DELETE'
+        ? ok(null, '演示模式：已删除（假）')
+        : ok(DEMO_ADMIN_POST_DETAIL),
+  ],
+  [/^\/admin\/posts$/, () => ok(DEMO_ADMIN_POSTS)],
+  [/^\/admin\/comments\/\d+$/, () => ok(null, '演示模式：已删除（假）')],
+  // 内容管理·灵感墙
+  [/^\/admin\/sticky\/\d+$/, () => ok(null, '演示模式：已删除（假）')],
+  [/^\/admin\/sticky$/, () => ok(DEMO_ADMIN_STICKY)],
   [/^\/admin\/users\/\d+\/role$/, () => ok(null, '演示模式：角色已更新（假）')],
   [/^\/admin\/users$/, () => ok(DEMO_ADMIN_USERS)],
   // ── 点子库（广场/草稿/互动/评论）──

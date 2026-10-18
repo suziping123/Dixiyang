@@ -27,6 +27,18 @@ const router = createRouter({
           component: () => import('./views/UsersView.vue'),
           meta: { title: '用户管理 · DIXIYANG 控制台' },
         },
+        {
+          path: 'posts',
+          name: 'admin-posts',
+          component: () => import('./views/PostsManageView.vue'),
+          meta: { title: '广场管理 · DIXIYANG 控制台' },
+        },
+        {
+          path: 'sticky',
+          name: 'admin-sticky',
+          component: () => import('./views/StickyManageView.vue'),
+          meta: { title: '灵感墙管理 · DIXIYANG 控制台' },
+        },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },

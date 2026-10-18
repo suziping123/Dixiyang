@@ -1,10 +1,10 @@
 <template>
-  <div class="console-login">
-    <section class="login-card">
-      <header class="brand">
-        <span class="brand-mark">D</span>
+  <div class="login-wrap">
+    <section class="login-card rise-in">
+      <header class="lg-brand">
+        <img class="lg-logo" :src="logo" alt="DIXIYANG">
         <h1>管理控制台</h1>
-        <p class="brand-sub">DIXIYANG CONSOLE · 独立入口</p>
+        <p class="lg-sub">DIXIYANG CONSOLE · 独立入口</p>
       </header>
 
       <!-- 仅演示构建（GitHub Pages）显示 -->
@@ -33,7 +33,7 @@
         </el-button>
       </form>
 
-      <footer class="login-foot">
+      <footer class="lg-foot">
         <a href="./index.html">← 返回用户端</a>
       </footer>
     </section>
@@ -45,6 +45,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Lock, User } from '@element-plus/icons-vue'
+import logo from '@/assets/logoByGpt.png'
 import { adminLogin } from '../api/admin'
 import type { AdminSession } from '../api/admin'
 import { unwrap } from '../api/util'
@@ -75,70 +76,50 @@ const onSubmit = async () => {
 </script>
 
 <style scoped>
-.console-login {
+/* 背景层叠约定：登录页根容器 relative + z-index，内容才画在 #theme-bg 之上 */
+.login-wrap {
   position: relative;
+  z-index: 1;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
-  overflow: hidden;
-}
-/* 背景：暗底 + 双色径向光（与用户端同族但更克制） */
-.console-login::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(480px 320px at 18% 12%, rgba(40, 196, 212, 0.14), transparent 70%),
-    radial-gradient(520px 360px at 84% 88%, rgba(168, 85, 247, 0.16), transparent 72%);
-  pointer-events: none;
 }
 .login-card {
-  position: relative;
-  width: min(92vw, 420px);
-  padding: 34px 30px 26px;
+  width: min(92vw, 400px);
+  padding: 32px 28px 24px;
   border-radius: var(--radius-md);
-  background: rgba(18, 20, 28, 0.78);
-  border: 1px solid var(--c-border);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(10px);
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--surface-glass-border);
+  box-shadow: var(--shadow-card);
 }
-.brand { text-align: center; margin-bottom: 18px; }
-.brand-mark {
-  display: inline-flex;
-  width: 46px;
-  height: 46px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12px;
-  font-weight: 800;
-  font-size: 24px;
-  color: #0d0d0f;
-  background: linear-gradient(135deg, var(--c-cyan), var(--c-accent));
-  margin-bottom: 10px;
-}
-.brand h1 { margin: 0; font-size: 22px; letter-spacing: 2px; }
-.brand-sub { margin: 6px 0 0; font-size: 12px; letter-spacing: 2px; color: var(--c-text-3); }
+.lg-brand { text-align: center; margin-bottom: 18px; }
+.lg-logo { width: 46px; height: 46px; border-radius: 12px; margin: 0 auto 10px; }
+.lg-brand h1 { margin: 0; font-size: 1.375rem; letter-spacing: 2px; color: var(--text-primary); }
+.lg-sub { margin: 6px 0 0; font-size: 0.75rem; letter-spacing: 2px; color: var(--text-muted); }
 
+/* 演示说明条（仅 IS_DEMO 渲染，与用户端登录页同语言） */
 .demo-notice {
   margin: 0 0 14px;
   padding: 8px 12px;
   border-radius: var(--radius-sm);
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.5;
   text-align: center;
   color: #f5e9c9;
-  background: rgba(245, 233, 201, 0.08);
-  border: 1px solid rgba(245, 233, 201, 0.25);
+  background: rgba(18, 20, 28, 0.62);
+  border: 1px solid rgba(245, 233, 201, 0.28);
 }
 
 .login-form { display: flex; flex-direction: column; gap: 14px; }
 .field { display: flex; flex-direction: column; gap: 6px; }
-.field-label { font-size: 13px; color: var(--c-text-2); }
+.field-label { font-size: 0.8125rem; color: var(--text-secondary); }
 .submit { width: 100%; margin-top: 6px; }
 
-.login-foot { margin-top: 18px; text-align: center; font-size: 13px; }
-.login-foot a { color: var(--c-text-3); text-decoration: none; }
-.login-foot a:hover { color: var(--c-cyan); }
+.lg-foot { margin-top: 18px; text-align: center; font-size: 0.8125rem; }
+.lg-foot a { color: var(--text-muted); }
+.lg-foot a:hover { color: var(--accent-cyan); }
 </style>
