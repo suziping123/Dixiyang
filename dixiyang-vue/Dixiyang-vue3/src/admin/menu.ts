@@ -1,6 +1,7 @@
-// 控制台页面注册表：侧栏菜单与多页签共用同一份定义
+// 控制台页面注册表：侧栏菜单、多页签与窄屏悬浮导航共用同一份定义
 import type { Component } from 'vue'
-import { Collection, DataBoard, Notebook, User } from '@element-plus/icons-vue'
+import { Collection, DataBoard, HomeFilled, Notebook, SwitchButton, User } from '@element-plus/icons-vue'
+import type { FloatingNavItem } from '@/components/FloatingNav.types'
 
 export interface ConsolePage {
   path: string // 路由路径（hash 路由）
@@ -23,3 +24,13 @@ export const FIXED_TAB = 'admin-dashboard'
 export const pageByRouteName = (name: unknown) => CONSOLE_PAGES.find((p) => p.name === name)
 
 export const pageByName = (name: string) => CONSOLE_PAGES.find((p) => p.name === name)
+
+/**
+ * 窄屏 / 触屏悬浮导航注册项（复用用户端 FloatingNav 组件）：
+ * 4 个控制台页面 + 返回用户端（跨入口整页跳转）+ 退出登录（无 path，经 select 交 LayoutView 处理）
+ */
+export const ADMIN_NAV_ITEMS: FloatingNavItem[] = [
+  ...CONSOLE_PAGES.map((p) => ({ icon: p.icon, label: p.title, path: p.path })),
+  { icon: HomeFilled, label: '返回用户端', href: './index.html' },
+  { icon: SwitchButton, label: '退出登录', danger: true, key: 'logout' },
+]

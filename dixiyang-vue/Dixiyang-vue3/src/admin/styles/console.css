@@ -240,33 +240,20 @@
   .el-textarea__inner { font-size: 16px; }
 }
 
-/* ============ 移动端：侧栏转顶栏、页签横滑 ============ */
+/* ============ 窄屏 / 触屏（与 FloatingNav 的 FAB 判定同一条件）：侧栏撤下，导航交给悬浮球 ============ */
+@media (hover: none), (pointer: coarse), (max-width: 1024px) {
+  .console-sidebar { display: none; }
+
+  /* 右侧避让悬浮球（14 边距 + 46 球 + 4 缓冲 = 64，与用户端页面同规）：内容右界恒在球左缘之内 */
+  .content { padding: 18px 64px 48px 16px; }
+
+  /* 页签关闭钮：触控命中区放大到约 32px（视觉不变） */
+  .tab-close { position: relative; }
+  .tab-close::before { content: ''; position: absolute; inset: -8px; }
+}
+
 @media (max-width: 768px) {
-  .console-shell { flex-direction: column; }
-  .console-sidebar {
-    position: static;
-    height: auto;
-    width: 100%;
-    flex-direction: row;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    border-right: none;
-    border-bottom: 1px solid var(--surface-glass-border);
-  }
-  .sb-brand {
-    padding: 0 10px 0 0;
-    margin-bottom: 0;
-    border-bottom: none;
-    border-right: 1px solid var(--surface-glass-border);
-  }
-  .sb-name { display: none; }
-  .sb-menu { flex-direction: row; gap: 6px; overflow-x: auto; scrollbar-width: none; }
-  .sb-menu::-webkit-scrollbar { display: none; }
-  .sb-item { padding: 8px 12px; white-space: nowrap; }
-  .sb-foot { flex-direction: row; align-items: center; gap: 10px; padding: 0; }
-  .sb-who { display: none; }
   .tabbar { padding: 6px 10px 0; }
-  .content { padding: 16px 14px 48px; }
+  .content { padding: 16px 64px 40px 14px; }
   .cf-row .el-input, .cf-row .el-select { width: 100%; }
 }

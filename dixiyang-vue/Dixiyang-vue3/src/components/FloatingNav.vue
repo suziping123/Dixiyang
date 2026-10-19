@@ -26,13 +26,13 @@
       class="floating-nav"
       :class="{ visible: navVisible }"
       :style="{ '--nav-count': navItems.length }"
-      aria-label="全局导航"
+      :aria-label="navLabel || '全局导航'"
     >
       <button
         v-for="(item, idx) in navItems"
-        :key="item.path"
+        :key="item.path || item.label"
         class="nav-item"
-        :class="{ active: activeNav === idx }"
+        :class="{ active: activeNav === idx, danger: item.danger }"
         type="button"
         :title="item.label"
         :aria-label="item.label"
@@ -49,19 +49,20 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ChatDotRound, House, Setting, Menu, Close, Collection, Notebook } from '@element-plus/icons-vue'
-
-interface NavItem {
-  icon: typeof House
-  label: string
-  path: string
-}
+import type { FloatingNavItem } from './FloatingNav.types'
 
 const props = defineProps<{
   modelValue?: number
+  /** 注册项：不传 = 用户端默认 5 主页；控制台等入口传自己的页面表（见 admin/menu.ts） */
+  items?: FloatingNavItem[]
+  /** 导航 aria-label（默认「全局导航」） */
+  navLabel?: string
 }>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: number]
+  /** 任意条目点击都会发出；无 path/href 的条目（如「退出登录」）由父级处理 */
+  select: [item: FloatingNavItem, index: number]
 }>()
 
 const router = useRouter()
@@ -109,9 +110,8 @@ const handleLeave = () => {
   if (!isFab.value) isVisible.value = false
 }
 
-// 只列真实存在的路由（/discover /library /notifications 无路由，已移除）；
-// 管理后台已独立门户（admin.html），不在用户端导航中出现（2026-10-18 后台独立化）
-const navItems: NavItem[] = [
+// 用户端默认注册项（只列真实存在的路由）；管理后台已独立门户（admin.html），不在用户端导航中出现
+const DEFAULT_NAV_ITEMS: FloatingNavItem[] = [
   { icon: House, label: '首页', path: '/home' },
   { icon: Notebook, label: '灵感墙', path: '/inspiration' },
   { icon: ChatDotRound, label: 'RAG 助手', path: '/rag-assistant' },
@@ -119,7 +119,10 @@ const navItems: NavItem[] = [
   { icon: Setting, label: '设置', path: '/settings' },
 ]
 
-const pathToIndex = (path: string) => navItems.findIndex((item) => item.path === path)
+// 注册项：控制台（admin.html）复用本组件时传各自页面表，用户端缺省 5 主页
+const navItems = computed(() => (props.items && props.items.length ? props.items : DEFAULT_NAV_ITEMS))
+
+const pathToIndex = (path: string) => navItems.value.findIndex((item) => item.path === path)
 
 watch(
   () => route.path,
@@ -137,10 +140,15 @@ const handleNavClick = (idx: number) => {
   activeNav.value = idx
   emit('update:modelValue', idx)
   if (isFab.value) fabOpen.value = false
-  const item = navItems[idx]
-  if (item) {
+  const item = navItems.value[idx]
+  if (!item) return
+  if (item.path) {
     router.push(item.path)
+  } else if (item.href) {
+    window.location.href = item.href
   }
+  // 无 path/href 的条目（如控制台「退出登录」）语义交给父级 select
+  emit('select', item, idx)
 }
 </script>
 
@@ -224,6 +232,16 @@ const handleNavClick = (idx: number) => {
 .nav-item.active {
   background: var(--accent-soft-strong);
   color: var(--accent-primary);
+}
+
+/* 危险条目（如控制台「退出登录」）：危险色 + 危险浅底 hover */
+.nav-item.danger {
+  color: var(--danger);
+}
+
+.nav-item.danger:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 /* ============ FAB 模式：触屏 或 窄视口(≤1024px，避免 100px hover 热区挡按钮) ============ */

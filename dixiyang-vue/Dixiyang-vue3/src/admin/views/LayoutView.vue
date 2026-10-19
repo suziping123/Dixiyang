@@ -70,14 +70,19 @@
         </RouterView>
       </main>
     </div>
+
+    <!-- 窄屏 / 触屏：导航交给复用的 FloatingNav（注册项 = 控制台页面表；桌面宽屏由侧栏承担） -->
+    <FloatingNav v-if="showFabNav" :items="ADMIN_NAV_ITEMS" nav-label="控制台导航" @select="onNavSelect" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import logo from '@/assets/logoByGpt.png'
-import { CONSOLE_PAGES, FIXED_TAB, pageByName } from '../menu'
+import FloatingNav from '@/components/FloatingNav.vue'
+import type { FloatingNavItem } from '@/components/FloatingNav.types'
+import { ADMIN_NAV_ITEMS, CONSOLE_PAGES, FIXED_TAB, pageByName } from '../menu'
 import type { ConsolePage } from '../menu'
 import { useAdminTabs } from '../composables/useAdminTabs'
 import type { AdminTab } from '../composables/useAdminTabs'
@@ -113,5 +118,21 @@ const titleOf = (name: string) => pageByName(name)?.title ?? name
 const onLogout = () => {
   clearAdminSession()
   router.replace('/login')
+}
+
+// ---------- 窄屏 / 触屏：复用 FloatingNav（FAB 悬浮球），注册控制台页面 ----------
+// 挂载判定与组件内 FAB 模式一致（触屏 或 ≤1024px）；桌面宽屏不挂载（侧栏即导航，避免第二套左缘热区）
+const fabMedia = window.matchMedia('(hover: none), (pointer: coarse), (max-width: 1024px)')
+const showFabNav = ref(fabMedia.matches)
+const syncFabNav = () => {
+  showFabNav.value = fabMedia.matches
+}
+
+onMounted(() => fabMedia.addEventListener('change', syncFabNav))
+onBeforeUnmount(() => fabMedia.removeEventListener('change', syncFabNav))
+
+const onNavSelect = (item: FloatingNavItem) => {
+  // 「退出登录」条目没有 path/href，由这里接管（其余条目组件内部已完成跳转）
+  if (item.key === 'logout') onLogout()
 }
 </script>
