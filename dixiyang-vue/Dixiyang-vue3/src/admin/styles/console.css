@@ -111,9 +111,14 @@
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--surface-glass-border);
-  scrollbar-width: none;
+  /* 溢出时显示细滚动条（此前隐藏导致页签溢出既不可发现也无法滚动） */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
 }
-.tabbar::-webkit-scrollbar { display: none; }
+.tabbar::-webkit-scrollbar { height: 6px; }
+.tabbar::-webkit-scrollbar-track { background: transparent; }
+.tabbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.28); border-radius: 999px; }
+.tabbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.45); }
 .tab {
   display: flex;
   align-items: center;

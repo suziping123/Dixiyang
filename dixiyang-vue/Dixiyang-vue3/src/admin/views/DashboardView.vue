@@ -170,7 +170,10 @@ onMounted(loadStats)
 .cat-chip b { margin-left: 6px; color: var(--accent-cyan); font-weight: 700; }
 
 .charts-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; }
-.chart-card { padding: 16px 18px; }
+/* grid 子项默认 min-width:auto（被图表画布 min-content 撑住无法收缩 → 窄屏整页被撑到 492 溢出屏幕）：
+   置 0 允许随视口收缩；卡片再 overflow:hidden 兜底，画布由 EChart 的 ResizeObserver 回位 */
+.charts-row > *, .stat-grid > * { min-width: 0; }
+.chart-card { padding: 16px 18px; overflow: hidden; }
 .chart-card h3 {
   margin: 0 0 6px;
   font-size: 0.78rem;

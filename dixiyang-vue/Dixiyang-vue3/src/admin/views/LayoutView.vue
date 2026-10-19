@@ -34,8 +34,8 @@
     </aside>
 
     <div class="console-main">
-      <!-- 多页签条：浏览器式（点菜单开签 / 仪表盘固定首签 / 关签跳邻签），会话内保持 -->
-      <div class="tabbar" role="tablist" aria-label="已打开的页面">
+      <!-- 多页签条：浏览器式（点菜单开签 / 仪表盘固定首签 / 关签跳邻签），会话内保持；溢出时细滚动条 + 滚轮横滚 -->
+      <div class="tabbar" role="tablist" aria-label="已打开的页面" @wheel="onTabbarWheel">
         <div
           v-for="t in tabs"
           :key="t.name"
@@ -114,6 +114,16 @@ const close = (t: AdminTab) => {
 
 const iconOf = (name: string) => pageByName(name)?.icon
 const titleOf = (name: string) => pageByName(name)?.title ?? name
+
+// 页签条横向溢出时：普通纵向滚轮映射为横向滚动（触控板 / Shift+滚轮本就原生横滚，细滚动条见 console.css）
+const onTabbarWheel = (e: WheelEvent) => {
+  const el = e.currentTarget as HTMLElement
+  if (el.scrollWidth <= el.clientWidth) return
+  const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX
+  if (!delta) return
+  el.scrollLeft += delta
+  e.preventDefault()
+}
 
 const onLogout = () => {
   clearAdminSession()

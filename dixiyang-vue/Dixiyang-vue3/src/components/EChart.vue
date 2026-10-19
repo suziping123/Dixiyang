@@ -36,6 +36,7 @@ const props = withDefaults(defineProps<{ option: EChartsCoreOption; height?: str
 
 const el = ref<HTMLDivElement>()
 let chart: echarts.ECharts | null = null
+let ro: ResizeObserver | null = null
 
 const render = () => {
   if (!chart) return
@@ -47,15 +48,16 @@ onMounted(() => {
   if (!el.value) return
   chart = echarts.init(el.value, 'dixi-dark')
   render()
-  window.addEventListener('resize', onResize)
+  // 容器尺寸变化即回位：覆盖窗口缩放 / 媒体查询切换 / 页签 keep-alive 往返（旧版仅监听 window.resize，缩窄后画布卡在旧宽度撑破屏幕）
+  ro = new ResizeObserver(() => chart?.resize())
+  ro.observe(el.value)
 })
-
-const onResize = () => chart?.resize()
 
 watch(() => props.option, render, { deep: true })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', onResize)
+  ro?.disconnect()
+  ro = null
   chart?.dispose()
   chart = null
 })
