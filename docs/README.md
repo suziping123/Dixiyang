@@ -905,6 +905,9 @@
 
 ## 版本变更记录
 
+### v1.70 (2026-10-19)
+- **清理**: [项目清理记录](项目清理记录.md) v1.1 批次4 — 删除根目录 `Temp/` 旧调试脚本 9 个（2026-10-13~14 一次性排查脚本，未跟踪）+ Obsidian 空 `未命名.base`；`.gitignore` 增加 `/Temp/` 防复发；同批提交 `docs/JobInterviews/.obsidian/workspace.json` 工作区状态
+
 ### v1.69 (2026-10-19)
 - **新增**: [Linux 部署指南](Linux部署指南.md) — 用户要求「GitHub 下载后按说明书快速部署到另一台 Kubuntu 电脑」：① 新增 `docker-compose.yml` 四服务编排（MySQL 8 + Redis 7 + FastAPI + Nginx/Vue），仅对外暴露 8080，DB/Redis 不映射端口；② 新增 `deploy/backend.Dockerfile`（python:3.11-slim + uv sync --frozen + 非 root）、`deploy/frontend.Dockerfile`（node:22-alpine 构建 + nginx:1.27-alpine 托管）、`deploy/nginx.conf`（SPA 兜底、`/api` 反代、**SSE 关闭缓冲**、50m 上传）、`.dockerignore`（排除 .venv/node_modules/模型/上传数据）；③ 新增 `scripts/deploy-linux.sh` 一键脚本（自动生成随机 DB 密码/JWT、交互填 DeepSeek Key、构建启动、180s 健康等待、幂等创建管理员）；④ 新增 `DixyangFast/src/dixiyang/seed_admin.py`（支持 `--reset-password` 与风控解锁）；⑤ **依赖修复**：`pyproject.toml` 补 `pymysql/redis/python-dotenv/langchain-chroma/chromadb` 等运行时缺项（旧版全新机器 `uv sync` 后启动必失败），`DixyangFast/uv.lock` 纳入版本管理；⑥ `.env.example` 修正 SMTP 变量名并补部署参数；⑦ 新增 `start_backend.sh`；⑧ 旧文档纠偏：[Linux_Docker安装指南](Linux_Docker安装指南.md) 删除 Qdrant/Java 误导步骤、[Linux迁移指南](Linux迁移指南.md) 重写为 RAG 数据迁移；README 顶部新增「克隆后快速部署」。验证：Compose config ✓、前端生产构建 ✓、锁文件一致性 ✓（完整镜像构建受网络下载耗时限制未在本机跑完）
 
@@ -1137,6 +1140,6 @@
 
 ---
 
-*文档版本: v1.69*
+*文档版本: v1.70*
 *最后更新: 2026-10-19*
 *维护者: Dixiyang Team*
