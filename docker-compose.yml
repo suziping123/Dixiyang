@@ -1,0 +1,133 @@
+name: dixiyang
+
+# 一条命令部署：MySQL 8 + Redis 7 + Python FastAPI + Nginx(Vue)
+# 使用前先准备 .env：cp .env.example .env（或直接运行 scripts/deploy-linux.sh）
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: dixiyang-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:?请先在 .env 设置 DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME:-dixiyang}
+      MYSQL_ROOT_HOST: "%"
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: redis:7-alpine
+    container_name: dixiyang-redis
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-123321}
+      TZ: Asia/Shanghai
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - ${REDIS_PASSWORD:-123321}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  backend:
+    build:
+      context: .
+      dockerfile: deploy/backend.Dockerfile
+      args:
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
+    container_name: dixiyang-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # 容器内用 service 名连数据库/Redis；覆盖 .env 里的 127.0.0.1
+      DATABASE_URL: mysql+pymysql://root:${DB_PASSWORD:?}@db:3306/${DB_NAME:-dixiyang}?charset=utf8
+      REDIS_URL: redis://:${REDIS_PASSWORD:-123321}@redis:6379/0
+      UPLOAD_DIR: /app/uploads
+      STORAGE_DIR: /app/uploads/storage
+      # 注意：chat 目录由代码在 CHAT_STORAGE_PATH 下再拼一层 "chat/"，此处必须等于 STORAGE_DIR
+      CHAT_STORAGE_PATH: /app/uploads/storage
+      # RAG 向量库（可选）也放进持久化卷，避免容器重建丢失
+      CHROMA_PERSIST_DIR: /app/uploads/storage/vectordb_4060
+      # 可选：宿主机原生 RAG 服务地址（Linux 由 extra_hosts 映射）
+      RAG_SERVICE_URL: ${RAG_SERVICE_URL:-http://host.docker.internal:8085}
+      RERANKER_URL: ${RERANKER_URL:-http://host.docker.internal:8085}
+      TZ: Asia/Shanghai
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      # 只绑本机回环，方便调试 API；局域网用户统一走前端 8080
+      - "127.0.0.1:${BACKEND_PORT:-8084}:8084"
+    volumes:
+      - uploads_data:/app/uploads
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8084/', timeout=3).read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: deploy/frontend.Dockerfile
+      args:
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org}
+    container_name: dixiyang-web
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  mysql_data:
+    name: dixiyang_mysql_data
+  redis_data:
+    name: dixiyang_redis_data
+  uploads_data:
+    name: dixiyang_uploads_data

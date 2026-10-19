@@ -1,2 +1,7 @@
-# Git hooks 必须保持 LF，否则 Windows 下 bash 无法执行
+# Git hooks / 部署脚本必须保持 LF，否则 Linux/容器内无法执行
 .githooks/* text eol=lf
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.Dockerfile text eol=lf
+docker-compose.yml text eol=lf
+deploy/* text eol=lf

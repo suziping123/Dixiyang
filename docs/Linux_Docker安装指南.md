@@ -1,5 +1,10 @@
 # Linux 环境 Docker 安装指南
 
+> **说明（2026-10-19 更新）**：本文只负责 **Docker 安装**。
+> 项目本身的完整部署（MySQL + Redis + 后端 + 前端、一键脚本、备份、排障）请看
+> **[`Linux部署指南.md`](./Linux部署指南.md)**。
+> 下文中旧的 Qdrant / Java 后端启动章节已过时，请勿照做。
+
 ## 📋 目录
 
 - [前置检查](#前置检查)
@@ -184,61 +189,18 @@ docker run hello-world
 
 ## 🚀 启动 Dixiyang 项目
 
-### 1. 克隆或进入项目目录
+Docker 装好后，请直接看 **[`Linux部署指南.md`](./Linux部署指南.md)**：
 
 ```bash
-# 如果还没有克隆项目
-git clone https://github.com/your-username/Dixiyang.git
+git clone https://github.com/suziping123/Dixiyang.git
 cd Dixiyang
-
-# 如果已经克隆，直接进入项目目录
-cd /path/to/Dixiyang
+chmod +x scripts/deploy-linux.sh
+./scripts/deploy-linux.sh
 ```
 
-### 2. 复制 Docker Compose 配置文件
+脚本会启动 MySQL 8 + Redis 7 + Python 后端 + Nginx 前端，并创建管理员账号。
 
-```bash
-# 将 docker-compose.yml 复制到项目根目录
-cp dixiyang-engine/src/main/resources/docker-compose.yml ./docker-compose.yml
-```
-
-### 3. 启动 Qdrant 服务
-
-```bash
-# 启动所有服务（后台运行）
-docker compose up -d
-
-# 查看运行状态
-docker compose ps
-
-# 查看日志
-docker compose logs -f qdrant
-```
-
-### 4. 验证服务
-
-```bash
-# 访问 Qdrant Web UI（在浏览器中打开）
-# http://localhost:6333/dashboard
-
-# 或使用 curl 测试 API
-curl http://localhost:6333/collections
-```
-
-预期返回：
-```json
-{"result":{"collections":[]},"status":"ok","time":0.000xxx}
-```
-
-### 5. 停止服务
-
-```bash
-# 停止服务（保留数据）
-docker compose down
-
-# 停止服务并删除数据卷（⚠️ 数据会丢失）
-docker compose down -v
-```
+不再需要手动复制 `dixiyang-engine` 里的 `docker-compose.yml`，也不再使用 Qdrant。
 
 ---
 
@@ -385,10 +347,9 @@ docker-compose up -d
 
 ## 📚 相关资源
 
+- [Dixiyang Linux 部署指南](./Linux部署指南.md)（**项目部署看这篇**）
 - [Docker 官方文档](https://docs.docker.com/)
 - [Docker Compose 文档](https://docs.docker.com/compose/)
-- [Qdrant 官方文档](https://qdrant.tech/documentation/)
-- [Docker Hub - Qdrant](https://hub.docker.com/r/qdrant/qdrant)
 
 ---
 
@@ -421,4 +382,4 @@ sudo systemctl enable docker  # 开机自启
 
 ---
 
-**最后更新**: 2026-06-01
+**最后更新**: 2026-10-19

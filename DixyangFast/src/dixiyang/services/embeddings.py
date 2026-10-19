@@ -7,6 +7,9 @@ from langchain_core.embeddings import Embeddings
 
 log = logging.getLogger(__name__)
 
+# RAG/Embedding 服务地址；Docker 部署时可指向 host.docker.internal:8085
+RAG_SERVICE_URL = os.getenv("RAG_SERVICE_URL", "http://localhost:8085")
+
 
 class DixiyangEmbeddings(Embeddings):
     def __init__(self):
@@ -16,7 +19,7 @@ class DixiyangEmbeddings(Embeddings):
         try:
             import httpx
             resp = httpx.post(
-                "http://localhost:8085/api/rag/embed",
+                f"{RAG_SERVICE_URL}/api/rag/embed",
                 json={"text": text},
                 timeout=10,
             )

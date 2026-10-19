@@ -3,29 +3,63 @@
 > 基于 Vue 3 + Python FastAPI 的全栈小说创作平台：AI 聊天 + RAG 知识检索 + 广场社区 + 灵感墙便签。
 > Java Spring Boot（dixiyang-engine）为同端口的历史并存实现，当前**未使用**（见下文说明）。
 
+---
+
+## 🚀 从 GitHub 克隆后快速部署（Kubuntu / Ubuntu，推荐）
+
+**只需要安装 Docker**，不需要在本机装 Python、Node.js、MySQL、Redis。
+
+```bash
+# 1. 克隆
+git clone https://github.com/suziping123/Dixiyang.git
+cd Dixiyang
+
+# 2. 一键部署（自动生成 .env / 数据库密码 / JWT，构建并启动全部服务）
+chmod +x scripts/deploy-linux.sh
+./scripts/deploy-linux.sh
+
+# 3. 浏览器访问
+# 用户端：   http://localhost:8080
+# 管理后台： http://localhost:8080/admin.html
+# 管理员：   admin123 / 123456（首次登录后请修改）
+```
+
+脚本会自动启动：MySQL 8 + Redis 7 + Python FastAPI 后端 + Nginx 前端，并创建管理员账号。
+首次构建约 3–15 分钟（取决于网络）；国内网络可在 `.env` 配置 npm/PyPI 镜像。
+
+> **完整图文步骤、Docker 安装、局域网访问、升级、备份、排障、HTTPS**：
+> 见 **[`docs/Linux部署指南.md`](docs/Linux部署指南.md)**。
+>
+> 不想用 Docker 的原生开发模式（uv + Node + 本机 MySQL）见该文档 §12。
+
+---
+
 ## 项目总览
 
 ```
-用户浏览器
+浏览器
     ↓
-Vue 前端 (5173) ──代理 /api──→ Python 主后端 FastAPI (8084)
-                                    ├── MySQL (3306)：用户/小说/聊天/便签/广场
-                                    ├── Redis (6379)：广场推荐缓存（可选，未起自动降级）
-                                    └── RAG 服务 (8085) + ChromaDB (8000)：向量检索（可选）
+Vue 前端 (5173 开发 / 8080 Docker+Nginx) ──代理 /api──→ Python 主后端 FastAPI (8084)
+                                                          ├── MySQL (3306)：用户/小说/聊天/便签/广场
+                                                          ├── Redis (6379)：广场推荐缓存（可选，未起自动降级）
+                                                          └── RAG 服务 (8085) + ChromaDB (8000)：向量检索（可选）
 ```
 
 | 项目 | 技术栈 | 端口 | 用途 |
 |------|--------|------|------|
-| **dixiyang-vue/Dixiyang-vue3** | Vue 3 + Vite + Element Plus | `5173` | 前端界面 |
+| **Docker 部署（推荐）** | Docker Compose | `8080` | 一键拉起前端 + 后端 + MySQL + Redis |
+| **dixiyang-vue/Dixiyang-vue3** | Vue 3 + Vite + Element Plus | `5173`（开发）/ `8080`（Docker） | 前端界面 |
 | **DixyangFast**（主后端） | Python 3.11 + FastAPI | `8084` | 业务 API：认证、小说、聊天、RAG、广场、便签、管理后台 |
 | **DixyangFast**（RAG 服务） | Python + ChromaDB | `8085` / `8000` | Embedding 向量化 + 知识库（可选） |
 | **dixiyang-engine**（备用） | Java 17 + Spring Boot 3.4 | `8084` | 历史实现，与 Python 主后端**同端口二选一**，当前未使用 |
-| **MySQL** | Docker 容器 `mysql-hmdp` | `3306` | 关系数据库 |
+| **MySQL** | Docker 容器 `mysql-hmdp` / Compose `db` | `3306` | 关系数据库 |
 | **Redis** | Docker 容器（可选） | `6379` | 广场综合推荐缓存，未启动自动降级 |
 
 ---
 
-## ⚠️ 克隆后必做（不做一定跑不起来）
+## ⚠️ 克隆后必做（原生开发/协作必看；Docker 一键部署已自动处理 ②③）
+
+> 直接跑 `./scripts/deploy-linux.sh` 时，脚本会自动生成 `.env`、安装依赖（容器内）并创建管理员，可跳过本章。
 
 ### ① 配置 Git Hooks（防技能文件被 pull 删除）
 
@@ -44,7 +78,7 @@ git config core.hooksPath .githooks
 
 ### ② 创建 .env（凭据文件，不入库）
 
-根目录 `.env` 被 gitignore，克隆下来**没有**，必须自己从模板创建：
+根目录 `.env` 被 gitignore，克隆下来**没有**，原生开发必须自己从模板创建（Docker 一键脚本会自动创建）：
 
 ```powershell
 # Windows
@@ -57,7 +91,7 @@ cp .env.example .env
 
 | 变量 | 说明 |
 |------|------|
-| `DB_PASSWORD` | MySQL 密码，若用下文的 Docker 容器则填 `123321` |
+| `DB_PASSWORD` | MySQL 密码（原生开发用 Docker 容器时可填 `123321`；一键脚本会生成随机密码） |
 | `DATABASE_URL` | Python SQLAlchemy 连接串，把其中密码同步改成和 `DB_PASSWORD` 一致 |
 | `JWT_SECRET_KEY` | 随机串，生成：`openssl rand -hex 32` |
 | `DEEPSEEK_API_KEY` | DeepSeek API Key，从 https://platform.deepseek.com 获取 |
@@ -67,7 +101,8 @@ cp .env.example .env
 
 ### ③ 安装依赖（见下文各服务章节）
 
-最小可用 = MySQL + Python 主后端 + 前端，三步即可进入登录页。
+最小可用（原生开发）= MySQL + Python 主后端 + 前端，三步即可进入登录页。
+Docker 一键部署不需要本步骤。
 
 ---
 
@@ -75,21 +110,21 @@ cp .env.example .env
 
 | 组件 | 版本 | 说明 |
 |------|------|------|
-| **Python** | 3.11+ + **uv** | 主后端运行环境（`curl -LsSf https://astral.sh/uv/install.sh \| sh`） |
-| **Node.js** | **^20.19 或 ≥22.12**（package.json engines 强制） | 前端，不要用 Node 18 |
-| **MySQL** | 8.0+（Docker） | 数据库 |
-| **Docker** | 推荐 | 跑 MySQL / Redis 容器 |
+| **Docker + Compose v2** | Docker 24+ / Compose 2.20+ | **推荐部署方式**，一条命令拉起全部服务 |
+| **Python** | 3.11+ + **uv** | 原生开发/后端调试（Docker 部署无需安装） |
+| **Node.js** | **^20.19 或 ≥22.12**（package.json engines 强制） | 原生开发前端；不要用 Node 18（Docker 部署无需安装） |
+| **MySQL** | 8.0+（Docker） | 数据库（Docker 部署自动创建） |
+| **Redis** | 可选 | 广场综合推荐缓存，不装自动降级（Docker 部署自动包含） |
 | **JDK 17 + Maven** | 可选 | 仅在启用 Java 备用后端时需要 |
-| **Redis** | 可选 | 广场综合推荐缓存，不装自动降级 |
 
 ---
 
 ## 1. 克隆项目
 
 ```bash
-git clone git@github.com:suziping123/Dixiyang.git
+git clone https://github.com/suziping123/Dixiyang.git
 cd Dixiyang
-# 立刻执行「克隆后必做 ①」配置 Git Hooks！
+# 纯 Docker 部署可跳过 hooks；开发协作建议立刻执行「克隆后必做 ①」
 ```
 
 ---
@@ -105,6 +140,8 @@ docker run -d --name mysql-hmdp \
   -e MYSQL_DATABASE=dixiyang \
   mysql:8.0
 ```
+
+> 推荐直接用顶部「Docker 一键部署」：MySQL、Redis、后端、前端会一起启动，不用手动执行本节。
 
 表结构**无需手动导入**：Python 主后端启动时 `Base.metadata.create_all` 自动建表 + 补列。
 （`dixiyang-engine/src/main/resources/db/dixiyang.sql` 是 Java 侧备用完整脚本。）
@@ -127,7 +164,9 @@ uv sync
 
 # 启动（Windows 一键，根目录）
 cd .. && .\start_backend.bat
-# Linux 等价：
+# Linux/macOS 一键：
+#   ./start_backend.sh
+# Linux 手动等价命令：
 #   cd DixyangFast && REDIS_URL="redis://:123321@127.0.0.1:6379/0" uv run python src/dixiyang/main.py
 
 # 开发热重载（可选）：set RELOAD=1 后再启动
@@ -219,13 +258,14 @@ mvn spring-boot:run
 
 ```
 最小启动（必选）：
-1. MySQL         docker start mysql-hmdp
-2. Python 主后端  .\start_backend.bat          （8084，自动建表）
-3. Vue 前端       npm run dev                  （5173）
+0. Docker Compose  docker compose up -d --build   （推荐：8080 一站式，含 MySQL/Redis）
+1. MySQL         docker start mysql-hmdp          （仅原生开发）
+2. Python 主后端  ./start_backend.sh               （8084，自动建表；Windows 用 start_backend.bat）
+3. Vue 前端       npm run dev                      （5173）
 
 可选：
-4. Redis         docker start redis-dev        （广场综合推荐加速）
-5. RAG 服务      .\start_rag.ps1               （8085 + ChromaDB 8000，需先构建向量库）
+4. Redis         docker start redis-dev            （广场综合推荐加速）
+5. RAG 服务      ./start_rag.sh                    （8085 + ChromaDB 8000，需先构建向量库）
 ```
 
 ---
@@ -239,12 +279,16 @@ mvn spring-boot:run
 | `DEEPSEEK_API_KEY` | **是** | DeepSeek API Key（AI 聊天/补全） |
 | `JWT_SECRET_KEY` | **是** | JWT 签名密钥（Python 侧 token） |
 | `DB_PASSWORD` | **是** | MySQL 密码（Docker 容器默认 `123321`） |
-| `DATABASE_URL` | **是** | Python SQLAlchemy 连接串（密码与上一项一致） |
-| `MAIL_USERNAME` / `MAIL_PASSWORD` | 否 | QQ SMTP 邮箱验证码（注册验证码用） |
-| `REDIS_URL` | 否 | 默认 `redis://localhost:6379/0`；`start_backend.bat` 已带密码版 |
-| `UPLOAD_DIR` | 否 | 上传/JSON 存储根目录，默认 `uploads/` |
-| `CHAT_STORAGE_PATH` | 否 | 聊天链文件目录，默认 `uploads/storage/chat` |
+| `DATABASE_URL` | **是** | Python SQLAlchemy 连接串（密码与上一项一致；Docker 内由 compose 覆盖主机） |
+| `DB_NAME` / `WEB_PORT` / `BACKEND_PORT` | 否 | Docker 部署：数据库名 / 前端端口(8080) / 后端调试端口(8084) |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | 否 | 一键脚本创建管理员（默认 `admin123` / `123456`） |
+| `SMTP_HOST` / `SMTP_PORT` | 否 | QQ SMTP 邮箱验证码（默认 `smtp.qq.com:587`） |
+| `SMTP_USERNAME` / `SMTP_PASSWORD` | 否 | 发件邮箱 + SMTP 授权码 |
+| `REDIS_URL` | 否 | 默认 `redis://localhost:6379/0`；Docker 内自动指向 `redis` |
+| `UPLOAD_DIR` | 否 | 上传/JSON 存储根目录，默认 `uploads/`（Docker 为 `/app/uploads`） |
+| `CHAT_STORAGE_PATH` | 否 | 聊天链文件目录，等于 `STORAGE_DIR`（代码会自动拼 `chat/`） |
 | `RELOAD` | 否 | `1` 开启 uvicorn 热重载（开发） |
+| `NPM_REGISTRY` / `PIP_INDEX_URL` | 否 | Docker 构建镜像源（国内加速） |
 | `HF_ENDPOINT` | 否 | 模型下载镜像，慢时设 `https://hf-mirror.com` |
 | `CHROMADB_HOST` / `CHROMADB_PORT` | 否 | 默认 `::1:8000` |
 
@@ -254,7 +298,7 @@ mvn spring-boot:run
 
 ```
 Dixiyang/
-├── dixiyang-vue/Dixiyang-vue3/   # Vue 前端（5173）
+├── dixiyang-vue/Dixiyang-vue3/   # Vue 前端（开发 5173 / Docker 8080）
 │   └── src/{views,components,composables,api,stores,utils}
 │
 ├── DixyangFast/                  # Python 全家桶
@@ -265,16 +309,24 @@ Dixiyang/
 │   ├── start_rag.ps1 / .sh       # RAG 一键启动
 │   └── pyproject.toml / uv.lock  # 依赖（uv sync）
 │
+├── deploy/                       # Docker 镜像与 Nginx 配置
+│   ├── backend.Dockerfile
+│   ├── frontend.Dockerfile
+│   └── nginx.conf
+├── docker-compose.yml            # ★ 一键部署：MySQL + Redis + 后端 + 前端
+├── .dockerignore                 # 构建上下文裁剪
+├── scripts/deploy-linux.sh       # ★ Linux 一键部署脚本
+├── scripts/setup-hooks.ps1 / restore-skills.ps1
+│
 ├── dixiyang-engine/              # Java 后端（备用，与 Python 同端口 8084）
 │   └── src/main/{java,resources/{application.yml,db/dixiyang.sql}}
 │
 ├── rag-shared/                   # RAG 共享库（数据处理、向量构建）
-├── scripts/                      # setup-hooks.ps1 / restore-skills.ps1 / visualize_rag.py
 ├── docs/                         # 全部开发文档（见 docs/README.md 索引）
 ├── uploads/                      # 统一存储：聊天链 JSON / 封面 / 背景图
 ├── storage/                      # 运行期数据
 ├── .env.example                  # 环境变量模板（复制为 .env 后填写）
-├── start_backend.bat             # 主后端一键启动（Windows）
+├── start_backend.sh / .bat       # 原生开发后端一键启动
 └── AGENTS.md                     # AI 协作规则（贡献必读）
 ```
 
@@ -324,6 +376,19 @@ uploads/storage/chat/{userId}/{sessionId}/
 ---
 
 ## 常见问题
+
+### Q: Linux 上最简单怎么部署？
+装 Docker 后运行 `./scripts/deploy-linux.sh`，完整步骤见 [`docs/Linux部署指南.md`](docs/Linux部署指南.md)。
+
+### Q: Docker 部署后 8080 打不开 / 502
+```bash
+docker compose ps
+docker compose logs --tail=100 backend db
+```
+等后端 healthy 后再刷新；端口冲突改 `.env` 的 `WEB_PORT`。
+
+### Q: 改了 DB_PASSWORD 后连不上 MySQL
+密码只在数据卷首次初始化时写入。改回原密码，或进容器 `ALTER USER`，详见部署指南 §11.4。
 
 ### Q: `uv run python src/dixiyang/main.py` 报数据库连接失败
 MySQL 没起或 `.env` 没配好：`docker start mysql-hmdp`；检查 `.env` 的 `DB_PASSWORD` / `DATABASE_URL`。
@@ -379,6 +444,7 @@ cd ~/Dixiyang/DixyangFast/storage && tar -xzf vectordb_4060.tar.gz
 
 | 文档 | 说明 |
 |------|------|
+| `docs/Linux部署指南.md` | **Linux/Kubuntu 从零部署（Docker 一键、升级、备份、排障）** |
 | `docs/系统总览.md` | 架构与端口全貌 |
 | `docs/功能完成状态.md` | 各模块完成度对照 |
 | `docs/前后端接口对照分析.md` | API 契约与前后端匹配情况 |
@@ -391,5 +457,5 @@ cd ~/Dixiyang/DixyangFast/storage && tar -xzf vectordb_4060.tar.gz
 
 ---
 
-**最后更新**: 2026-10-12
+**最后更新**: 2026-10-19
 **维护者**: lijiajia

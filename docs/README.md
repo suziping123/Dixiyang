@@ -798,6 +798,22 @@
 
 ---
 
+### 21. [Linux 部署指南](./Linux部署指南.md) ✨ 新增
+**位置**: `docs/Linux部署指南.md`
+
+**内容**:
+- **Docker Compose 全栈一键部署**：MySQL 8 + Redis 7 + Python FastAPI + Nginx(Vue)，宿主机只开放 8080
+- Kubuntu/Ubuntu 从零安装 Docker、免 sudo、国内镜像加速
+- `scripts/deploy-linux.sh`：自动生成 `.env`/数据库密码/JWT、构建启动、健康等待、创建管理员 `admin123/123456`
+- 手动部署等价步骤、局域网访问与防火墙、端口修改
+- 升级（`git pull` + `docker compose up -d --build`）、备份/恢复（mysqldump + uploads 卷）、彻底重置
+- 数据卷说明、RAG 可选服务、原生开发模式、Caddy HTTPS
+- 常见问题：权限、端口占用、构建慢、DB_PASSWORD 改后连不上、502、管理员权限、AI 401、SSE 不流式
+
+**适用人群**: 运维、部署者、新加入的开发者
+
+---
+
 ## 文档使用指南
 
 ### 对于新加入的开发者
@@ -888,6 +904,9 @@
 ---
 
 ## 版本变更记录
+
+### v1.69 (2026-10-19)
+- **新增**: [Linux 部署指南](Linux部署指南.md) — 用户要求「GitHub 下载后按说明书快速部署到另一台 Kubuntu 电脑」：① 新增 `docker-compose.yml` 四服务编排（MySQL 8 + Redis 7 + FastAPI + Nginx/Vue），仅对外暴露 8080，DB/Redis 不映射端口；② 新增 `deploy/backend.Dockerfile`（python:3.11-slim + uv sync --frozen + 非 root）、`deploy/frontend.Dockerfile`（node:22-alpine 构建 + nginx:1.27-alpine 托管）、`deploy/nginx.conf`（SPA 兜底、`/api` 反代、**SSE 关闭缓冲**、50m 上传）、`.dockerignore`（排除 .venv/node_modules/模型/上传数据）；③ 新增 `scripts/deploy-linux.sh` 一键脚本（自动生成随机 DB 密码/JWT、交互填 DeepSeek Key、构建启动、180s 健康等待、幂等创建管理员）；④ 新增 `DixyangFast/src/dixiyang/seed_admin.py`（支持 `--reset-password` 与风控解锁）；⑤ **依赖修复**：`pyproject.toml` 补 `pymysql/redis/python-dotenv/langchain-chroma/chromadb` 等运行时缺项（旧版全新机器 `uv sync` 后启动必失败），`DixyangFast/uv.lock` 纳入版本管理；⑥ `.env.example` 修正 SMTP 变量名并补部署参数；⑦ 新增 `start_backend.sh`；⑧ 旧文档纠偏：[Linux_Docker安装指南](Linux_Docker安装指南.md) 删除 Qdrant/Java 误导步骤、[Linux迁移指南](Linux迁移指南.md) 重写为 RAG 数据迁移；README 顶部新增「克隆后快速部署」。验证：Compose config ✓、前端生产构建 ✓、锁文件一致性 ✓（完整镜像构建受网络下载耗时限制未在本机跑完）
 
 ### v1.68 (2026-10-18)
 - **修复**: [管理后台独立化](管理后台独立化.md) v2.1.2 — 用户例证"条形图超出屏幕、页签无滚动条"（准则12「实际→剪裁→展示」触发案例）：① grid 子项 `min-width:0` + 卡片 `overflow:hidden`——画布 min-content 把 375 视口**撑到 492 溢出屏幕**；② `EChart` `window.resize`→**ResizeObserver**（缩窄/页签往返画布回位，旧版卡旧宽度自锁）；③ 页签 `scrollbar-width:thin` 细滚动条不再隐藏；④ 滚轮纵向→横向映射（仅溢出时拦截）。验证 **10/10 PASS + 0 JS 错误**（375 最坏场景回放：视口不被撑宽 / 图表 `canvas≤box≤card≤视口` / 屏幕级溢出走查 0 / 滚轮可滚）+ 双端截图复核 + type-check 0 错 + 双构建 ✓
@@ -1118,6 +1137,6 @@
 
 ---
 
-*文档版本: v1.63*
-*最后更新: 2026-10-16*
+*文档版本: v1.69*
+*最后更新: 2026-10-19*
 *维护者: Dixiyang Team*

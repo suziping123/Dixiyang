@@ -137,6 +137,8 @@ storage/
 *.sqlite3
 *.lock
 uv.lock
+# 部署用的 Python 锁文件纳入版本管理（保证全新机器/镜像可复现）
+!DixyangFast/uv.lock
 
 # Java 模块（恢复跟踪，构建产物/IDE 文件仍按通用规则忽略）
 
